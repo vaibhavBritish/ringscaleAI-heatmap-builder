@@ -1,0 +1,118 @@
+import Link from 'next/link'
+import Image from 'next/image'
+
+export default function Footer() {
+  return (
+    <footer className="bg-[#EBF2F9] py-24 px-6 border-t border-slate-200/50">
+      <div className="container mx-auto max-w-7xl">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-12 mb-24">
+          <div className="col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-auto h-auto rounded-xl flex items-center justify-center ">
+                <Image
+                  src="/logo.png"
+                  alt="Ringscale AI"
+                  width={360}
+                  height={260}
+                  className="h-48 w-auto object-contain" 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Quick Links</h4>
+            <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
+              <li><Link href="/#pricing" className="hover:text-blue-600 transition-colors">Pricing</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Custom Package</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Reviews</Link></li>
+              <li><Link href="/login" className="hover:text-blue-600 transition-colors">Log in</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">API Documentation</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Resources</h4>
+            <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Help Center</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Customer Support</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Blog</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">SEO News</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Case Studies</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Credit Estimator</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Keyword Generator</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Schema Generator</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Google Index Checker</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Local SEO Checklist 2026</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">ChatGPT Visibility Guide</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Rank & Convert Summit On-demand</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Company</h4>
+            <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">About</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">FAQ</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms-and-conditions" className="hover:text-blue-600 transition-colors">Terms of Service</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Affiliate Program</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Compare</h4>
+            <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Local Falcon</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Local Viking</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Search Atlas</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs BrightLocal</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SE Ranking</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SEO Neo</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs GMB Crush</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Localo</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SEO Utils</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Wiremo</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Features</h4>
+            <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Google Maps Rank Tracker</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Local Pack</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">GBP Management</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Citations Builder</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">White Label Reporting</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">AI Assist</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Scan Analyzer</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">360 Local SEO Audit</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Local SEO Reporting</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">Side-by-Side Compare</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">SERP Tracker</Link></li>
+              <li><Link href="#" className="hover:text-blue-600 transition-colors">AI Tracker</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="pt-12 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="text-[14px] font-bold text-[#526484]">
+            All Rights Reserved © 2026 <span className="text-blue-600">Ringscale AI</span> – Your Agency Growth Partner
+          </div>
+          <div className="flex gap-4">
+            {[
+              { label: 'F', color: 'bg-[#3b5998]' },
+              { label: 'Y', color: 'bg-[#FF0000]' },
+              { label: 'L', color: 'bg-[#0077b5]' },
+              { label: 'I', color: 'bg-[#e4405f]' }
+            ].map((s, i) => (
+              <div key={i} className={`w-8 h-8 rounded-lg ${s.color} text-white flex items-center justify-center font-black text-xs cursor-pointer hover:scale-110 transition-transform`}>
+                {s.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}

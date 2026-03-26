@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_API_KEY: ${NEXT_PUBLIC_GOOGLE_API_KEY}
+
+    container_name: seo-heatmap-app
+    restart: always
+
+    ports:
+      - "3010:3000"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: production
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

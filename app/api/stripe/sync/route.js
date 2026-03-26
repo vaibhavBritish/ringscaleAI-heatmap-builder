@@ -1,0 +1,138 @@
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { getDB } from '@/lib/mongodb'
+import Stripe from 'stripe'
+
+export async function POST() {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const db = await getDB()
+
+    // Find all completed checkout sessions for this user
+    const sessions = await stripe.checkout.sessions.list({ limit: 50 })
+    const userSessions = sessions.data.filter(
+      s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
+    )
+
+    if (userSessions.length === 0) {
+      return NextResponse.json({ message: 'No completed payments found.', synced: false })
+    }
+
+    const existingPayments = await db.collection('payments').find({ userId: session.user.id }).toArray()
+    const existingSessionIds = new Set(existingPayments.map(p => p.stripeSessionId))
+
+    let totalNewCredits = 0
+    let latestPlan = null
+    let latestCustomerId = null
+    let latestCard = null
+    let newPaymentsCount = 0
+
+    for (const stripeSession of userSessions) {
+      if (existingSessionIds.has(stripeSession.id)) continue
+      
+      const { planId, credits } = stripeSession.metadata || {}
+      if (!credits) continue
+
+      // Fetch card details from payment intent
+      let cardDetails = null
+      let receiptUrl = null
+      let invoicePdf = null
+
+      try {
+        if (stripeSession.payment_intent) {
+          const pi = await stripe.paymentIntents.retrieve(stripeSession.payment_intent, {
+            expand: ['payment_method', 'latest_charge']
+          })
+          if (pi.payment_method?.card) {
+            cardDetails = {
+              brand: pi.payment_method.card.brand,
+              last4: pi.payment_method.card.last4,
+              expMonth: pi.payment_method.card.exp_month,
+              expYear: pi.payment_method.card.exp_year,
+            }
+          }
+          if (pi.latest_charge) {
+            const charge = typeof pi.latest_charge === 'string'
+              ? await stripe.charges.retrieve(pi.latest_charge)
+              : pi.latest_charge
+            receiptUrl = charge.receipt_url
+          }
+        }
+        if (stripeSession.invoice) {
+          const inv = await stripe.invoices.retrieve(stripeSession.invoice)
+          invoicePdf = inv.invoice_pdf
+        }
+      } catch (e) {
+        console.error('Sync: Error fetching details:', e.message)
+      }
+
+      totalNewCredits += Number(credits)
+      latestPlan = planId
+      latestCustomerId = stripeSession.customer
+      if (cardDetails) latestCard = cardDetails
+      newPaymentsCount++
+
+      await db.collection('payments').insertOne({
+        userId: session.user.id,
+        provider: 'stripe',
+        stripeSessionId: stripeSession.id,
+        stripeCustomerId: stripeSession.customer,
+        stripePaymentIntentId: stripeSession.payment_intent,
+        stripeInvoiceId: stripeSession.invoice,
+        planId,
+        credits: Number(credits),
+        amountTotal: stripeSession.amount_total,
+        currency: stripeSession.currency,
+        customerEmail: stripeSession.customer_details?.email,
+        paymentStatus: stripeSession.payment_status,
+        status: 'completed',
+        cardBrand: cardDetails?.brand,
+        cardLast4: cardDetails?.last4,
+        cardExpMonth: cardDetails?.expMonth,
+        cardExpYear: cardDetails?.expYear,
+        receiptUrl,
+        invoicePdf,
+        syncedManually: true,
+        createdAt: new Date(stripeSession.created * 1000),
+        syncedAt: new Date()
+      })
+    }
+
+    if (newPaymentsCount > 0) {
+      const updateFields = { updatedAt: new Date() }
+      if (latestPlan) updateFields.plan = latestPlan
+      if (latestCustomerId) updateFields.stripeCustomerId = latestCustomerId
+      if (latestCard) {
+        updateFields.cardBrand = latestCard.brand
+        updateFields.cardLast4 = latestCard.last4
+        updateFields.cardExpMonth = latestCard.expMonth
+        updateFields.cardExpYear = latestCard.expYear
+      }
+
+      await db.collection('users').updateOne(
+        { id: session.user.id },
+        { $set: updateFields, $inc: { credits: totalNewCredits } }
+      )
+
+      const updatedUser = await db.collection('users').findOne({ id: session.user.id })
+      return NextResponse.json({
+        message: `Synced ${newPaymentsCount} payment(s). Added ${totalNewCredits} credits.`,
+        synced: true,
+        newCredits: totalNewCredits,
+        totalCredits: updatedUser.credits,
+        plan: updatedUser.plan
+      })
+    }
+
+    return NextResponse.json({ message: 'All payments already synced.', synced: false })
+  } catch (error) {
+    console.error('Stripe sync error:', error)
+    return NextResponse.json({ error: 'Failed to sync payments' }, { status: 500 })
+  }
+}

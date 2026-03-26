@@ -1,0 +1,164 @@
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import Stripe from 'stripe'
+import { getDB } from '@/lib/mongodb'
+import Razorpay from 'razorpay'
+
+// Initialize SDKs only if keys are present to avoid startup crashes
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY) 
+  : null
+
+const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+  ? new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    })
+  : null
+
+// Define plan pricing securely on the server
+const PLANS = {
+  'plan_lite': {
+    priceUSD: 2,
+    priceINR: 160,
+    credits: 5000,
+    name: 'Lite Plan'
+  },
+  'plan_pro': {
+    priceUSD: 97,
+    priceINR: 7900,
+    credits: 36000,
+    name: 'Pro Plan'
+  }
+}
+
+export async function POST(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { planId, isIndia } = await request.json()
+    const plan = PLANS[planId]
+    
+    if (!plan) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+    }
+
+    if (isIndia) {
+      // RAZORPAY FLOW
+      if (!razorpay) {
+        return NextResponse.json({ error: 'Razorpay is not configured' }, { status: 500 })
+      }
+
+      const options = {
+        amount: plan.priceINR * 100, // amount in smallest currency unit (paise)
+        currency: 'INR',
+        receipt: `rcpt_${session.user.id}_${Date.now()}`,
+        notes: {
+          userId: session.user.id,
+          planId: planId,
+          credits: plan.credits
+        }
+      }
+
+      const order = await razorpay.orders.create(options)
+      
+      return NextResponse.json({
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency
+      })
+
+    } else {
+      // STRIPE FLOW
+      if (!stripe) {
+        return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
+      }
+
+      const db = await getDB()
+      const user = await db.collection('users').findOne({ id: session.user.id })
+
+      // Create or reuse Stripe customer so cards & invoices persist
+      let customerId = user?.stripeCustomerId
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: session.user.email,
+          name: session.user.name || session.user.email.split('@')[0],
+          metadata: { userId: session.user.id }
+        })
+        customerId = customer.id
+        // Save customer ID immediately
+        await db.collection('users').updateOne(
+          { id: session.user.id },
+          { $set: { stripeCustomerId: customerId } }
+        )
+      }
+
+      const sessionConfig = {
+        payment_method_types: ['card'],
+        customer: customerId,
+        client_reference_id: session.user.id,
+        payment_intent_data: {
+          setup_future_usage: 'on_session', // saves the card to the customer
+        },
+        invoice_creation: {
+          enabled: true, // creates a proper Stripe invoice with PDF
+        },
+        metadata: {
+          userId: session.user.id,
+          planId: planId,
+          credits: plan.credits
+        },
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: plan.name,
+                description: `${plan.credits} Local Rank Heatmap Credits`,
+              },
+              unit_amount: plan.priceUSD * 100,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?success=true`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?canceled=true`,
+      }
+
+      let checkoutSession
+      try {
+        checkoutSession = await stripe.checkout.sessions.create(sessionConfig)
+      } catch (stripeError) {
+        // Handle customer ID mismatch (e.g. Test vs Live)
+        if (customerId && (stripeError.code === 'resource_missing' || stripeError.raw?.code === 'resource_missing')) {
+          // Reset customer ID and create a fresh one for this environment
+          const customer = await stripe.customers.create({
+            email: session.user.email,
+            name: session.user.name || session.user.email.split('@')[0],
+            metadata: { userId: session.user.id }
+          })
+          customerId = customer.id
+          await db.collection('users').updateOne(
+            { id: session.user.id },
+            { $set: { stripeCustomerId: customerId } }
+          )
+          // Retry with new customer ID
+          sessionConfig.customer = customerId
+          checkoutSession = await stripe.checkout.sessions.create(sessionConfig)
+        } else {
+          throw stripeError
+        }
+      }
+
+      return NextResponse.json({ url: checkoutSession.url })
+    }
+  } catch (error) {
+    console.error('Checkout error:', error)
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
+  }
+}

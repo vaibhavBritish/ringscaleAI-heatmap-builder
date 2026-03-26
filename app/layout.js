@@ -1,0 +1,29 @@
+import './globals.css'
+import { Toaster } from '@/components/ui/sonner'
+import { Providers } from '@/components/providers'
+
+export const metadata = {
+  title: 'Local Rank Heatmap - Track Your Google Business Rankings',
+  description: 'See exactly where your business ranks across your city with geo-grid heatmap analysis.',
+}
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{__html:'window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);'}} />
+        <script
+          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY || ''}&libraries=places`}
+          async
+          defer
+        />
+      </head>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>
+          {children}
+          <Toaster position="bottom-right" />
+        </Providers>
+      </body>
+    </html>
+  )
+}
