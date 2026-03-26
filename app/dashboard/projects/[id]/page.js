@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check
+  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
@@ -48,6 +48,8 @@ export default function ProjectDetailPage() {
   })
   const [startingScan, setStartingScan] = useState(false)
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false)
+  const [competitors, setCompetitors] = useState([])
+  const [loadingCompetitors, setLoadingCompetitors] = useState(false)
   const { data: session } = useSession()
 
   useEffect(() => {
@@ -68,6 +70,22 @@ export default function ProjectDetailPage() {
       toast.error('Failed to load project')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCompetitors = async () => {
+    if (competitors.length > 0) return
+    setLoadingCompetitors(true)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/competitors`)
+      if (!response.ok) throw new Error('Failed to load competitors')
+      const data = await response.json()
+      setCompetitors(data.competitors || [])
+    } catch (error) {
+      console.error('Error fetching competitors:', error)
+      toast.error('Failed to load competitors')
+    } finally {
+      setLoadingCompetitors(false)
     }
   }
 
@@ -354,7 +372,9 @@ export default function ProjectDetailPage() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="keywords" className="space-y-6">
+      <Tabs defaultValue="keywords" onValueChange={(value) => {
+        if (value === 'competitors') fetchCompetitors()
+      }} className="space-y-6">
         <TabsList>
           <TabsTrigger value="keywords">
             <Tag className="w-4 h-4 mr-2" />
@@ -363,6 +383,10 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="scans">
             <BarChart3 className="w-4 h-4 mr-2" />
             Scans ({scans.length})
+          </TabsTrigger>
+          <TabsTrigger value="competitors">
+            <Users className="w-4 h-4 mr-2" />
+            Competitors
           </TabsTrigger>
         </TabsList>
 
@@ -501,6 +525,67 @@ export default function ProjectDetailPage() {
                     Run Your First Scan
                   </Button>
                 )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="competitors" className="space-y-4">
+          {loadingCompetitors ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+            </div>
+          ) : competitors.length > 0 ? (
+            <div className="grid gap-4">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Top Competitors ({competitors.length})</h3>
+                <span className="text-xs text-slate-400">Aggregated from all completed scans</span>
+              </div>
+              <div className="grid gap-3">
+                {competitors.map((comp, idx) => (
+                  <Card key={comp.placeId || idx} className="overflow-hidden border-slate-200 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 rounded-2xl group">
+                    <CardContent className="p-0">
+                      <div className="flex items-center p-4 sm:p-5 gap-4">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-bold group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-colors">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">{comp.name}</h3>
+                          <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-1 font-medium">
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            {comp.address || 'No address provided'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 sm:gap-8 text-right">
+                          <div className="hidden md:block">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Visibility</p>
+                            <p className="text-sm font-black text-blue-600">{comp.visibility}%</p>
+                          </div>
+                          <div className="hidden sm:block">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Avg Rank</p>
+                            <p className="text-sm font-black text-slate-900">{comp.avgRank || '-'}</p>
+                          </div>
+                          <div className="min-w-[80px]">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Appearances</p>
+                            <p className="text-sm font-black text-slate-900">{comp.appearances}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Card className="border-dashed border-2 bg-slate-50/50">
+              <CardContent className="py-16 text-center">
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-slate-300" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">No competitors tracked yet</h3>
+                <p className="text-slate-500 max-w-xs mx-auto text-sm font-medium">
+                  Run some heatmap scans to start tracking which businesses appear alongside yours in search results.
+                </p>
               </CardContent>
             </Card>
           )}

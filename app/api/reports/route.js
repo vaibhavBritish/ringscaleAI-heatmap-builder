@@ -59,7 +59,7 @@ export async function GET(req) {
     const reports = scanJobs.map(scan => ({
       id: scan.id,
       projectId: scan.projectId,
-      projectName: projectMap[scan.projectId]?.name || 'Unknown Project',
+      projectName: projectMap[scan.projectId]?.businessName || 'Unknown Project',
       keywordId: scan.keywordId,
       keyword: keywordMap[scan.keywordId] || 'Unknown Keyword',
       totalPoints: scan.totalPoints,
