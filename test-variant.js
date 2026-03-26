@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 
-const url1 = "mongodb+srv://mediaringscale_db_user:Ringscale%40123@cluster0.0capqtw.mongodb.net/";
-const url2 = "mongodb+srv://mediaringscale_db_user:Ringscale%40123@cluster0.0capqtw.mongodb.net"; // No slash
+const url1 = "";
+const url2 = ""; // No slash
 
 async function test(url, label) {
   console.log(`Testing ${label}:`, url.replace(/:([^@]+)@/, ':****@'));
