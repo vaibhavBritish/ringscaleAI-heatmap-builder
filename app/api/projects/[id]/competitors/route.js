@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 
 export async function GET(req, { params }) {
   try {
@@ -11,22 +11,20 @@ export async function GET(req, { params }) {
     }
 
     const { id: projectId } = params
-    const db = await getDB()
 
     // 1. Verify project ownership
-    const project = await db.collection('projects').findOne({ 
-      id: projectId, 
-      userId: session.user.id 
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, userId: session.user.id }
     })
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // 2. Get all scan jobs for this project
-    const scanJobs = await db.collection('scan_jobs')
-      .find({ projectId, status: 'completed' })
-      .toArray()
+    // 2. Get all completed scan jobs for this project
+    const scanJobs = await prisma.scanJob.findMany({
+      where: { projectId, status: 'completed' }
+    })
 
     if (scanJobs.length === 0) {
       return NextResponse.json({ competitors: [] })
@@ -35,11 +33,10 @@ export async function GET(req, { params }) {
     const scanJobIds = scanJobs.map(s => s.id)
 
     // 3. Get all scan results for these jobs
-    // We only need the competitorsJson field
-    const scanResults = await db.collection('scan_results')
-      .find({ scanJobId: { $in: scanJobIds } })
-      .project({ competitorsJson: 1, rank: 1, found: 1 })
-      .toArray()
+    const scanResults = await prisma.scanResult.findMany({
+      where: { scanJobId: { in: scanJobIds } },
+      select: { competitorsJson: true, rank: true, found: true }
+    })
 
     // 4. Aggregate competitors
     const competitorMap = new Map()
@@ -47,7 +44,7 @@ export async function GET(req, { params }) {
 
     scanResults.forEach(result => {
       if (!result.competitorsJson) return
-      
+
       try {
         const competitors = JSON.parse(result.competitorsJson)
         competitors.forEach(comp => {
@@ -80,10 +77,10 @@ export async function GET(req, { params }) {
 
     // 5. Calculate final metrics and sort
     const competitors = Array.from(competitorMap.values()).map(comp => {
-      const avgRank = comp.ranks.length > 0 
-        ? (comp.totalRank / comp.ranks.length).toFixed(1) 
+      const avgRank = comp.ranks.length > 0
+        ? (comp.totalRank / comp.ranks.length).toFixed(1)
         : null
-      
+
       const visibility = ((comp.appearances / totalPointsScanned) * 100).toFixed(1)
 
       return {
@@ -98,8 +95,8 @@ export async function GET(req, { params }) {
         topRank: comp.ranks.length > 0 ? Math.min(...comp.ranks) : null
       }
     })
-    .sort((a, b) => b.appearances - a.appearances)
-    .slice(0, 50)
+      .sort((a, b) => b.appearances - a.appearances)
+      .slice(0, 50)
 
     return NextResponse.json({ competitors, totalPointsScanned })
   } catch (error) {

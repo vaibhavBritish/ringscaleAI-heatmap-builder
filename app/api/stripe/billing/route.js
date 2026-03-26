@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
@@ -10,22 +10,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const db = await getDB()
-    const user = await db.collection('users').findOne({ id: session.user.id })
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Get payment history from DB (includes card info, receipt URLs, invoice PDFs)
-    const payments = await db.collection('payments')
-      .find({ userId: session.user.id })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .toArray()
+    const payments = await prisma.payment.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    })
 
     const paymentHistory = payments.map(p => ({
-      id: p._id.toString(),
+      id: p.oid,
       provider: p.provider,
       planId: p.planId,
       credits: p.credits,
@@ -42,7 +41,6 @@ export async function GET() {
       invoicePdf: p.invoicePdf,
     }))
 
-    // Card info from user record (most recent card used)
     const cardInfo = user.cardLast4 ? {
       brand: user.cardBrand,
       last4: user.cardLast4,

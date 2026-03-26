@@ -6,10 +6,9 @@ import { authOptions } from '@/lib/auth'
 import { searchBusinessByText, getPlaceDetails, searchKeywordAtPoint } from '@/lib/google-places'
 import { generateGrid, calculateAnalytics } from '@/lib/grid-utils'
 import { runScanJob } from '@/lib/scan-engine'
-import { getDB } from '@/lib/mongodb'
-
-// Removed redundant MongoClient import and connectToMongo function
-// as we now use the shared getDB logic.
+import prisma from '@/lib/prisma'
+import redis from '@/lib/redis'
+import { headers } from 'next/headers'
 
 // Helper function to handle CORS
 function handleCORS(response) {
@@ -38,10 +37,8 @@ async function handleRoute(request, { params }) {
   const method = request.method
 
   try {
-    const db = await getDB()
-
     // ==================== PUBLIC ROUTES ====================
-    
+
     // Root endpoint
     if ((route === '/' || route === '/root') && method === 'GET') {
       return handleCORS(NextResponse.json({ message: 'Local Rank Heatmap API', version: '1.0.0' }))
@@ -63,7 +60,7 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Email and password are required' }, { status: 400 }))
       }
 
-      const existingUser = await db.collection('users').findOne({ email: email.toLowerCase() })
+      const existingUser = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
       if (existingUser) {
         return handleCORS(NextResponse.json({ error: 'User already exists' }, { status: 400 }))
       }
@@ -72,25 +69,21 @@ async function handleRoute(request, { params }) {
       const now = new Date()
       const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-      const user = {
-        id: uuidv4(),
-        name: name || email.split('@')[0],
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        plan: 'trial',
-        credits: 5000,
-        trialEndsAt: trialEndsAt,
-        createdAt: now,
-        updatedAt: now
-      }
+      const user = await prisma.user.create({
+        data: {
+          id: uuidv4(),
+          name: name || email.split('@')[0],
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          plan: 'trial',
+          credits: 5000,
+          trialEndsAt,
+          createdAt: now,
+          updatedAt: now
+        }
+      })
 
-      await db.collection('users').insertOne(user)
-
-      return handleCORS(NextResponse.json({
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }))
+      return handleCORS(NextResponse.json({ id: user.id, name: user.name, email: user.email }))
     }
 
     // Get current user
@@ -123,40 +116,39 @@ async function handleRoute(request, { params }) {
     }
 
     // Helper to verify project ownership
-    const verifyProject = async (db, projectId, userId) => {
-      const project = await db.collection('projects').findOne({ id: projectId, userId })
+    const verifyProject = async (projectId, userId) => {
+      const project = await prisma.project.findFirst({ where: { id: projectId, userId } })
       return !!project
     }
 
     // Helper to verify scan ownership
-    const verifyScan = async (db, scanId, userId) => {
-      const scan = await db.collection('scan_jobs').findOne({ id: scanId })
+    const verifyScan = async (scanId, userId) => {
+      const scan = await prisma.scanJob.findFirst({ where: { id: scanId } })
       if (!scan) return false
-      return verifyProject(db, scan.projectId, userId)
+      return verifyProject(scan.projectId, userId)
     }
 
     // ==================== PROXY ROUTES ====================
-    
+
     // Image proxy for PDF generation (CORS bypass)
     if (route === '/proxy/image' && method === 'GET') {
       const { searchParams } = new URL(request.url)
       const imageUrl = searchParams.get('url')
-      
+
       if (!imageUrl) {
         return handleCORS(NextResponse.json({ error: 'URL is required' }, { status: 400 }))
       }
-      
+
       try {
         const headers = new Headers()
         const referer = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get('referer') || ''
         if (referer) headers.set('Referer', referer)
-        
+
         const response = await fetch(imageUrl, { headers })
-        
+
         if (!response.ok) {
           const text = await response.text().catch(() => 'No error body')
           console.error('Google Map Proxy Error:', response.status, text)
-          // Extract error message from HTML/Text if possible
           const errorMsg = text.length > 500 ? `Status ${response.status}` : text
           return handleCORS(NextResponse.json({ error: `Google Map Error: ${errorMsg}`, status: response.status }, { status: response.status }))
         }
@@ -165,7 +157,7 @@ async function handleRoute(request, { params }) {
         const responseHeaders = new Headers()
         responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'image/png')
         responseHeaders.set('Cache-Control', 'public, max-age=3600')
-        
+
         const nextResponse = new NextResponse(blob, { status: 200, headers: responseHeaders })
         return handleCORS(nextResponse)
       } catch (error) {
@@ -220,16 +212,18 @@ async function handleRoute(request, { params }) {
 
     // List projects
     if (route === '/projects' && method === 'GET') {
-      const projects = await db.collection('projects')
-        .find({ userId: currentUser.id })
-        .sort({ createdAt: -1 })
-        .toArray()
+      const projects = await prisma.project.findMany({
+        where: { userId: currentUser.id },
+        orderBy: { createdAt: 'desc' }
+      })
 
       // Get keyword counts and latest scan for each project
       const enrichedProjects = await Promise.all(projects.map(async (project) => {
-        const keywordCount = await db.collection('keywords').countDocuments({ projectId: project.id })
-        const latestScan = await db.collection('scan_jobs')
-          .findOne({ projectId: project.id }, { sort: { createdAt: -1 } })
+        const keywordCount = await prisma.keyword.count({ where: { projectId: project.id } })
+        const latestScan = await prisma.scanJob.findFirst({
+          where: { projectId: project.id },
+          orderBy: { createdAt: 'desc' }
+        })
 
         return {
           ...project,
@@ -255,53 +249,46 @@ async function handleRoute(request, { params }) {
       }
 
       if (isTrialExpired(currentUser)) {
-        return handleCORS(NextResponse.json({ 
+        return handleCORS(NextResponse.json({
           error: 'Trial expired. Please upgrade your plan to continue scanning.',
           code: 'TRIAL_EXPIRED'
         }, { status: 403 }))
       }
 
       // Check for existing project with this placeId for this user
-      let project = await db.collection('projects').findOne({ 
-        placeId, 
-        userId: currentUser.id 
-      })
+      let project = await prisma.project.findFirst({ where: { placeId, userId: currentUser.id } })
 
       let projectId
       if (project) {
         projectId = project.id
-        // Update existing project
-        await db.collection('projects').updateOne(
-          { id: projectId },
-          { 
-            $set: { 
-              businessName,
-              address: address || project.address,
-              latitude: coordinates?.lat || project.latitude,
-              longitude: coordinates?.lng || project.longitude,
-              gridSettings: gridSettings || project.gridSettings,
-              updatedAt: new Date()
-            } 
+        project = await prisma.project.update({
+          where: { id: projectId },
+          data: {
+            businessName,
+            address: address || project.address,
+            latitude: coordinates?.lat || project.latitude,
+            longitude: coordinates?.lng || project.longitude,
+            gridSettings: gridSettings || project.gridSettings,
+            updatedAt: new Date()
           }
-        )
-        // Fetch the updated document
-        project = await db.collection('projects').findOne({ id: projectId })
+        })
       } else {
         projectId = uuidv4()
-        project = {
-          id: projectId,
-          userId: currentUser.id,
-          businessName,
-          placeId,
-          address: address || '',
-          latitude: coordinates?.lat || 0,
-          longitude: coordinates?.lng || 0,
-          primaryType: primaryType || '',
-          gridSettings: gridSettings || null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-        await db.collection('projects').insertOne(project)
+        project = await prisma.project.create({
+          data: {
+            id: projectId,
+            userId: currentUser.id,
+            businessName,
+            placeId,
+            address: address || '',
+            latitude: coordinates?.lat || 0,
+            longitude: coordinates?.lng || 0,
+            primaryType: primaryType || '',
+            gridSettings: gridSettings || null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        })
       }
 
       // Automatically add keywords and start scan jobs
@@ -309,9 +296,9 @@ async function handleRoute(request, { params }) {
       if (keywords.length > 0) {
         // Credit check: 100 credits per keyword
         const creditsNeeded = keywords.length * 100
-        const userDoc = await db.collection('users').findOne({ id: currentUser.id })
+        const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
         if ((userDoc?.credits || 0) < creditsNeeded) {
-          return handleCORS(NextResponse.json({ 
+          return handleCORS(NextResponse.json({
             error: `Not enough credits. You need ${creditsNeeded} credits for ${keywords.length} keyword(s). You have ${userDoc?.credits || 0}.`,
             creditsNeeded,
             creditsAvailable: userDoc?.credits || 0
@@ -320,55 +307,57 @@ async function handleRoute(request, { params }) {
 
         let keywordsAdded = 0
         for (const kw of keywords) {
-          // Check if keyword already exists for this project
-          let kwDoc = await db.collection('keywords').findOne({ 
-            projectId, 
-            keyword: kw 
-          })
+          let kwDoc = await prisma.keyword.findFirst({ where: { projectId, keyword: kw } })
 
           if (!kwDoc) {
-            kwDoc = {
-              id: uuidv4(),
-              projectId: projectId,
-              keyword: kw,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-            await db.collection('keywords').insertOne(kwDoc)
+            kwDoc = await prisma.keyword.create({
+              data: {
+                id: uuidv4(),
+                projectId,
+                keyword: kw,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            })
             keywordsAdded++
           }
 
           // Create a new scan job for this keyword
           const scanJobId = uuidv4()
-          const scanJob = {
-            id: scanJobId,
-            projectId: projectId,
-            keywordId: kwDoc.id,
-            status: 'queued',
-            processedPoints: 0,
-            totalPoints: gridSettings?.density || 133,
-            searchRadiusMeters: (gridSettings?.radius || 5) * 1000,
-            createdAt: new Date(),
-            startedAt: null,
-            completedAt: null
-          }
-          await db.collection('scan_jobs').insertOne(scanJob)
+          await prisma.scanJob.create({
+            data: {
+              id: scanJobId,
+              projectId,
+              keywordId: kwDoc.id,
+              status: 'queued',
+              processedPoints: 0,
+              totalPoints: gridSettings?.density || 133,
+              searchRadiusMeters: (gridSettings?.radius || 5) * 1000,
+              createdAt: new Date()
+            }
+          })
           scanJobIds.push(scanJobId)
-          
+
           // Trigger the job in background
           runScanJob(scanJobId).catch(err => console.error('Background scan error:', err))
         }
 
         // Deduct credits for newly added keywords only
         if (keywordsAdded > 0) {
-          await db.collection('users').updateOne(
-            { id: currentUser.id },
-            { $inc: { credits: -(keywordsAdded * 100) } }
-          )
+          await prisma.user.update({
+            where: { id: currentUser.id },
+            data: { credits: { decrement: keywordsAdded * 100 } }
+          })
         }
       }
 
-      const updatedUser = await db.collection('users').findOne({ id: currentUser.id })
+      const updatedUser = await prisma.user.findUnique({ where: { id: currentUser.id } })
+
+      // Invalidate dashboard stats
+      if (redis) {
+        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
+      }
+
       return handleCORS(NextResponse.json({ project, scanJobIds, creditsRemaining: updatedUser?.credits || 0 }))
     }
 
@@ -376,18 +365,21 @@ async function handleRoute(request, { params }) {
     const projectMatch = route.match(/^\/projects\/([^/]+)$/)
     if (projectMatch && method === 'GET') {
       const projectId = projectMatch[1]
-      const project = await db.collection('projects').findOne({ id: projectId, userId: currentUser.id })
+      const project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
 
       if (!project) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
-      const keywords = await db.collection('keywords').find({ projectId }).toArray()
-      const scans = await db.collection('scan_jobs')
-        .find({ projectId })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray()
+      const keywords = await prisma.keyword.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' }
+      })
+      const scans = await prisma.scanJob.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
 
       return handleCORS(NextResponse.json({ project, keywords, scans }))
     }
@@ -395,9 +387,15 @@ async function handleRoute(request, { params }) {
     // Delete project
     if (projectMatch && method === 'DELETE') {
       const projectId = projectMatch[1]
-      await db.collection('projects').deleteOne({ id: projectId, userId: currentUser.id })
-      await db.collection('keywords').deleteMany({ projectId })
-      await db.collection('scan_jobs').deleteMany({ projectId })
+      await prisma.project.deleteMany({ where: { id: projectId, userId: currentUser.id } })
+      await prisma.keyword.deleteMany({ where: { projectId } })
+      await prisma.scanJob.deleteMany({ where: { projectId } })
+
+      // Invalidate dashboard stats
+      if (redis) {
+        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
+      }
+
       return handleCORS(NextResponse.json({ success: true }))
     }
 
@@ -407,21 +405,21 @@ async function handleRoute(request, { params }) {
     const keywordsMatch = route.match(/^\/projects\/([^/]+)\/keywords$/)
     if (keywordsMatch && method === 'GET') {
       const projectId = keywordsMatch[1]
-      if (!(await verifyProject(db, projectId, currentUser.id))) {
+      if (!(await verifyProject(projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
-      const keywords = await db.collection('keywords')
-        .find({ projectId })
-        .sort({ createdAt: -1 })
-        .toArray()
+      const keywords = await prisma.keyword.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' }
+      })
       return handleCORS(NextResponse.json({ keywords }))
     }
 
     // Create keyword
     if (keywordsMatch && method === 'POST') {
       const projectId = keywordsMatch[1]
-      if (!(await verifyProject(db, projectId, currentUser.id))) {
+      if (!(await verifyProject(projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
@@ -433,52 +431,51 @@ async function handleRoute(request, { params }) {
       }
 
       // Check for existing keyword in this project (case-insensitive)
-      const existingKeyword = await db.collection('keywords').findOne({
-        projectId,
-        keyword: { $regex: new RegExp(`^${keyword.trim()}$`, 'i') }
+      const existingKeyword = await prisma.keyword.findFirst({
+        where: {
+          projectId,
+          keyword: { equals: keyword.trim(), mode: 'insensitive' }
+        }
       })
 
       if (existingKeyword) {
-        // Existing keyword — no charge
-        const userDoc = await db.collection('users').findOne({ id: currentUser.id })
+        const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
         return handleCORS(NextResponse.json({ ...existingKeyword, creditsRemaining: userDoc?.credits || 0 }))
       }
 
       // Credit check: 100 credits per new keyword
       const KEYWORD_COST = 100
-      const userDoc = await db.collection('users').findOne({ id: currentUser.id })
+      const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
       const currentCredits = userDoc?.credits || 0
 
       if (currentCredits < KEYWORD_COST) {
-        return handleCORS(NextResponse.json({ 
+        return handleCORS(NextResponse.json({
           error: `Not enough credits. Adding a keyword costs ${KEYWORD_COST} credits. You have ${currentCredits}.`,
           creditsRemaining: currentCredits,
           creditsNeeded: KEYWORD_COST
         }, { status: 402 }))
       }
 
-      const keywordDoc = {
-        id: uuidv4(),
-        projectId,
-        keyword,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-
-      await db.collection('keywords').insertOne(keywordDoc)
+      const keywordDoc = await prisma.keyword.create({
+        data: {
+          id: uuidv4(),
+          projectId,
+          keyword,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      })
 
       // Deduct credits
-      await db.collection('users').updateOne(
-        { id: currentUser.id },
-        { $inc: { credits: -KEYWORD_COST } }
-      )
+      const updatedUser = await prisma.user.update({
+        where: { id: currentUser.id },
+        data: { credits: { decrement: KEYWORD_COST } }
+      })
 
-      const updatedUser = await db.collection('users').findOne({ id: currentUser.id })
-
-      return handleCORS(NextResponse.json({ 
-        ...keywordDoc, 
+      return handleCORS(NextResponse.json({
+        ...keywordDoc,
         creditsDeducted: KEYWORD_COST,
-        creditsRemaining: updatedUser?.credits || 0
+        creditsRemaining: updatedUser.credits
       }))
     }
 
@@ -486,11 +483,11 @@ async function handleRoute(request, { params }) {
     const keywordDeleteMatch = route.match(/^\/keywords\/([^/]+)$/)
     if (keywordDeleteMatch && method === 'DELETE') {
       const keywordId = keywordDeleteMatch[1]
-      const keywordDoc = await db.collection('keywords').findOne({ id: keywordId })
-      if (!keywordDoc || !(await verifyProject(db, keywordDoc.projectId, currentUser.id))) {
+      const keywordDoc = await prisma.keyword.findFirst({ where: { id: keywordId } })
+      if (!keywordDoc || !(await verifyProject(keywordDoc.projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Keyword not found' }, { status: 404 }))
       }
-      await db.collection('keywords').deleteOne({ id: keywordId })
+      await prisma.keyword.delete({ where: { id: keywordId } })
       return handleCORS(NextResponse.json({ success: true }))
     }
 
@@ -505,12 +502,12 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Project ID and keyword ID(s) are required' }, { status: 400 }))
       }
 
-      if (!(await verifyProject(db, projectId, currentUser.id))) {
+      if (!(await verifyProject(projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
       if (isTrialExpired(currentUser)) {
-        return handleCORS(NextResponse.json({ 
+        return handleCORS(NextResponse.json({
           error: 'Trial expired. Please upgrade your plan to continue scanning.',
           code: 'TRIAL_EXPIRED'
         }, { status: 403 }))
@@ -520,25 +517,28 @@ async function handleRoute(request, { params }) {
       const scanJobs = []
 
       for (const id of idsToProcess) {
-        const scanJob = {
-          id: uuidv4(),
-          projectId,
-          keywordId: id,
-          status: 'queued',
-          gridSize,
-          spacingMeters,
-          searchRadiusMeters,
-          processedPoints: 0,
-          totalPoints: gridSize * gridSize,
-          createdAt: new Date(),
-          startedAt: null,
-          completedAt: null
-        }
-        
-        await db.collection('scan_jobs').insertOne(scanJob)
+        const scanJob = await prisma.scanJob.create({
+          data: {
+            id: uuidv4(),
+            projectId,
+            keywordId: id,
+            status: 'queued',
+            gridSize,
+            spacingMeters,
+            searchRadiusMeters,
+            processedPoints: 0,
+            totalPoints: gridSize * gridSize,
+            createdAt: new Date()
+          }
+        })
         // Start scan in background (async)
         runScanJob(scanJob.id).catch(err => console.error('Background scan error:', err))
         scanJobs.push(scanJob)
+      }
+
+      // Invalidate dashboard stats
+      if (redis) {
+        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
       }
 
       return handleCORS(NextResponse.json(scanJobs.length === 1 ? scanJobs[0] : { success: true, count: scanJobs.length, scans: scanJobs }))
@@ -548,18 +548,13 @@ async function handleRoute(request, { params }) {
     const scanCancelMatch = route.match(/^\/scans\/([^/]+)\/cancel$/)
     if (scanCancelMatch && method === 'POST') {
       const scanJobId = scanCancelMatch[1]
-      if (!(await verifyScan(db, scanJobId, currentUser.id))) {
+      if (!(await verifyScan(scanJobId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Scan not found' }, { status: 404 }))
       }
-      await db.collection('scan_jobs').updateOne(
-        { id: scanJobId },
-        { 
-          $set: { 
-            status: 'cancelled',
-            completedAt: new Date()
-          } 
-        }
-      )
+      await prisma.scanJob.update({
+        where: { id: scanJobId },
+        data: { status: 'cancelled', completedAt: new Date() }
+      })
       return handleCORS(NextResponse.json({ success: true }))
     }
 
@@ -567,9 +562,9 @@ async function handleRoute(request, { params }) {
     const scanStatusMatch = route.match(/^\/scans\/([^/]+)$/)
     if (scanStatusMatch && method === 'GET') {
       const scanId = scanStatusMatch[1]
-      const scanJob = await db.collection('scan_jobs').findOne({ id: scanId })
+      const scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
 
-      if (!scanJob || !(await verifyProject(db, scanJob.projectId, currentUser.id))) {
+      if (!scanJob || !(await verifyProject(scanJob.projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Scan job not found' }, { status: 404 }))
       }
 
@@ -580,35 +575,51 @@ async function handleRoute(request, { params }) {
     const scanResultsMatch = route.match(/^\/scans\/([^/]+)\/results$/)
     if (scanResultsMatch && method === 'GET') {
       const scanId = scanResultsMatch[1]
-      
-      const scanJob = await db.collection('scan_jobs').findOne({ id: scanId })
-      if (!scanJob || !(await verifyProject(db, scanJob.projectId, currentUser.id))) {
+
+      const scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
+      if (!scanJob || !(await verifyProject(scanJob.projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Scan job not found' }, { status: 404 }))
       }
 
       const urlObj = new URL(request.url)
       const isAggregate = urlObj.searchParams.get('aggregate') === 'true'
-      
-      const project = await db.collection('projects').findOne({ id: scanJob.projectId })
-      const keyword = await db.collection('keywords').findOne({ id: scanJob.keywordId })
-      
-      const scanPoints = await db.collection('scan_points')
-        .find({ scanJobId: scanId })
-        .sort({ rowIndex: 1, colIndex: 1 })
-        .toArray()
+
+      const cacheKey = `scan:results:${scanId}${isAggregate ? ':aggregate' : ''}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) {
+            return handleCORS(NextResponse.json(JSON.parse(cached)))
+          }
+        } catch (e) {
+          console.warn('Redis Cache Get Error:', e)
+        }
+      }
+
+      const project = await prisma.project.findFirst({ where: { id: scanJob.projectId } })
+      const keyword = await prisma.keyword.findFirst({ where: { id: scanJob.keywordId } })
+
+      const scanPoints = await prisma.scanPoint.findMany({
+        where: { scanJobId: scanId },
+        orderBy: [{ rowIndex: 'asc' }, { colIndex: 'asc' }]
+      })
 
       let mergedResults = []
 
       if (isAggregate) {
-        // Fetch ALL results for ALL scan jobs in this project to show aggregate progress
-        const allProjectScanJobIds = (await db.collection('scan_jobs').find({ projectId: scanJob.projectId }).toArray()).map(j => j.id)
-        const allResults = await db.collection('scan_results')
-          .find({ scanJobId: { $in: allProjectScanJobIds } })
-          .toArray()
+        // Fetch ALL results for ALL scan jobs in this project
+        const allProjectScanJobIds = (await prisma.scanJob.findMany({
+          where: { projectId: scanJob.projectId },
+          select: { id: true }
+        })).map(j => j.id)
 
-        const allProjectPoints = await db.collection('scan_points')
-          .find({ scanJobId: { $in: allProjectScanJobIds } })
-          .toArray()
+        const allResults = await prisma.scanResult.findMany({
+          where: { scanJobId: { in: allProjectScanJobIds } }
+        })
+
+        const allProjectPoints = await prisma.scanPoint.findMany({
+          where: { scanJobId: { in: allProjectScanJobIds } }
+        })
         const projectPointToCoord = new Map(allProjectPoints.map(p => [p.id, `${p.rowIndex},${p.colIndex}`]))
 
         // Aggregate: Group results by coordinate and pick Best Rank
@@ -640,9 +651,7 @@ async function handleRoute(request, { params }) {
         })
       } else {
         // Standard single-scan result
-        const scanResults = await db.collection('scan_results')
-          .find({ scanJobId: scanId })
-          .toArray()
+        const scanResults = await prisma.scanResult.findMany({ where: { scanJobId: scanId } })
 
         const resultsMap = new Map(scanResults.map(r => [r.scanPointId, r]))
         mergedResults = scanPoints.map(point => {
@@ -661,10 +670,12 @@ async function handleRoute(request, { params }) {
       const analytics = calculateAnalytics(mergedResults)
 
       // Get all keywords for this project with their latest scans
-      const allKeywords = await db.collection('keywords').find({ projectId: scanJob.projectId }).toArray()
+      const allKeywords = await prisma.keyword.findMany({ where: { projectId: scanJob.projectId } })
       const projectScans = await Promise.all(allKeywords.map(async (kw) => {
-        const latestJob = await db.collection('scan_jobs')
-          .findOne({ keywordId: kw.id }, { sort: { createdAt: -1 } })
+        const latestJob = await prisma.scanJob.findFirst({
+          where: { keywordId: kw.id },
+          orderBy: { createdAt: 'desc' }
+        })
         return {
           keyword: kw.keyword,
           keywordId: kw.id,
@@ -689,7 +700,7 @@ async function handleRoute(request, { params }) {
         .sort((a, b) => b.appearances - a.appearances)
         .slice(0, 10)
 
-      return handleCORS(NextResponse.json({
+      const finalResponse = {
         scanJob,
         project,
         keyword,
@@ -697,49 +708,59 @@ async function handleRoute(request, { params }) {
         analytics,
         topCompetitors,
         projectScans
-      }))
+      }
+
+      if (redis && scanJob.status === 'completed') {
+        try {
+          // Random TTL between 15-30 minutes (900-1800 seconds)
+          const randomTTL = Math.floor(Math.random() * 900) + 900
+          await redis.set(cacheKey, JSON.stringify(finalResponse), 'EX', randomTTL)
+        } catch (e) {
+          console.warn('Redis Cache Set Error:', e)
+        }
+      }
+
+      return handleCORS(NextResponse.json(finalResponse))
     }
-    
+
     // Rescan project keyword
     if (route === '/scans/rescan' && method === 'POST') {
       const body = await request.json()
       const { projectId, keywordId } = body
-      
+
       if (!projectId || !keywordId) {
         return handleCORS(NextResponse.json({ error: 'Project ID and Keyword ID are required' }, { status: 400 }))
       }
-      
+
       if (isTrialExpired(currentUser)) {
-        return handleCORS(NextResponse.json({ 
+        return handleCORS(NextResponse.json({
           error: 'Trial expired. Please upgrade your plan to continue scanning.',
           code: 'TRIAL_EXPIRED'
         }, { status: 403 }))
       }
-      
-      const project = await db.collection('projects').findOne({ id: projectId, userId: currentUser.id })
+
+      const project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
       if (!project) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
-      
+
       const scanJobId = uuidv4()
-      const scanJob = {
-        id: scanJobId,
-        projectId: projectId,
-        keywordId: keywordId,
-        status: 'queued',
-        processedPoints: 0,
-        totalPoints: project.gridSettings?.density || 133,
-        searchRadiusMeters: (project.gridSettings?.radius || 5) * 1000,
-        createdAt: new Date(),
-        startedAt: null,
-        completedAt: null
-      }
-      
-      await db.collection('scan_jobs').insertOne(scanJob)
-      
+      await prisma.scanJob.create({
+        data: {
+          id: scanJobId,
+          projectId,
+          keywordId,
+          status: 'queued',
+          processedPoints: 0,
+          totalPoints: project.gridSettings?.density || 133,
+          searchRadiusMeters: (project.gridSettings?.radius || 5) * 1000,
+          createdAt: new Date()
+        }
+      })
+
       // Trigger background worker
       runScanJob(scanJobId).catch(err => console.error('Rescan error:', err))
-      
+
       return handleCORS(NextResponse.json({ success: true, scanJobId }))
     }
 
@@ -747,23 +768,24 @@ async function handleRoute(request, { params }) {
     const scanHistoryMatch = route.match(/^\/projects\/([^/]+)\/scans$/)
     if (scanHistoryMatch && method === 'GET') {
       const projectId = scanHistoryMatch[1]
-      if (!(await verifyProject(db, projectId, currentUser.id))) {
+      if (!(await verifyProject(projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
-      const scans = await db.collection('scan_jobs')
-        .find({ projectId })
-        .sort({ createdAt: -1 })
-        .toArray()
+
+      const scans = await prisma.scanJob.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' }
+      })
 
       // Enrich with keyword info and basic analytics
       const enrichedScans = await Promise.all(scans.map(async (scan) => {
-        const keyword = await db.collection('keywords').findOne({ id: scan.keywordId })
-        const results = await db.collection('scan_results').find({ scanJobId: scan.id }).toArray()
+        const kw = await prisma.keyword.findFirst({ where: { id: scan.keywordId } })
+        const results = await prisma.scanResult.findMany({ where: { scanJobId: scan.id } })
         const analytics = calculateAnalytics(results.map(r => ({ found: r.found, rank: r.rank })))
 
         return {
           ...scan,
-          keyword: keyword?.keyword || 'Unknown',
+          keyword: kw?.keyword || 'Unknown',
           analytics
         }
       }))
@@ -774,34 +796,56 @@ async function handleRoute(request, { params }) {
     // ==================== DASHBOARD ROUTES ====================
 
     if (route === '/dashboard/stats' && method === 'GET') {
-      const totalProjects = await db.collection('projects').countDocuments({ userId: currentUser.id })
-      
-      const scanCountResult = await db.collection('scan_jobs').aggregate([
-        { $lookup: { from: 'projects', localField: 'projectId', foreignField: 'id', as: 'project' } },
-        { $unwind: '$project' },
-        { $match: { 'project.userId': currentUser.id } },
-        { $group: { _id: null, total: { $sum: 1 } } }
-      ]).toArray()
-      const totalScans = scanCountResult[0]?.total || 0
-      
-      const recentScans = await db.collection('scan_jobs')
-        .aggregate([
-          { $lookup: { from: 'projects', localField: 'projectId', foreignField: 'id', as: 'project' } },
-          { $unwind: { path: '$project', preserveNullAndEmptyArrays: true } },
-          { $lookup: { from: 'keywords', localField: 'keywordId', foreignField: 'id', as: 'keywordDoc' } },
-          { $unwind: { path: '$keywordDoc', preserveNullAndEmptyArrays: true } },
-          { $match: { 'project.userId': currentUser.id } },
-          { $sort: { createdAt: -1 } },
-          { $limit: 10 },
-          { $addFields: { keyword: '$keywordDoc.keyword' } }
-        ])
-        .toArray()
+      const cacheKey = `user:stats:${currentUser.id}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) {
+            return handleCORS(NextResponse.json(JSON.parse(cached)))
+          }
+        } catch (e) {
+          console.warn('Redis Stats Get Error:', e)
+        }
+      }
 
-      return handleCORS(NextResponse.json({
-        totalProjects,
-        totalScans,
-        recentScans
+      const totalProjects = await prisma.project.count({ where: { userId: currentUser.id } })
+
+      // Get all project IDs for this user
+      const userProjectIds = (await prisma.project.findMany({
+        where: { userId: currentUser.id },
+        select: { id: true }
+      })).map(p => p.id)
+
+      const totalScans = await prisma.scanJob.count({
+        where: { projectId: { in: userProjectIds } }
+      })
+
+      const recentScanJobs = await prisma.scanJob.findMany({
+        where: { projectId: { in: userProjectIds } },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+
+      // Enrich each scan with project and keyword info
+      const recentScans = await Promise.all(recentScanJobs.map(async (scan) => {
+        const project = await prisma.project.findFirst({ where: { id: scan.projectId } })
+        const keywordDoc = await prisma.keyword.findFirst({ where: { id: scan.keywordId } })
+        return { ...scan, keyword: keywordDoc?.keyword, project }
       }))
+
+      const statsResponse = { totalProjects, totalScans, recentScans }
+
+      if (redis) {
+        try {
+          // Random TTL between 2-5 minutes (120-300 seconds)
+          const randomTTL = Math.floor(Math.random() * 180) + 120
+          await redis.set(cacheKey, JSON.stringify(statsResponse), 'EX', randomTTL)
+        } catch (e) {
+          console.warn('Redis Stats Set Error:', e)
+        }
+      }
+
+      return handleCORS(NextResponse.json(statsResponse))
     }
 
     // Route not found

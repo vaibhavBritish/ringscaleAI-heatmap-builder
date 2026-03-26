@@ -96,8 +96,27 @@ export default function Footer() {
         </div>
 
         <div className="pt-12 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="text-[14px] font-bold text-[#526484]">
-            All Rights Reserved © 2026 <span className="text-blue-600">Ringscale AI</span> – Your Agency Growth Partner
+          <div className="text-[14px] font-bold text-[#526484] space-y-1">
+            <p>All Rights Reserved © 2026 <span className="text-blue-600">Ringscale AI</span> – Your Agency Growth Partner</p>
+            <p className="text-[12px] text-slate-500/80 font-medium">
+              Address: {
+                (() => {
+                  if (typeof window === 'undefined') return "1470 HurOntario St Mississauga Ontario L5G 3H4";
+                  
+                  // Priority 1: Check URL Path (Middle-ware driven)
+                  const path = window.location.pathname;
+                  if (path.startsWith('/in/') || path === '/in') return "P-10 Patel Nagar, New Delhi, 110008";
+                  if (path.startsWith('/us/') || path === '/us') return "1470 HurOntario St Mississauga Ontario L5G 3H4";
+                  
+                  // Priority 2: Check Timezone as fallback
+                  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata');
+                  return isIndiaTz 
+                    ? "P-10 Patel Nagar, New Delhi, 110008" 
+                    : "1470 HurOntario St Mississauga Ontario L5G 3H4";
+                })()
+              }
+            </p>
           </div>
           <div className="flex gap-4">
             {[

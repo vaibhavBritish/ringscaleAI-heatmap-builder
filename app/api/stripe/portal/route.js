@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Stripe from 'stripe'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 
-const stripe = process.env.STRIPE_SECRET_KEY 
+const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null
 
@@ -15,12 +15,11 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const db = await getDB()
-    const user = await db.collection('users').findOne({ id: session.user.id })
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } })
 
     if (!user || !user.stripeCustomerId) {
-      return NextResponse.json({ 
-        error: 'No active Stripe billing found. Please make a payment first.' 
+      return NextResponse.json({
+        error: 'No active Stripe billing found. Please make a payment first.'
       }, { status: 400 })
     }
 
@@ -28,7 +27,6 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
 
-    // Create a billing portal session
     try {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
@@ -37,12 +35,11 @@ export async function POST(req) {
       return NextResponse.json({ url: portalSession.url })
     } catch (stripeError) {
       if (stripeError.code === 'resource_missing' || stripeError.raw?.code === 'resource_missing') {
-        // Customer exists in DB but not in this Stripe environment (e.g. Test vs Live)
-        await db.collection('users').updateOne(
-          { id: session.user.id },
-          { $unset: { stripeCustomerId: "" } }
-        )
-        return NextResponse.json({ 
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { stripeCustomerId: null }
+        })
+        return NextResponse.json({
           error: 'Your billing record was from a different Stripe environment. We have cleared it—please make a new payment to link your live account.',
           cleared: true
         }, { status: 400 })

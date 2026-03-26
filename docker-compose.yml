@@ -7,21 +7,41 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_GOOGLE_API_KEY: ${NEXT_PUBLIC_GOOGLE_API_KEY}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID}
 
     container_name: seo-heatmap-app
     restart: always
 
     ports:
-      - "3010:3000"
+      - "3011:3000"
 
     env_file:
       - .env
 
     environment:
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+
+    depends_on:
+      - redis
 
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  redis:
+    image: redis:alpine
+    container_name: seo-heatmap-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

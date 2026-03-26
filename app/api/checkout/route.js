@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Stripe from 'stripe'
-import { getDB } from '@/lib/mongodb'
 import Razorpay from 'razorpay'
+import prisma from '@/lib/prisma'
 
 // Initialize SDKs only if keys are present to avoid startup crashes
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY) 
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null
 
 const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
@@ -42,7 +42,7 @@ export async function POST(request) {
 
     const { planId, isIndia } = await request.json()
     const plan = PLANS[planId]
-    
+
     if (!plan) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
@@ -54,7 +54,7 @@ export async function POST(request) {
       }
 
       const options = {
-        amount: plan.priceINR * 100, // amount in smallest currency unit (paise)
+        amount: plan.priceINR * 100,
         currency: 'INR',
         receipt: `rcpt_${session.user.id}_${Date.now()}`,
         notes: {
@@ -65,7 +65,7 @@ export async function POST(request) {
       }
 
       const order = await razorpay.orders.create(options)
-      
+
       return NextResponse.json({
         id: order.id,
         amount: order.amount,
@@ -78,8 +78,7 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
       }
 
-      const db = await getDB()
-      const user = await db.collection('users').findOne({ id: session.user.id })
+      const user = await prisma.user.findUnique({ where: { id: session.user.id } })
 
       // Create or reuse Stripe customer so cards & invoices persist
       let customerId = user?.stripeCustomerId
@@ -90,11 +89,10 @@ export async function POST(request) {
           metadata: { userId: session.user.id }
         })
         customerId = customer.id
-        // Save customer ID immediately
-        await db.collection('users').updateOne(
-          { id: session.user.id },
-          { $set: { stripeCustomerId: customerId } }
-        )
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { stripeCustomerId: customerId }
+        })
       }
 
       const sessionConfig = {
@@ -102,10 +100,10 @@ export async function POST(request) {
         customer: customerId,
         client_reference_id: session.user.id,
         payment_intent_data: {
-          setup_future_usage: 'on_session', // saves the card to the customer
+          setup_future_usage: 'on_session',
         },
         invoice_creation: {
-          enabled: true, // creates a proper Stripe invoice with PDF
+          enabled: true,
         },
         metadata: {
           userId: session.user.id,
@@ -134,20 +132,17 @@ export async function POST(request) {
       try {
         checkoutSession = await stripe.checkout.sessions.create(sessionConfig)
       } catch (stripeError) {
-        // Handle customer ID mismatch (e.g. Test vs Live)
         if (customerId && (stripeError.code === 'resource_missing' || stripeError.raw?.code === 'resource_missing')) {
-          // Reset customer ID and create a fresh one for this environment
           const customer = await stripe.customers.create({
             email: session.user.email,
             name: session.user.name || session.user.email.split('@')[0],
             metadata: { userId: session.user.id }
           })
           customerId = customer.id
-          await db.collection('users').updateOne(
-            { id: session.user.id },
-            { $set: { stripeCustomerId: customerId } }
-          )
-          // Retry with new customer ID
+          await prisma.user.update({
+            where: { id: session.user.id },
+            data: { stripeCustomerId: customerId }
+          })
           sessionConfig.customer = customerId
           checkoutSession = await stripe.checkout.sessions.create(sessionConfig)
         } else {

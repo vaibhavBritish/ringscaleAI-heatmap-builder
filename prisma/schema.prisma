@@ -1,0 +1,134 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URL")
+}
+
+model User {
+  oid              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id               String    @unique
+  name             String?
+  email            String    @unique
+  password         String
+  plan             String    @default("trial")
+  credits          Int       @default(0)
+  trialEndsAt      DateTime?
+  stripeCustomerId String?
+  cardBrand        String?
+  cardLast4        String?
+  cardExpMonth     Int?
+  cardExpYear      Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Project {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @unique
+  userId       String
+  businessName String
+  placeId      String
+  address      String?
+  latitude     Float
+  longitude    Float
+  primaryType  String?
+  gridSettings Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("projects")
+}
+
+model Keyword {
+  oid       String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @unique
+  projectId String
+  keyword   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("keywords")
+}
+
+model ScanJob {
+  oid                String    @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String    @unique
+  projectId          String
+  keywordId          String
+  status             String    @default("queued")
+  processedPoints    Int       @default(0)
+  totalPoints        Int       @default(0)
+  gridSize           Int?
+  spacingMeters      Int?
+  searchRadiusMeters Int?
+  errorMessage       String?
+  createdAt          DateTime  @default(now())
+  startedAt          DateTime?
+  completedAt        DateTime?
+
+  @@map("scan_jobs")
+}
+
+model ScanPoint {
+  oid       String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @unique
+  scanJobId String
+  rowIndex  Int
+  colIndex  Int
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+
+  @@map("scan_points")
+}
+
+model ScanResult {
+  oid             String   @id @default(auto()) @map("_id") @db.ObjectId
+  id              String   @unique
+  scanPointId     String
+  scanJobId       String
+  found           Boolean
+  rank            Int?
+  competitorsJson String?
+  rawResultsJson  String?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  @@map("scan_results")
+}
+
+model Payment {
+  oid                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String
+  provider              String
+  stripeSessionId       String?
+  stripeCustomerId      String?
+  stripePaymentIntentId String?
+  stripeInvoiceId       String?
+  razorpayPaymentId     String?
+  razorpayOrderId       String?
+  planId                String?
+  credits               Int
+  amountTotal           Int?
+  currency              String?
+  customerEmail         String?
+  paymentStatus         String?
+  status                String
+  cardBrand             String?
+  cardLast4             String?
+  cardExpMonth          Int?
+  cardExpYear           Int?
+  receiptUrl            String?
+  invoicePdf            String?
+  syncedManually        Boolean?
+  syncedAt              DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@map("payments")
+}

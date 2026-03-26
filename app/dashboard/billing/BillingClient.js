@@ -68,10 +68,10 @@ export default function BillingClient({ session: initialSession, isIndia }) {
     {
       id: 'plan_lite',
       name: 'Lite',
-      credits: '5,000',
-      priceUSD: 2,
+      credits: '300',
+      priceUSD: 499,
       priceINR: 160,
-      features: ['5,000 Credits', '1 GBP connection', '1 SERP Tracker', 'Local Pack Tracker']
+      features: ['300 Credits', '1 GBP connection', '1 SERP Tracker', 'Local Pack Tracker']
     },
     {
       id: 'plan_pro',
@@ -404,7 +404,7 @@ export default function BillingClient({ session: initialSession, isIndia }) {
                   <div className="flex gap-1.5">
                     {/* Invoice download — Stripe PDF, receipt URL, or our custom invoice */}
                     <a
-                      href={payment.invoicePdf || payment.receiptUrl || `/api/invoice?id=${payment.id}`}
+                      href={`/api/invoice?id=${payment.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center text-slate-500 transition-colors"
@@ -414,7 +414,7 @@ export default function BillingClient({ session: initialSession, isIndia }) {
                     </a>
                     <button
                       onClick={() => {
-                        const link = payment.invoicePdf || payment.receiptUrl || `${window.location.origin}/api/invoice?id=${payment.id}`
+                        const link = `${window.location.origin}/api/invoice?id=${payment.id}`
                         navigator.clipboard.writeText(link)
                         toast.success('Invoice link copied! Share via email.')
                       }}

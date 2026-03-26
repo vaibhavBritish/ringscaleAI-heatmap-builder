@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcryptjs'
-import { MongoClient } from 'mongodb'
-
-async function getDB() {
-  const client = new MongoClient(process.env.MONGO_URL)
-  await client.connect()
-  return client.db(process.env.DB_NAME || 'local_rank_heatmap')
-}
+import prisma from '@/lib/prisma'
 
 export async function POST(request) {
   try {
@@ -21,12 +15,10 @@ export async function POST(request) {
       )
     }
 
-    const db = await getDB()
-    
-    const existingUser = await db.collection('users').findOne({ 
-      email: email.toLowerCase() 
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
     })
-    
+
     if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists' },
@@ -35,23 +27,23 @@ export async function POST(request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
-    
+
     const now = new Date()
     const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-    const user = {
-      id: uuidv4(),
-      name: name || email.split('@')[0],
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      plan: 'trial',
-      credits: 5000, // Starting trial credits
-      trialEndsAt: trialEndsAt,
-      createdAt: now,
-      updatedAt: now
-    }
-
-    await db.collection('users').insertOne(user)
+    const user = await prisma.user.create({
+      data: {
+        id: uuidv4(),
+        name: name || email.split('@')[0],
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        plan: 'trial',
+        credits: 5000,
+        trialEndsAt,
+        createdAt: now,
+        updatedAt: now
+      }
+    })
 
     return NextResponse.json({
       id: user.id,

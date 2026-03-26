@@ -1,60 +1,35 @@
-FROM node:20-alpine AS base
+FROM node:20-bullseye AS base
 
-# -----------------------
-# Dependencies stage
-# -----------------------
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else echo "Lockfile not found." && exit 1; fi
+COPY package*.json ./
+COPY prisma ./prisma
 
+RUN npm install
 
-# -----------------------
-# Builder stage
-# -----------------------
-FROM base AS builder
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Disable telemetry
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Build-time args
+# Build arguments
 ARG NEXT_PUBLIC_GOOGLE_API_KEY
-ENV NEXT_PUBLIC_GOOGLE_API_KEY=${NEXT_PUBLIC_GOOGLE_API_KEY}
+ARG NEXT_PUBLIC_BASE_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_RAZORPAY_KEY_ID
 
+# Set environment variables for build time
+ENV NEXT_PUBLIC_GOOGLE_API_KEY=$NEXT_PUBLIC_GOOGLE_API_KEY
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_RAZORPAY_KEY_ID=$NEXT_PUBLIC_RAZORPAY_KEY_ID
+
+RUN npx prisma generate
 RUN npm run build
 
-
-# -----------------------
-# Runner stage
-# -----------------------
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 nextjs
-
-# Prepare Next.js directory
-RUN mkdir .next && chown nextjs:nodejs .next
-
-# Copy only necessary files (optimized output)
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+# 👇 IMPORTANT: copy static assets for standalone
+RUN cp -r .next/static .next/standalone/.next/
+RUN cp -r public .next/standalone/
 
 EXPOSE 3000
 
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
-
-CMD ["node", "server.js"]
+CMD ["node", ".next/standalone/server.js"]

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 
 export async function GET(req) {
   try {
@@ -13,12 +13,10 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get('limit')) || 50
 
-    const db = await getDB()
-
     // 1. Get all projects for the user
-    const projects = await db.collection('projects')
-      .find({ userId: session.user.id })
-      .toArray()
+    const projects = await prisma.project.findMany({
+      where: { userId: session.user.id }
+    })
 
     if (projects.length === 0) {
       return NextResponse.json({ reports: [] })
@@ -31,14 +29,11 @@ export async function GET(req) {
     }, {})
 
     // 2. Get all completed scan jobs for these projects
-    const scanJobs = await db.collection('scan_jobs')
-      .find({
-        projectId: { $in: projectIds },
-        status: 'completed'
-      })
-      .sort({ completedAt: -1 })
-      .limit(limit)
-      .toArray()
+    const scanJobs = await prisma.scanJob.findMany({
+      where: { projectId: { in: projectIds }, status: 'completed' },
+      orderBy: { completedAt: 'desc' },
+      take: limit
+    })
 
     if (scanJobs.length === 0) {
       return NextResponse.json({ reports: [] })
@@ -46,9 +41,9 @@ export async function GET(req) {
 
     // 3. Get associated keywords
     const keywordIds = scanJobs.map(s => s.keywordId)
-    const keywords = await db.collection('keywords')
-      .find({ id: { $in: keywordIds } })
-      .toArray()
+    const keywords = await prisma.keyword.findMany({
+      where: { id: { in: keywordIds } }
+    })
 
     const keywordMap = keywords.reduce((acc, k) => {
       acc[k.id] = k.keyword

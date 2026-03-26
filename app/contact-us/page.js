@@ -55,15 +55,56 @@ const ContactUsPage = () => {
           <p>We’d love to hear from you! Reach out via the contact form or the information below.</p>
 
           <div className="space-y-4">
-            <div>
-              <span className="font-medium">Phone:</span> <a href="tel:+1234567890" className="text-blue-600">+1 (437) 291-3099</a>
-            </div>
-            <div>
-              <span className="font-medium">Email:</span> <a href="mailto:info@ringscale.co" className="text-blue-600">info@ringscale.ai</a>
-            </div>
-            <div>
-              <span className="font-medium">Address:</span> 123 Ringscale Street, Suite 100, YourCity, YourCountry
-            </div>
+            {(() => {
+              if (typeof window === 'undefined') {
+                return (
+                  <>
+                    <div>
+                      <span className="font-medium">Phone:</span> <a href="tel:+14372913099" className="text-blue-600">+1 (437) 291-3099</a>
+                    </div>
+                    <div>
+                      <span className="font-medium">Email:</span> <a href="mailto:info@ringscale.ai" className="text-blue-600">info@ringscale.ai</a>
+                    </div>
+                    <div>
+                      <span className="font-medium">Address:</span> 1470 HurOntario St Mississauga Ontario L5G 3H4
+                    </div>
+                  </>
+                );
+              }
+
+              // Priority 1: Check URL Path (Middle-ware driven)
+              const path = window.location.pathname;
+              const isIndiaPath = path.startsWith('/in/') || path === '/in';
+              const isUsPath = path.startsWith('/us/') || path === '/us';
+              
+              // Priority 2: Check Timezone as fallback
+              const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata');
+              
+              const isIndia = isIndiaPath ? true : isUsPath ? false : isIndiaTz;
+
+              const contactInfo = isIndia ? {
+                phone: "+91 91523 03009",
+                address: "P-10 Patel Nagar, New Delhi, 110008"
+              } : {
+                phone: "+1 (437) 291-3099",
+                address: "1470 HurOntario St Mississauga Ontario L5G 3H4"
+              };
+
+              return (
+                <>
+                  <div>
+                    <span className="font-medium">Phone:</span> <a href={`tel:${contactInfo.phone.replace(/\s+/g, '')}`} className="text-blue-600">{contactInfo.phone}</a>
+                  </div>
+                  <div>
+                    <span className="font-medium">Email:</span> <a href="mailto:info@ringscale.ai" className="text-blue-600">info@ringscale.ai</a>
+                  </div>
+                  <div>
+                    <span className="font-medium">Address:</span> {contactInfo.address}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           <div className="mt-6">

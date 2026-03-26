@@ -5,12 +5,18 @@ import { Providers } from '@/components/providers'
 export const metadata = {
   title: 'Local Rank Heatmap - Track Your Google Business Rankings',
   description: 'See exactly where your business ranks across your city with geo-grid heatmap analysis.',
+  icons: {
+    icon: '/favicon_logo.png',
+    shortcut: '/favicon_logo.png',
+    apple: '/favicon_logo.png',
+  }
 }
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon_logo.png" />
         <script dangerouslySetInnerHTML={{__html:'window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);'}} />
         <script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY || ''}&libraries=places`}

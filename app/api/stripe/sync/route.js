@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 import Stripe from 'stripe'
 
 export async function POST() {
@@ -12,7 +12,6 @@ export async function POST() {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-    const db = await getDB()
 
     // Find all completed checkout sessions for this user
     const sessions = await stripe.checkout.sessions.list({ limit: 50 })
@@ -24,7 +23,9 @@ export async function POST() {
       return NextResponse.json({ message: 'No completed payments found.', synced: false })
     }
 
-    const existingPayments = await db.collection('payments').find({ userId: session.user.id }).toArray()
+    const existingPayments = await prisma.payment.findMany({
+      where: { userId: session.user.id }
+    })
     const existingSessionIds = new Set(existingPayments.map(p => p.stripeSessionId))
 
     let totalNewCredits = 0
@@ -35,11 +36,10 @@ export async function POST() {
 
     for (const stripeSession of userSessions) {
       if (existingSessionIds.has(stripeSession.id)) continue
-      
+
       const { planId, credits } = stripeSession.metadata || {}
       if (!credits) continue
 
-      // Fetch card details from payment intent
       let cardDetails = null
       let receiptUrl = null
       let invoicePdf = null
@@ -78,49 +78,53 @@ export async function POST() {
       if (cardDetails) latestCard = cardDetails
       newPaymentsCount++
 
-      await db.collection('payments').insertOne({
-        userId: session.user.id,
-        provider: 'stripe',
-        stripeSessionId: stripeSession.id,
-        stripeCustomerId: stripeSession.customer,
-        stripePaymentIntentId: stripeSession.payment_intent,
-        stripeInvoiceId: stripeSession.invoice,
-        planId,
-        credits: Number(credits),
-        amountTotal: stripeSession.amount_total,
-        currency: stripeSession.currency,
-        customerEmail: stripeSession.customer_details?.email,
-        paymentStatus: stripeSession.payment_status,
-        status: 'completed',
-        cardBrand: cardDetails?.brand,
-        cardLast4: cardDetails?.last4,
-        cardExpMonth: cardDetails?.expMonth,
-        cardExpYear: cardDetails?.expYear,
-        receiptUrl,
-        invoicePdf,
-        syncedManually: true,
-        createdAt: new Date(stripeSession.created * 1000),
-        syncedAt: new Date()
+      await prisma.payment.create({
+        data: {
+          userId: session.user.id,
+          provider: 'stripe',
+          stripeSessionId: stripeSession.id,
+          stripeCustomerId: stripeSession.customer,
+          stripePaymentIntentId: stripeSession.payment_intent,
+          stripeInvoiceId: stripeSession.invoice,
+          planId,
+          credits: Number(credits),
+          amountTotal: stripeSession.amount_total,
+          currency: stripeSession.currency,
+          customerEmail: stripeSession.customer_details?.email,
+          paymentStatus: stripeSession.payment_status,
+          status: 'completed',
+          cardBrand: cardDetails?.brand,
+          cardLast4: cardDetails?.last4,
+          cardExpMonth: cardDetails?.expMonth,
+          cardExpYear: cardDetails?.expYear,
+          receiptUrl,
+          invoicePdf,
+          syncedManually: true,
+          createdAt: new Date(stripeSession.created * 1000),
+          syncedAt: new Date()
+        }
       })
     }
 
     if (newPaymentsCount > 0) {
-      const updateFields = { updatedAt: new Date() }
-      if (latestPlan) updateFields.plan = latestPlan
-      if (latestCustomerId) updateFields.stripeCustomerId = latestCustomerId
-      if (latestCard) {
-        updateFields.cardBrand = latestCard.brand
-        updateFields.cardLast4 = latestCard.last4
-        updateFields.cardExpMonth = latestCard.expMonth
-        updateFields.cardExpYear = latestCard.expYear
+      const updateData = {
+        updatedAt: new Date(),
+        credits: { increment: totalNewCredits },
+        ...(latestPlan && { plan: latestPlan }),
+        ...(latestCustomerId && { stripeCustomerId: latestCustomerId }),
+        ...(latestCard && {
+          cardBrand: latestCard.brand,
+          cardLast4: latestCard.last4,
+          cardExpMonth: latestCard.expMonth,
+          cardExpYear: latestCard.expYear,
+        })
       }
 
-      await db.collection('users').updateOne(
-        { id: session.user.id },
-        { $set: updateFields, $inc: { credits: totalNewCredits } }
-      )
+      const updatedUser = await prisma.user.update({
+        where: { id: session.user.id },
+        data: updateData
+      })
 
-      const updatedUser = await db.collection('users').findOne({ id: session.user.id })
       return NextResponse.json({
         message: `Synced ${newPaymentsCount} payment(s). Added ${totalNewCredits} credits.`,
         synced: true,

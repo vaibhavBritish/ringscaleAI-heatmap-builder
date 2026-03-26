@@ -137,95 +137,115 @@ export default function ScanResultsPage() {
       setDownloadLoading(true)
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
       
-      // 1. Header
+      // Helper to load image
+      const loadImage = (src) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image()
+          img.crossOrigin = 'Anonymous'
+          img.onload = () => resolve(img)
+          img.onerror = reject
+          img.src = src
+        })
+      }
+
+      // 1. Header with Logo
+      // Background for header
       doc.setFillColor(15, 23, 42) // Slate 900
-      doc.rect(0, 0, pageWidth, 40, 'F')
+      doc.rect(0, 0, pageWidth, 45, 'F')
+      
+      try {
+        const logoImg = await loadImage('/logo.png')
+        doc.addImage(logoImg, 'PNG', 15, 8, 35, 25)
+      } catch (e) {
+        console.warn('Could not load logo for PDF', e)
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(18)
+        doc.text('Ringscale AI', 15, 22)
+      }
       
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(22)
+      doc.setFontSize(24)
       doc.setFont('helvetica', 'bold')
-      doc.text('Local SEO Heatmap Report', 15, 22)
+      doc.text('Local SEO Heatmap Report', 60, 22)
       
-      doc.setFontSize(10)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Generated on ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 15, 30)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 60, 30)
+      doc.text(`Scan ID: ${scanId.substring(0, 8).toUpperCase()}`, 60, 35)
       
-      let y = 55
+      let y = 60
       
-      // 2. Business Details
-      doc.setTextColor(51, 65, 85) // Slate 700
-      doc.setFontSize(12)
+      // 2. Business & Keyword Details (Side by Side)
+      doc.setTextColor(37, 99, 235) // Blue 600
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text('BUSINESS DETAILS', 15, y)
-      y += 8
-      
-      doc.setFontSize(14)
-      doc.setTextColor(15, 23, 42)
-      doc.text(selectedBusiness.name, 15, y)
+      doc.text('BUSINESS PROFILE', 15, y)
+      doc.text('TARGET KEYWORD', pageWidth / 2 + 10, y)
       y += 6
       
-      doc.setFontSize(10)
-      doc.setTextColor(100, 116, 139)
-      doc.text(selectedBusiness.address || 'N/A', 15, y)
-      y += 12
+      doc.setTextColor(15, 23, 42)
+      doc.setFontSize(14)
+      doc.text(selectedBusiness.name, 15, y)
       
-      // 3. Keyword Info
       const currentKeyword = viewMode === 'overall' 
         ? 'Overall Results (Best Ranks)'
         : scanData.projectScans?.find(ps => String(ps.scanId) === String(scanId))?.keyword || 'Individual Scan'
+      doc.text(currentKeyword, pageWidth / 2 + 10, y)
+      y += 6
       
-      doc.setTextColor(51, 65, 85)
-      doc.setFontSize(12)
-      doc.setFont('helvetica', 'bold')
-      doc.text('TARGET KEYWORD', 15, y)
-      y += 8
-      
-      doc.setFontSize(16)
-      doc.setTextColor(37, 99, 235) // Blue 600
-      doc.text(currentKeyword, 15, y)
+      doc.setFontSize(9)
+      doc.setTextColor(100, 116, 139)
+      doc.setFont('helvetica', 'normal')
+      doc.text(selectedBusiness.address || 'N/A', 15, y, { maxWidth: 85 })
       y += 15
       
-      // 4. Analytics Summary
+      // 3. Analytics Summary (Cards)
       if (scanAnalytics) {
-        doc.setFillColor(248, 250, 252) // Slate 50
-        doc.roundedRect(12, y - 5, pageWidth - 24, 35, 3, 3, 'F')
+        const cardWidth = (pageWidth - 40) / 4
+        const cardHeight = 25
+        const cards = [
+          { label: 'VISIBILITY', value: `${scanAnalytics.visibilityScore}%`, color: [37, 99, 235] },
+          { label: 'AVG. RANK', value: `${scanAnalytics.averageRank || 'N/A'}`, color: [15, 23, 42] },
+          { label: 'BEST RANK', value: `#${scanAnalytics.bestRank || '-'}`, color: [22, 163, 74] },
+          { label: 'TOTAL POINTS', value: `${scanAnalytics.totalPoints}`, color: [15, 23, 42] }
+        ]
         
-        doc.setTextColor(100, 116, 139)
-        doc.setFontSize(9)
-        doc.text('VISIBILITY SCORE', 20, y + 5)
-        doc.text('AVG. RANK', 65, y + 5)
-        doc.text('BEST RANK', 110, y + 5)
-        doc.text('TOTAL POINTS', 155, y + 5)
+        cards.forEach((card, i) => {
+          const x = 15 + (i * (cardWidth + 3.3))
+          doc.setFillColor(248, 250, 252) // Slate 50
+          doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'F')
+          doc.setDrawColor(226, 232, 240) // Slate 200
+          doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'S')
+          
+          doc.setFontSize(7)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(100, 116, 139)
+          doc.text(card.label, x + cardWidth/2, y + 8, { align: 'center' })
+          
+          doc.setFontSize(12)
+          doc.setTextColor(...card.color)
+          doc.text(card.value, x + cardWidth/2, y + 18, { align: 'center' })
+        })
         
-        doc.setTextColor(15, 23, 42)
-        doc.setFontSize(18)
-        doc.setFont('helvetica', 'bold')
-        doc.text(`${scanAnalytics.visibilityScore}%`, 20, y + 15)
-        doc.text(`${scanAnalytics.averageRank || 'N/A'}`, 65, y + 15)
-        doc.text(`#${scanAnalytics.bestRank || '-'}`, 110, y + 15)
-        doc.text(`${scanAnalytics.totalPoints}`, 155, y + 15)
-        
-        y += 45
+        y += 40
       }
       
-      // 5. Map Image (Static Maps)
-      doc.setTextColor(51, 65, 85)
-      doc.setFontSize(12)
+      // 4. Map Image
+      doc.setTextColor(37, 99, 235)
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'bold')
-      doc.text('RANKING HEATMAP', 15, y)
+      doc.text('LOCAL RANKING HEATMAP', 15, y)
       y += 8
       
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
       if (apiKey && selectedBusiness) {
-        // Construct Static Map URL
         const mapWidth = 800
         const mapHeight = 500
-        
-        // Build markers
         const businessMarker = `markers=color:red|label:B|${selectedBusiness.latitude},${selectedBusiness.longitude}`
         
-        // Group pins by color to save URL space (cap at 150 for URL length limits)
         const colorGroups = {
           '0x22c55e': [], // Top 3 (Green)
           '0xeab308': [], // Top 10 (Yellow)
@@ -233,77 +253,52 @@ export default function ScanResultsPage() {
           '0x94a3b8': []  // 20+ (Gray)
         }
         
-        const pinsToRender = heatmapPins.slice(0, 100)
+        const pinsToRender = heatmapPins.slice(0, 120) // Slightly more pins
         pinsToRender.forEach(p => {
-          let color = '0x3b82f6' // Default blue
+          let color = '0x3b82f6'
           if (p.rank <= 3) color = '0x22c55e'
           else if (p.rank <= 10) color = '0xeab308'
           else if (p.rank < 20) color = '0xf97316'
           else color = '0x94a3b8'
-          
-          if (colorGroups[color]) {
-            colorGroups[color].push(`${p.latitude},${p.longitude}`)
-          }
+          if (colorGroups[color]) colorGroups[color].push(`${p.latitude},${p.longitude}`)
         })
         
         let markersUrl = businessMarker
         Object.entries(colorGroups).forEach(([color, points]) => {
-          if (points.length > 0) {
-            // Static Maps limits the number of pins per 'markers' param to some extent, 
-            // but usually it's the URL length that's the real limit.
-            // We'll chunk if needed, but for 7x7/13x13 it should be fine in one go.
-            markersUrl += `&markers=size:tiny|color:${color}|${points.join('|')}`
-          }
+          if (points.length > 0) markersUrl += `&markers=size:tiny|color:${color}|${points.join('|')}`
         })
         
         const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${selectedBusiness.latitude},${selectedBusiness.longitude}&zoom=14&size=${mapWidth}x${mapHeight}&maptype=${mapType}&format=png8&key=${apiKey}&${markersUrl}`
-        
-        // Use our proxy to bypass CORS
         const proxyUrl = `/api/proxy/image?url=${encodeURIComponent(staticMapUrl)}`
         
         const response = await fetch(proxyUrl)
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ error: 'Unknown proxy error' }))
-          throw new Error(err.error || `Map proxy failed with status ${response.status}`)
-        }
+        if (!response.ok) throw new Error(`Map proxy failed: ${response.status}`)
         
         const blob = await response.blob()
-        if (!blob.type.startsWith('image/')) {
-          const text = await blob.text()
-          throw new Error('Proxy returned non-image data: ' + text.substring(0, 100))
-        }
-
         const reader = new FileReader()
-        
         const base64Promise = new Promise((resolve) => {
           reader.onloadend = () => resolve(reader.result)
           reader.readAsDataURL(blob)
         })
-        
         const base64Data = await base64Promise
         
         const imgWidth = pageWidth - 30
         const imgHeight = (imgWidth * mapHeight) / mapWidth
+        
+        // Add subtle shadow/border to map
+        doc.setDrawColor(226, 232, 240)
+        doc.rect(14.5, y - 0.5, imgWidth + 1, imgHeight + 1, 'S')
         doc.addImage(base64Data, 'PNG', 15, y, imgWidth, imgHeight)
         
         y += imgHeight + 15
-      } else {
-        doc.setTextColor(239, 68, 68)
-        doc.text('Map preview unavailable in PDF.', 15, y)
-        y += 10
       }
       
-      // 6. Legend
-      if (y > 250) {
-        doc.addPage()
-        y = 20
-      }
-      
-      doc.setTextColor(51, 65, 85)
-      doc.setFontSize(10)
+      // 5. Legend & Footer
+      doc.setTextColor(37, 99, 235)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text('LEGEND', 15, y)
-      y += 6
+      doc.text('RANKING LEGEND', 15, y)
+      y += 8
       
       const legendItems = [
         { color: [34, 197, 94], label: 'Top 3 Ranking' },
@@ -312,22 +307,46 @@ export default function ScanResultsPage() {
         { color: [148, 163, 184], label: '20+ / Not Found' }
       ]
       
-      legendItems.forEach(item => {
+      legendItems.forEach((item, i) => {
+        const lx = 15 + (i * 45)
         doc.setFillColor(...item.color)
-        doc.circle(18, y - 1, 2, 'F')
+        doc.circle(lx + 2, y - 1, 1.5, 'F')
         doc.setTextColor(100, 116, 139)
+        doc.setFontSize(8)
         doc.setFont('helvetica', 'normal')
-        doc.text(item.label, 25, y)
-        y += 7
+        doc.text(item.label, lx + 6, y)
       })
+
+      // Footer
+      const footerY = pageHeight - 20
+      doc.setDrawColor(241, 245, 249)
+      doc.line(15, footerY - 5, pageWidth - 15, footerY - 5)
       
-      // Save
-      const fileName = `SEO_Heatmap_${selectedBusiness.name.replace(/[^a-z0-9]/gi, '_')}_${currentKeyword.replace(/[^a-z0-9]/gi, '_')}.pdf`
+      const path = window.location.pathname
+      const isIndiaPath = path.startsWith('/in/') || path === '/in'
+      const isUsPath = path.startsWith('/us/') || path === '/us'
+      
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata')
+      
+      const isIndiaDoc = isIndiaPath ? true : isUsPath ? false : isIndiaTz
+
+      const companyAddress = isIndiaDoc 
+        ? "P-10 Patel Nagar, New Delhi, 110008" 
+        : "1470 HurOntario St Mississauga Ontario L5G 3H4"
+
+      doc.setFontSize(7)
+      doc.setTextColor(148, 163, 184)
+      doc.text('© 2026 Ringscale AI - Local SEO Growth Engine', 15, footerY)
+      doc.text('Support: info@ringscale.ai | ringscale.ai', pageWidth - 15, footerY, { align: 'right' })
+      doc.text(companyAddress, 15, footerY + 4)
+      
+      const fileName = `SEO_Heatmap_${selectedBusiness.name.replace(/[^a-z0-9]/gi, '_')}.pdf`
       doc.save(fileName)
-      toast.success('Report downloaded successfully!')
+      toast.success('Professional report generated!')
     } catch (error) {
       console.error('PDF Export Error:', error)
-      toast.error(`PDF Generation Failed: ${error.message || 'Unknown error'}`)
+      toast.error(`Failed to generate report: ${error.message}`)
     } finally {
       setDownloadLoading(false)
     }

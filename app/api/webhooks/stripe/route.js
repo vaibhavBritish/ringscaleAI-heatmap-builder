@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
-import { getDB } from '@/lib/mongodb'
+import prisma from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,8 +35,6 @@ export async function POST(req) {
     console.log(`Stripe webhook: checkout.session.completed for userId=${userId}, planId=${planId}, credits=${credits}`)
 
     if (userId && credits) {
-      const db = await getDB()
-      
       // Fetch payment intent to get card details
       let cardDetails = null
       let receiptUrl = null
@@ -47,7 +45,7 @@ export async function POST(req) {
           const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent, {
             expand: ['payment_method', 'latest_charge']
           })
-          
+
           if (paymentIntent.payment_method?.card) {
             cardDetails = {
               brand: paymentIntent.payment_method.card.brand,
@@ -57,16 +55,15 @@ export async function POST(req) {
               funding: paymentIntent.payment_method.card.funding,
             }
           }
-          
+
           if (paymentIntent.latest_charge) {
-            const charge = typeof paymentIntent.latest_charge === 'string' 
+            const charge = typeof paymentIntent.latest_charge === 'string'
               ? await stripe.charges.retrieve(paymentIntent.latest_charge)
               : paymentIntent.latest_charge
             receiptUrl = charge.receipt_url
           }
         }
-        
-        // Get invoice PDF if invoice was created
+
         if (session.invoice) {
           const invoice = await stripe.invoices.retrieve(session.invoice)
           invoicePdf = invoice.invoice_pdf
@@ -76,50 +73,48 @@ export async function POST(req) {
       }
 
       // Update user's plan, credits, and card info
-      const userUpdate = { 
-        plan: planId, 
-        stripeCustomerId: session.customer,
-        updatedAt: new Date() 
-      }
-      if (cardDetails) {
-        userUpdate.cardBrand = cardDetails.brand
-        userUpdate.cardLast4 = cardDetails.last4
-        userUpdate.cardExpMonth = cardDetails.expMonth
-        userUpdate.cardExpYear = cardDetails.expYear
-      }
-
-      const updateResult = await db.collection('users').updateOne(
-        { id: userId },
-        { 
-          $set: userUpdate,
-          $inc: { credits: Number(credits) }
+      const updateResult = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          plan: planId,
+          stripeCustomerId: session.customer,
+          updatedAt: new Date(),
+          credits: { increment: Number(credits) },
+          ...(cardDetails && {
+            cardBrand: cardDetails.brand,
+            cardLast4: cardDetails.last4,
+            cardExpMonth: cardDetails.expMonth,
+            cardExpYear: cardDetails.expYear,
+          })
         }
-      )
+      })
 
-      console.log(`Stripe webhook: User update result - matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}`)
+      console.log(`Stripe webhook: User updated for userId=${userId}`)
 
       // Store payment record with full details
-      await db.collection('payments').insertOne({
-        userId,
-        provider: 'stripe',
-        stripeSessionId: session.id,
-        stripeCustomerId: session.customer,
-        stripePaymentIntentId: session.payment_intent,
-        stripeInvoiceId: session.invoice,
-        planId,
-        credits: Number(credits),
-        amountTotal: session.amount_total,
-        currency: session.currency,
-        customerEmail: session.customer_details?.email || session.customer_email,
-        paymentStatus: session.payment_status,
-        status: 'completed',
-        cardBrand: cardDetails?.brand,
-        cardLast4: cardDetails?.last4,
-        cardExpMonth: cardDetails?.expMonth,
-        cardExpYear: cardDetails?.expYear,
-        receiptUrl,
-        invoicePdf,
-        createdAt: new Date()
+      await prisma.payment.create({
+        data: {
+          userId,
+          provider: 'stripe',
+          stripeSessionId: session.id,
+          stripeCustomerId: session.customer,
+          stripePaymentIntentId: session.payment_intent,
+          stripeInvoiceId: session.invoice,
+          planId,
+          credits: Number(credits),
+          amountTotal: session.amount_total,
+          currency: session.currency,
+          customerEmail: session.customer_details?.email || session.customer_email,
+          paymentStatus: session.payment_status,
+          status: 'completed',
+          cardBrand: cardDetails?.brand,
+          cardLast4: cardDetails?.last4,
+          cardExpMonth: cardDetails?.expMonth,
+          cardExpYear: cardDetails?.expYear,
+          receiptUrl,
+          invoicePdf,
+          createdAt: new Date()
+        }
       })
 
       console.log(`Stripe webhook: Payment record stored for user ${userId}`)
