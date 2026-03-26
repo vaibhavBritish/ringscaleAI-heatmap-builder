@@ -6,13 +6,30 @@ import prisma from '@/lib/prisma'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { name, email, password } = body
+    const { name, email, password, otp } = body
 
-    if (!email || !password) {
+    if (!email || !password || !otp) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Email, password, and OTP are required' },
         { status: 400 }
       )
+    }
+
+    // Verify OTP using Redis
+    const redis = (await import('@/lib/redis')).default
+    if (redis) {
+      const storedOtp = await redis.get(`otp:${email.toLowerCase()}`)
+      if (!storedOtp || storedOtp !== otp) {
+        return NextResponse.json(
+          { error: 'Invalid or expired OTP' },
+          { status: 400 }
+        )
+      }
+      // OTP verified successfully, delete it to prevent reuse
+      await redis.del(`otp:${email.toLowerCase()}`)
+    } else {
+      console.warn('Redis is not available. OTP verification skipped.')
+      return NextResponse.json({ error: 'System busy. Please try again later.' }, { status: 503 })
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -38,7 +55,7 @@ export async function POST(request) {
         email: email.toLowerCase(),
         password: hashedPassword,
         plan: 'trial',
-        credits: 5000,
+        credits: 300,
         trialEndsAt,
         createdAt: now,
         updatedAt: now

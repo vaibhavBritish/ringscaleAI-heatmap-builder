@@ -290,10 +290,6 @@ export default function NewProjectPage() {
     setSelectedBusiness(business)
     setSearchResults([])
     setSearchQuery(business.name)
-    // Add default keyword based on business name
-    if (keywords.length === 0) {
-      setKeywords([business.name.toLowerCase()])
-    }
   }
 
   const handleSelectSuggestion = (kw) => {
@@ -384,7 +380,12 @@ export default function NewProjectPage() {
         })
       })
 
-      if (!response.ok) throw new Error('Failed to create project')
+      if (!response.ok) {
+        if (response.status === 402) {
+          throw new Error('No more credits. Please purchase more credits to run the scan.')
+        }
+        throw new Error('Failed to create project')
+      }
 
       const data = await response.json()
       toast.success('Project created! Starting scan...')

@@ -9,14 +9,16 @@ import { FolderKanban, BarChart3, Scan, Plus, ArrowRight, Clock } from 'lucide-r
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import TrialExpiredModal from '@/components/dashboard/TrialExpiredModal'
+import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
+import PlanTimer from '@/components/dashboard/PlanTimer'
+import { toast } from 'sonner'
 
 export default function DashboardPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false)
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
 
   useEffect(() => {
     fetchStats()
@@ -52,11 +54,16 @@ export default function DashboardPage() {
   }
 
   const handleNewProject = (e) => {
-    const isTrialExpired = session?.user?.plan === 'trial' && new Date(session.user.trialEndsAt) < new Date()
+    const user = stats?.user || session?.user
+    const expiryDate = user?.planEndsAt || user?.trialEndsAt
+    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (user?.credits <= 0)
     
-    if (isTrialExpired) {
+    if (isExpired) {
       e.preventDefault()
-      setIsTrialModalOpen(true)
+      if (user?.credits <= 0) {
+        toast.error('No more credits. Please purchase more credits to run the scan.')
+      }
+      setIsPlanModalOpen(true)
     }
   }
 
@@ -87,9 +94,9 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <TrialExpiredModal 
-        isOpen={isTrialModalOpen} 
-        onClose={() => setIsTrialModalOpen(false)} 
+      <PlanExpiredModal 
+        isOpen={isPlanModalOpen} 
+        onClose={() => setIsPlanModalOpen(false)} 
       />
 
       {/* Stats Cards */}
@@ -122,17 +129,35 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-blue-100 bg-gradient-to-br from-white to-blue-50/30">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Quick Actions</CardTitle>
-            <BarChart3 className="w-5 h-5 text-slate-400" />
+            <CardTitle className="text-sm font-black text-blue-600 uppercase tracking-wider">Plan & Usage</CardTitle>
+            <Clock className="w-5 h-5 text-blue-400" />
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/projects">
-              <Button variant="outline" size="sm" className="w-full">
-                View All Projects <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            <div className="space-y-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className={`text-2xl font-black ${ (stats?.user?.credits || 0) <= 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                    {loading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      (stats?.user?.credits || 0).toLocaleString()
+                    )}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Credits left</span>
+                </div>
+                {!loading && (stats?.user?.credits || 0) <= 0 && (
+                  <p className="text-[10px] font-bold text-rose-500 uppercase tracking-tight">
+                    No more credits. Please purchase more credits to run the scan.
+                  </p>
+                )}
+              </div>
+              <PlanTimer 
+                expiryDate={stats?.user?.planEndsAt || stats?.user?.trialEndsAt || session?.user?.planEndsAt || session?.user?.trialEndsAt} 
+                planName={stats?.user?.plan === 'trial' ? '7-Day Trial' : (stats?.user?.plan === 'plan_lite' ? 'Advance Plan' : 'Pro Plan')} 
+              />
+            </div>
           </CardContent>
         </Card>
       </div>

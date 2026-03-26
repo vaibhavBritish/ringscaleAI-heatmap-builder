@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import prisma from '@/lib/prisma'
+import { sendSubscriptionEmail } from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,11 +33,22 @@ export async function POST(req) {
       const credits = notes?.credits
 
       if (userId && credits) {
+        // Calculate plan expiration
+        let planEndsAt = new Date()
+        if (planId === 'plan_lite') {
+          planEndsAt.setMonth(planEndsAt.getMonth() + 1) // 1 month for Advance
+        } else if (planId === 'plan_pro') {
+          planEndsAt.setMonth(planEndsAt.getMonth() + 3) // 3 months for Pro
+        } else if (planId === 'trial') {
+          planEndsAt.setDate(planEndsAt.getDate() + 7) // 7 days for Trial
+        }
+
         await prisma.user.update({
           where: { id: userId },
           data: {
             plan: planId,
             updatedAt: new Date(),
+            planEndsAt: planEndsAt,
             credits: { increment: Number(credits) }
           }
         })
@@ -61,6 +73,28 @@ export async function POST(req) {
         })
 
         console.log(`Razorpay webhook: Payment record stored for user ${userId}`)
+
+        // Send confirmation email
+        try {
+          const planNames = {
+            'plan_lite': 'Advance',
+            'plan_pro': 'Pro',
+            'trial': 'Trial'
+          }
+
+          await sendSubscriptionEmail(payment.email || notes?.email, {
+            planName: planNames[planId] || planId,
+            credits: Number(credits),
+            amount: payment.amount / 100, // Razorpay amount is in paise
+            currency: payment.currency,
+            planEndsAt: planEndsAt,
+            receiptUrl: null, // Razorpay doesn't provide a direct receipt URL in the same way via simple webhook entity
+            invoicePdf: null
+          })
+          console.log(`Razorpay webhook: Confirmation email sent to ${payment.email || notes?.email}`)
+        } catch (emailError) {
+          console.error('Razorpay webhook: Failed to send confirmation email:', emailError.message)
+        }
       }
     }
 

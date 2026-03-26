@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function BillingClient({ session: initialSession, isIndia }) {
+export default function BillingClient({ session: initialSession, isIndia: isIndiaProp }) {
   const { data: session, update } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -19,37 +19,93 @@ export default function BillingClient({ session: initialSession, isIndia }) {
   const [hasRefreshed, setHasRefreshed] = useState(false)
   const [billingData, setBillingData] = useState(null)
   const [billingLoading, setBillingLoading] = useState(true)
+  const [isIndia, setIsIndia] = useState(isIndiaProp)
 
-  // Fetch billing details on mount
+  // Fetch billing details on mount and periodically
   useEffect(() => {
     fetchBillingDetails()
+    const interval = setInterval(fetchBillingDetails, 30000)
+
+    // Client-side geo detection fallback
+    fetch('https://ipapi.co/json/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.country_code === 'IN') {
+          setIsIndia(true)
+        }
+      })
+      .catch(err => console.error('Geo detection failed:', err))
+
+    return () => clearInterval(interval)
   }, [])
 
   // Refresh session when coming back from successful checkout
   useEffect(() => {
-    if (searchParams.get('success') === 'true' && !hasRefreshed) {
+    const success = searchParams.get('success')
+    const sessionId = searchParams.get('session_id')
+    
+    if (success === 'true' && !hasRefreshed) {
+      console.log('Detected successful checkout, triggering sync...')
       setHasRefreshed(true)
       toast.success('Payment successful! Your account is being updated...')
-      const timer = setTimeout(async () => {
-        // Sync payments first
+      
+      const performSync = async () => {
         try {
-          await fetch('/api/stripe/sync', { method: 'POST' })
-        } catch (e) {}
-        await update()
-        fetchBillingDetails()
-        router.replace('/dashboard/billing', { scroll: false })
-      }, 2000)
+          const syncRes = await fetch(`/api/stripe/sync${sessionId ? `?session_id=${sessionId}` : ''}`, { 
+            method: 'POST',
+            cache: 'no-store'
+          })
+          const syncData = await syncRes.json()
+          console.log('Sync result:', syncData)
+          
+          if (syncData.synced) {
+            toast.success(`Synced! Added ${syncData.newCredits} credits.`)
+          }
+        } catch (e) {
+          console.error('Auto-sync failed:', e)
+        } finally {
+          await update()
+          fetchBillingDetails()
+          // Clean up URL after successful sync
+          router.replace('/dashboard/billing', { scroll: false })
+        }
+      }
+
+      const timer = setTimeout(performSync, 1500)
       return () => clearTimeout(timer)
     }
   }, [searchParams, update, hasRefreshed, router])
 
+  const handleManualSync = async () => {
+    setLoading('sync')
+    try {
+      const res = await fetch('/api/stripe/sync', { method: 'POST', cache: 'no-store' })
+      const data = await res.json()
+      if (data.synced) {
+        toast.success(data.message)
+        await update()
+        fetchBillingDetails()
+      } else {
+        toast.info(data.message || 'All payments are already up to date.')
+      }
+    } catch (err) {
+      toast.error('Failed to sync payments.')
+    } finally {
+      setLoading(null)
+    }
+  }
+
   const fetchBillingDetails = async () => {
     try {
-      setBillingLoading(true)
       const res = await fetch('/api/stripe/billing')
       if (res.ok) {
         const data = await res.json()
         setBillingData(data)
+        
+        // Auto-sync session if credits changed
+        if (session?.user && data.user && data.user.credits !== session.user.credits) {
+          update()
+        }
       }
     } catch (err) {
       console.error('Failed to fetch billing details:', err)
@@ -58,31 +114,85 @@ export default function BillingClient({ session: initialSession, isIndia }) {
     }
   }
 
-  const currentSession = session || initialSession
-  const isTrial = currentSession?.user?.plan === 'trial'
-  const trialEndsAt = currentSession?.user?.trialEndsAt ? new Date(currentSession.user.trialEndsAt) : null
-  const isTrialExpired = isTrial && trialEndsAt && trialEndsAt < new Date()
-  const hasPaid = billingData?.paymentHistory?.length > 0
-
   const plans = [
     {
-      id: 'plan_lite',
-      name: 'Lite',
+      id: 'plan_trial',
+      name: '7-Day Trial',
       credits: '300',
+      priceUSD: 0,
+      priceINR: 0,
+      features: ['300 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner']
+    },
+    {
+      id: 'plan_lite',
+      name: 'Advance Plan',
+      credits: '1200',
       priceUSD: 499,
-      priceINR: 160,
-      features: ['300 Credits', '1 GBP connection', '1 SERP Tracker', 'Local Pack Tracker']
+      priceINR: 15000,
+      popular: true,
+      duration: '1 Month',
+      features: ['1200 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 10']
     },
     {
       id: 'plan_pro',
-      name: 'Pro',
-      credits: '36,000',
-      priceUSD: 97,
-      priceINR: 7900,
-      popular: true,
-      features: ['36,000 Credits', 'Rolling Credits', '25 GBP connections', '7 SERP Trackers', 'Local Pack Tracker']
+      name: 'Pro Plan',
+      credits: '2400',
+      priceUSD: 1299,
+      priceINR: 40000,
+      duration: '3 Months',
+      features: ['2400 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 15']
     }
   ]
+
+  // Timer component for real-time countdown
+  const ExpirationTimer = ({ endDate }) => {
+    const [timeLeft, setTimeLeft] = useState('')
+
+    useEffect(() => {
+      const calculate = () => {
+        const now = new Date().getTime()
+        const distance = new Date(endDate).getTime() - now
+
+        if (distance < 0) {
+          setTimeLeft('EXPIRED')
+          return false
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+
+        setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`)
+        return true
+      }
+
+      calculate()
+      const interval = setInterval(() => {
+        if (!calculate()) clearInterval(interval)
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }, [endDate])
+
+    return (
+      <div className="flex items-center gap-2 text-rose-600 font-black bg-rose-50 px-3 py-1 rounded-lg border border-rose-100 shadow-sm">
+        <Clock className="w-4 h-4 animate-pulse" />
+        <span className="tabular-nums text-xs">{timeLeft}</span>
+      </div>
+    )
+  }
+
+  const currentSession = session || initialSession
+  const user = billingData?.user || currentSession?.user
+  const userPlan = user?.plan
+  const planEndsAt = user?.planEndsAt ? new Date(user.planEndsAt) : null
+  const trialEndsAt = user?.trialEndsAt ? new Date(user.trialEndsAt) : null
+  
+  const expiryDate = planEndsAt || trialEndsAt
+  const isExpired = (expiryDate && expiryDate < new Date()) || (user?.credits <= 0)
+  const isTrial = userPlan === 'trial' || userPlan === 'plan_trial'
+  const hasPaid = billingData?.paymentHistory?.length > 0
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -108,23 +218,6 @@ export default function BillingClient({ session: initialSession, isIndia }) {
     }
   }
 
-  const handleSyncPayments = async () => {
-    setLoading('refresh')
-    try {
-      const syncRes = await fetch('/api/stripe/sync', { method: 'POST' })
-      const syncData = await syncRes.json()
-      if (syncData.synced) {
-        toast.success(syncData.message)
-      } else {
-        toast.info(syncData.message || 'No new payments to sync')
-      }
-      await update()
-      await fetchBillingDetails()
-    } catch (err) {
-      toast.error('Failed to sync. Please try again.')
-    }
-    setLoading(null)
-  }
 
   const handleCheckout = async (plan) => {
     setLoading(plan.id)
@@ -178,10 +271,12 @@ export default function BillingClient({ session: initialSession, isIndia }) {
   }
 
   const formatCurrency = (amount, currency) => {
-    if (!amount) return '$0.00'
+    if (!amount) return isIndia ? '₹0' : '$0.00'
     const value = amount / 100
-    if (currency?.toUpperCase() === 'INR') return `₹${value.toFixed(2)}`
-    return `$${value.toFixed(2)}`
+    if (currency?.toUpperCase() === 'INR') {
+      return `₹${value.toLocaleString('en-IN')}`
+    }
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const formatDate = (date) => {
@@ -192,9 +287,9 @@ export default function BillingClient({ session: initialSession, isIndia }) {
   }
 
   const getPlanDisplayName = (planId) => {
-    if (planId === 'plan_lite') return 'Lite'
-    if (planId === 'plan_pro') return 'Pro'
-    if (planId === 'trial') return 'Trial'
+    if (planId === 'plan_lite') return 'Advance Plan'
+    if (planId === 'plan_pro') return 'Pro Plan'
+    if (planId === 'trial' || planId === 'plan_trial') return '7-Day Trial'
     return planId || 'Free'
   }
 
@@ -211,45 +306,63 @@ export default function BillingClient({ session: initialSession, isIndia }) {
   return (
     <div className="space-y-8">
       {/* ━━━ Current Plan Box ━━━ */}
-      <div className={`p-6 md:p-8 rounded-2xl border ${isTrialExpired ? 'bg-red-50 border-red-200' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'} shadow-sm`}>
+      <div className={`p-6 md:p-8 rounded-2xl border ${isExpired ? 'bg-rose-50 border-rose-200' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'} shadow-sm`}>
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
           <div className="flex items-center gap-5">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white ${isTrialExpired ? 'bg-red-500' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} shadow-lg`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white ${isExpired ? 'bg-rose-500' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} shadow-lg`}>
               {isTrial ? <Zap className="w-7 h-7" /> : <CreditCard className="w-7 h-7" />}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className={`text-xl font-black ${isTrialExpired ? 'text-red-900' : 'text-blue-900'}`}>
-                  {getPlanDisplayName(currentSession?.user?.plan).toUpperCase()} PLAN
+                <h3 className={`text-xl font-black ${isExpired ? 'text-red-900' : 'text-blue-900'}`}>
+                  {getPlanDisplayName(userPlan).toUpperCase()} PLAN
                 </h3>
-                {!isTrialExpired && (
+                {!isExpired && (
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                     <BadgeCheck className="w-3 h-3" /> Active
                   </span>
                 )}
+                {isExpired && (
+                  <span className="bg-rose-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                    Expired
+                  </span>
+                )}
               </div>
-              {isTrial && trialEndsAt && (
-                <p className={`text-sm font-bold mt-1 ${isTrialExpired ? 'text-red-600' : 'text-blue-700'}`}>
-                  {isTrialExpired ? 'Trial expired. Upgrade to continue.' : `Trial ends ${trialEndsAt.toLocaleDateString()}`}
+              <div className="flex flex-col gap-1 mt-2">
+                {expiryDate && (
+                  <div className="flex items-center gap-3">
+                    <p className={`text-sm font-bold ${isExpired ? 'text-red-600' : 'text-blue-700'}`}>
+                      {isExpired ? 'Time limit reached' : `Valid until ${expiryDate.toLocaleDateString()}`}
+                    </p>
+                    {!isExpired && <ExpirationTimer endDate={expiryDate} />}
+                  </div>
+                )}
+                <p className="text-sm text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                  <span className={`inline-block w-2 h-2 rounded-full ${user?.credits > 0 ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}`}></span>
+                  {user?.credits?.toLocaleString() || 0} Credits remaining
                 </p>
+              </div>
+              {isExpired && (
+                <div className="mt-4 p-3 bg-rose-100/50 rounded-xl border border-rose-200">
+                  <p className="text-xs text-rose-800 font-bold">
+                    Plan Expired! Either your time or credits have run out. Features are disabled until you upgrade or top up.
+                  </p>
+                </div>
               )}
-              <p className="text-sm text-slate-500 mt-1 font-bold uppercase tracking-widest flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-                {currentSession?.user?.credits?.toLocaleString() || 0} Credits remaining
-              </p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <Button 
-              variant="ghost" size="sm"
-              className="text-slate-500 hover:text-blue-600 text-xs font-bold gap-1.5"
-              onClick={handleSyncPayments}
-              disabled={loading === 'refresh'}
+              variant="outline"
+              className="h-10 px-5 rounded-xl font-bold gap-2 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-sm"
+              onClick={handleManualSync}
+              disabled={loading === 'sync'}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading === 'refresh' ? 'animate-spin' : ''}`} />
-              Sync
+              {loading === 'sync' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Refresh Credits
             </Button>
+
             {!isIndia && currentSession?.user?.stripeCustomerId && (
               <Button 
                 variant="outline"
@@ -334,11 +447,11 @@ export default function BillingClient({ session: initialSession, isIndia }) {
             <div className="space-y-4">
               <div className="flex justify-between items-center py-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500 font-medium">Current Plan</span>
-                <span className="text-sm font-bold text-slate-900">{getPlanDisplayName(currentSession?.user?.plan)} Plan</span>
+                <span className="text-sm font-bold text-slate-900">{getPlanDisplayName(currentSession?.user?.plan)}</span>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500 font-medium">Credits Balance</span>
-                <span className="text-sm font-bold text-emerald-600">{currentSession?.user?.credits?.toLocaleString() || 0}</span>
+                <span className="text-sm font-bold text-emerald-600">{user?.credits?.toLocaleString() || 0}</span>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500 font-medium">Total Payments</span>
@@ -378,7 +491,7 @@ export default function BillingClient({ session: initialSession, isIndia }) {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 text-sm">
-                      {getPlanDisplayName(payment.planId)} Plan — {payment.credits?.toLocaleString()} credits
+                      {getPlanDisplayName(payment.planId)} — {payment.credits?.toLocaleString()} credits
                     </p>
                     <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                       <span className="text-xs text-slate-500 flex items-center gap-1">
@@ -448,7 +561,7 @@ export default function BillingClient({ session: initialSession, isIndia }) {
               <h3 className="text-2xl font-black text-slate-900 mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-6">
                 <span className="text-4xl font-black text-slate-900">
-                  {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR : plan.priceUSD}
+                  {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.priceUSD}
                 </span>
                 <span className="text-slate-500 font-bold text-sm">/mo</span>
               </div>

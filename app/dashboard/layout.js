@@ -14,16 +14,43 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard } from 'lucide-react'
-import TrialStatusBanner from '@/components/dashboard/TrialStatusBanner'
-import TrialExpiredModal from '@/components/dashboard/TrialExpiredModal'
+import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
+import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
+import { toast } from 'sonner'
 
 export default function DashboardLayout({ children }) {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false)
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
+  const [freshUser, setFreshUser] = useState(null)
+
+  // Fetch fresh user data from DB
+  useEffect(() => {
+    if (status !== 'authenticated' || !session?.user) return
+
+    const fetchFreshUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const data = await response.json()
+          setFreshUser(data)
+          // If session is stale, update it
+          if (data.credits !== session.user.credits || data.plan !== session.user.plan) {
+            update()
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync user data:', err)
+      }
+    }
+
+    fetchFreshUser()
+    const interval = setInterval(fetchFreshUser, 30000)
+    return () => clearInterval(interval)
+  }, [status, session?.user?.id, update])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -32,11 +59,16 @@ export default function DashboardLayout({ children }) {
   }, [status, router])
 
   const handleNewProject = (e) => {
-    const isTrialExpired = session?.user?.plan === 'trial' && new Date(session.user.trialEndsAt) < new Date()
+    const user = freshUser || session?.user
+    const expiryDate = user?.planEndsAt || user?.trialEndsAt
+    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (user?.credits <= 0)
     
-    if (isTrialExpired) {
+    if (isExpired) {
       e.preventDefault()
-      setIsTrialModalOpen(true)
+      if (user?.credits <= 0) {
+        toast.error('No more credits. Please purchase more credits to run the scan.')
+      }
+      setIsPlanModalOpen(true)
     }
   }
 
@@ -89,7 +121,7 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-screen bg-slate-50 overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -183,7 +215,7 @@ export default function DashboardLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20 group-hover:lg:pl-64'}`}>
+      <div className={`h-full flex flex-col overflow-hidden transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20 group-hover:lg:pl-64'}`}>
         {/* Mobile header */}
         <header className="sticky top-0 z-30 bg-white border-b lg:hidden">
           <div className="flex items-center gap-4 px-4 py-3">
@@ -201,16 +233,16 @@ export default function DashboardLayout({ children }) {
 
         {/* Page content */}
         <main className="flex-1 flex flex-col min-h-0">
-          <TrialStatusBanner />
-          <div className="p-4 md:p-6 flex-1 flex flex-col min-h-0">
+          <PlanStatusBanner />
+          <div className={`p-4 md:p-6 flex-1 flex flex-col min-h-0 ${pathname.includes('/scans/') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {children}
           </div>
         </main>
       </div>
-
-      <TrialExpiredModal 
-        isOpen={isTrialModalOpen} 
-        onClose={() => setIsTrialModalOpen(false)} 
+ 
+      <PlanExpiredModal 
+        isOpen={isPlanModalOpen} 
+        onClose={() => setIsPlanModalOpen(false)} 
       />
     </div>
   )

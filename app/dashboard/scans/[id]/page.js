@@ -317,12 +317,69 @@ export default function ScanResultsPage() {
         doc.text(item.label, lx + 6, y)
       })
 
-      // Footer
-      const footerY = pageHeight - 20
-      doc.setDrawColor(241, 245, 249)
-      doc.line(15, footerY - 5, pageWidth - 15, footerY - 5)
-      
-      const path = window.location.pathname
+      // 6. Competitive Analysis Page
+      if (scanData?.topCompetitors?.length > 0) {
+        doc.addPage()
+        
+        // Header for new page
+        doc.setFillColor(15, 23, 42)
+        doc.rect(0, 0, pageWidth, 25, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(16)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Competitive Analysis', 15, 17)
+        
+        let cy = 40
+        doc.setTextColor(37, 99, 235)
+        doc.setFontSize(10)
+        doc.text('TOP 10 LOCAL COMPETITORS', 15, cy)
+        cy += 10
+        
+        // Table Header
+        doc.setFillColor(248, 250, 252)
+        doc.rect(15, cy, pageWidth - 30, 8, 'F')
+        doc.setTextColor(100, 116, 139)
+        doc.setFontSize(8)
+        doc.text('RANK', 18, cy + 5)
+        doc.text('BUSINESS NAME & ADDRESS', 35, cy + 5)
+        doc.text('AVG RANK', pageWidth - 45, cy + 5)
+        doc.text('VISIBILITY', pageWidth - 25, cy + 5)
+        cy += 12
+        
+        // Table Rows
+        scanData.topCompetitors.forEach((comp, idx) => {
+          if (cy > pageHeight - 40) {
+            doc.addPage()
+            cy = 20
+          }
+          
+          doc.setTextColor(15, 23, 42)
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'bold')
+          doc.text(`#${idx + 1}`, 18, cy)
+          
+          doc.text(comp.name, 35, cy)
+          
+          doc.setFontSize(7)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(100, 116, 139)
+          const addr = comp.address || 'Address not available'
+          const splitAddr = doc.splitTextToSize(addr, pageWidth - 90)
+          doc.text(splitAddr, 35, cy + 4)
+          
+          doc.setFontSize(9)
+          doc.setTextColor(15, 23, 42)
+          doc.text(`${Math.round(comp.avgRank || comp.rank)}`, pageWidth - 45, cy + 2)
+          doc.text(`${comp.appearances}`, pageWidth - 25, cy + 2)
+          
+          doc.setDrawColor(241, 245, 249)
+          doc.line(15, cy + 10, pageWidth - 15, cy + 10)
+          
+          cy += 15
+        })
+      }
+
+      const path = typeof window !== 'undefined' ? window.location.pathname : ''
       const isIndiaPath = path.startsWith('/in/') || path === '/in'
       const isUsPath = path.startsWith('/us/') || path === '/us'
       
@@ -330,16 +387,27 @@ export default function ScanResultsPage() {
       const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata')
       
       const isIndiaDoc = isIndiaPath ? true : isUsPath ? false : isIndiaTz
-
       const companyAddress = isIndiaDoc 
         ? "P-10 Patel Nagar, New Delhi, 110008" 
         : "1470 HurOntario St Mississauga Ontario L5G 3H4"
 
-      doc.setFontSize(7)
-      doc.setTextColor(148, 163, 184)
-      doc.text('© 2026 Ringscale AI - Local SEO Growth Engine', 15, footerY)
-      doc.text('Support: info@ringscale.ai | ringscale.ai', pageWidth - 15, footerY, { align: 'right' })
-      doc.text(companyAddress, 15, footerY + 4)
+      // Footer
+      const finalPageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= finalPageCount; i++) {
+        doc.setPage(i)
+        const fY = pageHeight - 20
+        doc.setDrawColor(241, 245, 249)
+        doc.line(15, fY - 5, pageWidth - 15, fY - 5)
+        
+        doc.setFontSize(7)
+        doc.setTextColor(148, 163, 184)
+        doc.text(`Page ${i} of ${finalPageCount}`, pageWidth / 2, fY + 8, { align: 'center' })
+        
+        // Brand & Address on every page
+        doc.text('© 2026 Ringscale AI - Local SEO Growth Engine', 15, fY)
+        doc.text('Support: info@ringscale.ai | ringscale.ai', pageWidth - 15, fY, { align: 'right' })
+        doc.text(companyAddress, 15, fY + 4)
+      }
       
       const fileName = `SEO_Heatmap_${selectedBusiness.name.replace(/[^a-z0-9]/gi, '_')}.pdf`
       doc.save(fileName)
@@ -373,8 +441,8 @@ export default function ScanResultsPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-y-auto lg:overflow-hidden">
-      <div className="flex flex-col lg:flex-row flex-1 relative min-h-screen lg:min-h-0">
+    <div className="flex flex-col h-full -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-hidden">
+      <div className="flex flex-col lg:flex-row h-full relative overflow-hidden">
         
         {/* Map Center Area (Top on Mobile, flex-1 on Desktop) */}
         <main className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
@@ -418,7 +486,7 @@ export default function ScanResultsPage() {
         </main>
         
         {/* Left Sidebar (Below Map on Mobile, Side on Desktop) */}
-        <aside className="w-full lg:w-[30%] min-w-[320px] max-w-[450px] bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
+        <aside className="w-full lg:w-[350px] xl:w-[400px] bg-white border-r lg:border-r border-slate-200 overflow-hidden shadow-xl flex flex-col order-2 lg:order-1 h-full">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h2 className="font-bold text-slate-800 flex items-center gap-2 text-base">
               <Link href="/dashboard" className="mr-1 text-slate-500 hover:text-blue-600 transition">
@@ -434,7 +502,7 @@ export default function ScanResultsPage() {
             </Link>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Target Business Details */}
             {selectedBusiness && (
               <div className="p-4 border-b border-slate-100 space-y-3">
@@ -487,8 +555,8 @@ export default function ScanResultsPage() {
               </div>
             )}
 
-            {/* Results Section */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Results Section (Scrollable Area) */}
+            <div className="flex-1 overflow-y-auto min-h-0">
               <div className="w-full px-4 py-3 flex items-center justify-between bg-slate-50/50 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4 text-blue-600" />
@@ -554,6 +622,42 @@ export default function ScanResultsPage() {
               ) : (
                 <div className="p-4">
                   <p className="text-sm text-slate-500">No analytics data available for this scan.</p>
+                </div>
+              )}
+
+              {/* Top 10 Competitors Section */}
+              {scanData?.topCompetitors?.length > 0 && (
+                <div className="p-4 space-y-4 border-t border-slate-100 bg-slate-50/30">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <span className="font-bold text-sm text-slate-800 uppercase tracking-tight">Competitive Analysis</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {scanData.topCompetitors.map((comp, idx) => (
+                      <div key={comp.placeId} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm hover:border-blue-200 transition-colors group">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-xs font-black text-slate-900 truncate flex items-center gap-1.5">
+                              <span className="text-blue-600">#{idx + 1}</span> {comp.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-1 flex items-start gap-1">
+                              <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                              <span className="line-clamp-2">{comp.address || 'Address not available'}</span>
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex flex-col items-end gap-1">
+                            <div className="bg-blue-50 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-blue-100 italic">
+                               Avg Rank: {Math.round(comp.avgRank || comp.rank)}
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-400">
+                              {comp.appearances} appearances
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

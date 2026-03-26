@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
 import prisma from '@/lib/prisma'
+import { sendSubscriptionEmail } from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,16 @@ export async function POST(req) {
         console.error('Stripe webhook: Error fetching payment details:', err.message)
       }
 
+      // Calculate plan expiration
+      let planEndsAt = new Date()
+      if (planId === 'plan_lite') {
+        planEndsAt.setMonth(planEndsAt.getMonth() + 1) // 1 month for Advance
+      } else if (planId === 'plan_pro') {
+        planEndsAt.setMonth(planEndsAt.getMonth() + 3) // 3 months for Pro
+      } else if (planId === 'trial') {
+        planEndsAt.setDate(planEndsAt.getDate() + 7) // 7 days for Trial
+      }
+
       // Update user's plan, credits, and card info
       const updateResult = await prisma.user.update({
         where: { id: userId },
@@ -79,6 +90,7 @@ export async function POST(req) {
           plan: planId,
           stripeCustomerId: session.customer,
           updatedAt: new Date(),
+          planEndsAt: planEndsAt,
           credits: { increment: Number(credits) },
           ...(cardDetails && {
             cardBrand: cardDetails.brand,
@@ -118,6 +130,28 @@ export async function POST(req) {
       })
 
       console.log(`Stripe webhook: Payment record stored for user ${userId}`)
+
+      // Send confirmation email
+      try {
+        const planNames = {
+          'plan_lite': 'Advance',
+          'plan_pro': 'Pro',
+          'trial': 'Trial'
+        }
+
+        await sendSubscriptionEmail(updateResult.email || session.customer_details?.email || session.customer_email, {
+          planName: planNames[planId] || planId,
+          credits: Number(credits),
+          amount: session.amount_total / 100, // Convert from cents
+          currency: session.currency,
+          planEndsAt: planEndsAt,
+          receiptUrl: receiptUrl,
+          invoicePdf: invoicePdf
+        })
+        console.log(`Stripe webhook: Confirmation email sent to ${updateResult.email || session.customer_details?.email}`)
+      } catch (emailError) {
+        console.error('Stripe webhook: Failed to send confirmation email:', emailError.message)
+      }
     } else {
       console.error('Stripe webhook: Missing userId or credits in metadata', session.metadata)
     }

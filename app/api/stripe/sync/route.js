@@ -3,8 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import Stripe from 'stripe'
+import { sendSubscriptionEmail } from '@/lib/mail'
 
-export async function POST() {
+export async function POST(request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -12,14 +13,33 @@ export async function POST() {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get('session_id')
 
-    // Find all completed checkout sessions for this user
-    const sessions = await stripe.checkout.sessions.list({ limit: 50 })
-    const userSessions = sessions.data.filter(
-      s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
-    )
+    console.log(`Sync Request: sessionId=${sessionId}, userId=${session.user.id}`)
+
+    let userSessions = []
+
+    if (sessionId) {
+      try {
+        const stripeSession = await stripe.checkout.sessions.retrieve(sessionId)
+        console.log(`Sync: Retrieved session ${sessionId}, status=${stripeSession.payment_status}`)
+        if (stripeSession && stripeSession.payment_status === 'paid') {
+          userSessions = [stripeSession]
+        }
+      } catch (e) {
+        console.error('Sync: Error retrieving specific session:', e.message)
+      }
+    } else {
+      const sessions = await stripe.checkout.sessions.list({ limit: 50 })
+      userSessions = sessions.data.filter(
+        s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
+      )
+      console.log(`Sync: Found ${userSessions.length} paid sessions for user in last 50`)
+    }
 
     if (userSessions.length === 0) {
+      console.log('Sync: No new paid sessions to process')
       return NextResponse.json({ message: 'No completed payments found.', synced: false })
     }
 
@@ -30,15 +50,43 @@ export async function POST() {
 
     let totalNewCredits = 0
     let latestPlan = null
+    let latestPlanEndsAt = null
     let latestCustomerId = null
     let latestCard = null
-    let newPaymentsCount = 0
+    let anyUpdates = false
 
     for (const stripeSession of userSessions) {
-      if (existingSessionIds.has(stripeSession.id)) continue
-
       const { planId, credits } = stripeSession.metadata || {}
-      if (!credits) continue
+      
+      // Calculate expiration for this specific session
+      // Base it on the session creation time to be accurate
+      let sessionEndsAt = new Date(stripeSession.created * 1000)
+      if (planId === 'plan_lite') {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
+      } else if (planId === 'plan_pro') {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
+      } else if (planId === 'trial') {
+        sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
+      }
+
+      // Track the latest expiration across ALL sessions found
+      if (!latestPlanEndsAt || sessionEndsAt > latestPlanEndsAt) {
+        latestPlan = planId
+        latestPlanEndsAt = sessionEndsAt
+        anyUpdates = true
+      }
+
+      if (existingSessionIds.has(stripeSession.id)) {
+        console.log(`Sync: Session ${stripeSession.id} already exists in DB`)
+        continue
+      }
+
+      console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
+      
+      if (!credits) {
+        console.warn(`Sync: Skipping session ${stripeSession.id} - Missing credits in metadata`)
+        continue
+      }
 
       let cardDetails = null
       let receiptUrl = null
@@ -73,10 +121,9 @@ export async function POST() {
       }
 
       totalNewCredits += Number(credits)
-      latestPlan = planId
       latestCustomerId = stripeSession.customer
       if (cardDetails) latestCard = cardDetails
-      newPaymentsCount++
+      anyUpdates = true
 
       await prisma.payment.create({
         data: {
@@ -104,13 +151,36 @@ export async function POST() {
           syncedAt: new Date()
         }
       })
+
+      // Send confirmation email as fallback
+      try {
+        const planNames = {
+          'plan_lite': 'Advance',
+          'plan_pro': 'Pro',
+          'trial': 'Trial'
+        }
+
+        await sendSubscriptionEmail(stripeSession.customer_details?.email || session.user.email, {
+          planName: planNames[planId] || planId,
+          credits: Number(credits),
+          amount: stripeSession.amount_total / 100,
+          currency: stripeSession.currency,
+          planEndsAt: sessionEndsAt,
+          receiptUrl: receiptUrl,
+          invoicePdf: invoicePdf
+        })
+      } catch (e) {
+        console.error('Sync: Email fallback failed:', e.message)
+      }
     }
 
-    if (newPaymentsCount > 0) {
+    if (anyUpdates) {
+      console.log(`Sync: Updating user ${session.user.id} with ${totalNewCredits} new credits and exp ${latestPlanEndsAt}`)
       const updateData = {
         updatedAt: new Date(),
         credits: { increment: totalNewCredits },
         ...(latestPlan && { plan: latestPlan }),
+        ...(latestPlanEndsAt && { planEndsAt: latestPlanEndsAt }),
         ...(latestCustomerId && { stripeCustomerId: latestCustomerId }),
         ...(latestCard && {
           cardBrand: latestCard.brand,
@@ -126,14 +196,18 @@ export async function POST() {
       })
 
       return NextResponse.json({
-        message: `Synced ${newPaymentsCount} payment(s). Added ${totalNewCredits} credits.`,
+        message: totalNewCredits > 0 
+          ? `Synced new payments. Added ${totalNewCredits} credits.` 
+          : `Refreshed plan status. Valid until ${latestPlanEndsAt.toLocaleDateString()}.`,
         synced: true,
         newCredits: totalNewCredits,
         totalCredits: updatedUser.credits,
-        plan: updatedUser.plan
+        plan: updatedUser.plan,
+        planEndsAt: updatedUser.planEndsAt
       })
     }
 
+    console.log('Sync: No updates needed')
     return NextResponse.json({ message: 'All payments already synced.', synced: false })
   } catch (error) {
     console.error('Stripe sync error:', error)

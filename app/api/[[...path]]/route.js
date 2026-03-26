@@ -50,50 +50,9 @@ async function handleRoute(request, { params }) {
     }
 
     // ==================== AUTH ROUTES ====================
+    // Auth routes (register, me, login) are now handled by specific route handlers
+    // in the app/api/auth directory for better performance and route isolation.
 
-    // Register
-    if (route === '/auth/register' && method === 'POST') {
-      const body = await request.json()
-      const { name, email, password } = body
-
-      if (!email || !password) {
-        return handleCORS(NextResponse.json({ error: 'Email and password are required' }, { status: 400 }))
-      }
-
-      const existingUser = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
-      if (existingUser) {
-        return handleCORS(NextResponse.json({ error: 'User already exists' }, { status: 400 }))
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10)
-      const now = new Date()
-      const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-
-      const user = await prisma.user.create({
-        data: {
-          id: uuidv4(),
-          name: name || email.split('@')[0],
-          email: email.toLowerCase(),
-          password: hashedPassword,
-          plan: 'trial',
-          credits: 5000,
-          trialEndsAt,
-          createdAt: now,
-          updatedAt: now
-        }
-      })
-
-      return handleCORS(NextResponse.json({ id: user.id, name: user.name, email: user.email }))
-    }
-
-    // Get current user
-    if (route === '/auth/me' && method === 'GET') {
-      const user = await getAuthUser(request)
-      if (!user) {
-        return handleCORS(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
-      }
-      return handleCORS(NextResponse.json(user))
-    }
 
     // ==================== PROTECTED ROUTES ====================
 
@@ -109,10 +68,16 @@ async function handleRoute(request, { params }) {
       }
     }
 
-    // Helper to check if trial is expired
-    const isTrialExpired = (user) => {
-      if (!user) return false
-      return user.plan === 'trial' && new Date(user.trialEndsAt) < new Date()
+    // Helper to check if plan/trial is expired (Time OR Credits)
+    const isPlanExpired = (user) => {
+      if (!user) return true
+      const now = new Date()
+      // Use planEndsAt if available, otherwise fallback to trialEndsAt
+      const expiryDate = user.planEndsAt || user.trialEndsAt
+      const isTimeExpired = expiryDate && new Date(expiryDate) < now
+      const isCreditsExpired = (user.credits || 0) <= 0
+      
+      return isTimeExpired || isCreditsExpired
     }
 
     // Helper to verify project ownership
@@ -248,10 +213,11 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Business name and place ID are required' }, { status: 400 }))
       }
 
-      if (isTrialExpired(currentUser)) {
+      if (isPlanExpired(currentUser)) {
         return handleCORS(NextResponse.json({
-          error: 'Trial expired. Please upgrade your plan to continue scanning.',
-          code: 'TRIAL_EXPIRED'
+          error: 'Plan expired or out of credits. Please upgrade to continue scanning.',
+          code: 'PLAN_EXPIRED',
+          credits: currentUser.credits
         }, { status: 403 }))
       }
 
@@ -506,10 +472,11 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
-      if (isTrialExpired(currentUser)) {
+      if (isPlanExpired(currentUser)) {
         return handleCORS(NextResponse.json({
-          error: 'Trial expired. Please upgrade your plan to continue scanning.',
-          code: 'TRIAL_EXPIRED'
+          error: 'Plan expired or out of credits. Please upgrade to continue scanning.',
+          code: 'PLAN_EXPIRED',
+          credits: currentUser.credits
         }, { status: 403 }))
       }
 
@@ -691,12 +658,18 @@ async function handleRoute(request, { params }) {
       mergedResults.forEach(r => {
         r.competitors.forEach(c => {
           if (!allCompetitors.has(c.placeId)) {
-            allCompetitors.set(c.placeId, { ...c, appearances: 0 })
+            allCompetitors.set(c.placeId, { ...c, appearances: 0, totalRank: 0 })
           }
-          allCompetitors.get(c.placeId).appearances++
+          const comp = allCompetitors.get(c.placeId)
+          comp.appearances++
+          comp.totalRank += c.rank
         })
       })
       const topCompetitors = Array.from(allCompetitors.values())
+        .map(c => ({
+          ...c,
+          avgRank: c.totalRank / c.appearances
+        }))
         .sort((a, b) => b.appearances - a.appearances)
         .slice(0, 10)
 
@@ -732,10 +705,11 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Project ID and Keyword ID are required' }, { status: 400 }))
       }
 
-      if (isTrialExpired(currentUser)) {
+      if (isPlanExpired(currentUser)) {
         return handleCORS(NextResponse.json({
-          error: 'Trial expired. Please upgrade your plan to continue scanning.',
-          code: 'TRIAL_EXPIRED'
+          error: 'Plan expired or out of credits. Please upgrade to continue scanning.',
+          code: 'PLAN_EXPIRED',
+          credits: currentUser.credits
         }, { status: 403 }))
       }
 
@@ -833,7 +807,17 @@ async function handleRoute(request, { params }) {
         return { ...scan, keyword: keywordDoc?.keyword, project }
       }))
 
-      const statsResponse = { totalProjects, totalScans, recentScans }
+      const statsResponse = { 
+        totalProjects, 
+        totalScans, 
+        recentScans,
+        user: {
+          credits: currentUser.credits,
+          plan: currentUser.plan,
+          planEndsAt: currentUser.planEndsAt,
+          trialEndsAt: currentUser.trialEndsAt
+        }
+      }
 
       if (redis) {
         try {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -112,6 +112,19 @@ export default function HomePage() {
   const [activeReportFeature, setActiveReportFeature] = useState(2)
   const [activeEdgeFeature, setActiveEdgeFeature] = useState(3)
   const [isAnnual, setIsAnnual] = useState(false)
+  const [isIndia, setIsIndia] = useState(false)
+
+  useEffect(() => {
+    // Detect country
+    fetch('https://ipapi.co/json/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.country_code === 'IN') {
+          setIsIndia(true)
+        }
+      })
+      .catch(err => console.error('Geo detection failed:', err))
+  }, [])
 
   const scrollLeft = () => {
     sliderRef.current.scrollBy({ left: -400, behavior: 'smooth' })
@@ -1009,14 +1022,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {[
               {
-                name: "Lite",
-                desc: "Best for Beginners",
+                name: "7-Day Trial",
+                desc: "Try it for free",
                 icon: <Settings className="w-6 h-6 text-blue-500" />,
-                price: isAnnual ? "32" : "39",
-                features: ["5,000 Credits", "(~60 9x9 Scans)", "1 GBP connection", "1 SERP Tracker Campaign", "AI Tracker ($49/site)", "Citations Builder ($35/location)", "Local Pack Rank Tracker"],
+                price: "0",
+                priceINR: 0,
+                features: ["300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Local Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
               },
@@ -1024,28 +1038,21 @@ export default function HomePage() {
                 name: "Advance",
                 desc: "Best for Local Owners",
                 icon: <Rocket className="w-6 h-6 text-blue-600" />,
-                price: isAnnual ? "49" : "59",
-                features: ["15,000 Credits", "(~185 9x9 Scans)", "15 GBP connections", "3 SERP Tracker Campaigns", "AI Tracker ($49/site)", "Citations Builder ($35/location)", "Local Pack Rank Tracker"],
-                color: "bg-white",
-                textColor: "text-slate-800"
+                price: "499",
+                priceINR: 15000,
+                popular: true,
+                features: ["1200 Credits", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 10", "Local Pack Rank Tracker"],
+                color: "bg-blue-50/95",
+                textColor: "text-slate-900",
+                badge: "Monthly"
               },
               {
                 name: "Pro",
                 desc: "Best for Agency Owners",
                 icon: <Trophy className="w-6 h-6 text-blue-600" />,
-                price: isAnnual ? "81" : "97",
-                popular: true,
-                features: ["Rolling Credits", "36,000 Credits", "(~444 9x9 Scans)", "25 GBP connections", "7 SERP Tracker Campaigns", "AI Tracker ($49/site)", "Citations Builder ($35/location)", "Local Pack Rank Tracker"],
-                color: "bg-blue-50/95",
-                textColor: "text-slate-900",
-                badge: "Most Popular"
-              },
-              {
-                name: "Powerhouse",
-                desc: "Best for Large Agencies",
-                icon: <Zap className="w-6 h-6 text-blue-400" />,
-                price: isAnnual ? "164" : "197",
-                features: ["Rolling Credits", "81,000 Credits", "(~1000 9x9 Scans)", "80 GBP connections", "18 SERP Tracker Campaigns", "AI Tracker ($49/site)", "Citations Builder ($35/location)", "Local Pack Rank Tracker"],
+                price: "1299",
+                priceINR: 40000,
+                features: ["2400 Credits", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 15", "Local Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
               }
@@ -1077,7 +1084,9 @@ export default function HomePage() {
                   <p className="text-[11px] font-bold text-slate-400 mb-6 uppercase tracking-wider">{plan.desc}</p>
 
                   <div className="flex items-baseline gap-1.5 mb-8">
-                    <span className={`text-5xl font-black ${plan.textColor}`}>${plan.price}</span>
+                    <span className={`text-5xl font-black ${plan.textColor}`}>
+                      {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.price}
+                    </span>
                     <span className="text-slate-400 font-bold text-sm">/mo</span>
                   </div>
 

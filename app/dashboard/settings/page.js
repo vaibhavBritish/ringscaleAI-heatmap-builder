@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Shield, User } from 'lucide-react'
-import TrialTimer from '@/components/dashboard/TrialTimer'
+import PlanTimer from '@/components/dashboard/PlanTimer'
+import Link from 'next/link'
 
 export default function SettingsPage() {
   const { data: session } = useSession()
@@ -39,7 +40,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {isTrial && (
+      {(session?.user?.planEndsAt || session?.user?.trialEndsAt) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -49,8 +50,15 @@ export default function SettingsPage() {
             <CardDescription>Your current subscription</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <TrialTimer trialEndsAt={session?.user?.trialEndsAt} />
-            <Button variant="outline">Upgrade Plan</Button>
+            <PlanTimer 
+              expiryDate={session?.user?.planEndsAt || session?.user?.trialEndsAt} 
+              planName={session?.user?.plan === 'trial' ? '7-Day Trial' : (session?.user?.plan === 'plan_lite' ? 'Advance Plan' : 'Pro Plan')} 
+            />
+            <Link href="/dashboard/billing">
+              <Button variant="outline" className="w-full">
+                {session?.user?.plan === 'trial' ? 'Upgrade Plan' : 'Manage Subscription'}
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       )}

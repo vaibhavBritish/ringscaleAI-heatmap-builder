@@ -20,16 +20,18 @@ const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
 // Define plan pricing securely on the server
 const PLANS = {
   'plan_lite': {
-    priceUSD: 2,
-    priceINR: 160,
-    credits: 5000,
-    name: 'Lite Plan'
+    priceUSD: 499,
+    priceINR: 15000, 
+    credits: 1200,
+    name: 'Advance Plan',
+    durationMonths: 1
   },
   'plan_pro': {
-    priceUSD: 97,
-    priceINR: 7900,
-    credits: 36000,
-    name: 'Pro Plan'
+    priceUSD: 1299,
+    priceINR: 40000, 
+    credits: 2400,
+    name: 'Pro Plan',
+    durationMonths: 3
   }
 }
 
@@ -124,7 +126,7 @@ export async function POST(request) {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?success=true`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}&userId=${session.user.id}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?canceled=true`,
       }
 

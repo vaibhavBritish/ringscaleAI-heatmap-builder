@@ -27,7 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { formatDistanceToNow, format } from 'date-fns'
 import { useSession } from 'next-auth/react'
-import TrialExpiredModal from '@/components/dashboard/TrialExpiredModal'
+import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 
 export default function ProjectDetailPage() {
   const params = useParams()
@@ -47,7 +47,7 @@ export default function ProjectDetailPage() {
     searchRadiusMeters: '5000'
   })
   const [startingScan, setStartingScan] = useState(false)
-  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false)
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [competitors, setCompetitors] = useState([])
   const [loadingCompetitors, setLoadingCompetitors] = useState(false)
   const { data: session } = useSession()
@@ -268,9 +268,11 @@ export default function ProjectDetailPage() {
           </p>
         </div>
         <Dialog open={showScanDialog} onOpenChange={(open) => {
-          const isTrialExpired = session?.user?.plan === 'trial' && new Date(session.user.trialEndsAt) < new Date()
-          if (open && isTrialExpired) {
-            setIsTrialModalOpen(true)
+          const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
+          const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
+          
+          if (open && isExpired) {
+            setIsPlanModalOpen(true)
             return
           }
           setShowScanDialog(open)
@@ -514,9 +516,11 @@ export default function ProjectDetailPage() {
                 <p className="text-slate-500 mb-4">No scans yet. Add a keyword and run your first scan.</p>
                 {keywords.length > 0 && (
                   <Button onClick={() => {
-                    const isTrialExpired = session?.user?.plan === 'trial' && new Date(session.user.trialEndsAt) < new Date()
-                    if (isTrialExpired) {
-                      setIsTrialModalOpen(true)
+                    const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
+                    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
+                    
+                    if (isExpired) {
+                      setIsPlanModalOpen(true)
                     } else {
                       setShowScanDialog(true)
                     }
@@ -592,9 +596,9 @@ export default function ProjectDetailPage() {
         </TabsContent>
       </Tabs>
       
-      <TrialExpiredModal 
-        isOpen={isTrialModalOpen} 
-        onClose={() => setIsTrialModalOpen(false)} 
+      <PlanExpiredModal 
+        isOpen={isPlanModalOpen} 
+        onClose={() => setIsPlanModalOpen(false)} 
       />
     </div>
   )

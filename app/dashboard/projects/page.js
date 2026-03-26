@@ -27,7 +27,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
-import TrialExpiredModal from '@/components/dashboard/TrialExpiredModal'
+import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 
 export default function ProjectsPage() {
   const { data: session } = useSession()
@@ -35,7 +35,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteProject, setDeleteProject] = useState(null)
-  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false)
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
 
   useEffect(() => {
     fetchProjects()
@@ -57,11 +57,12 @@ export default function ProjectsPage() {
   }
 
   const handleNewProject = (e) => {
-    const isTrialExpired = session?.user?.plan === 'trial' && new Date(session.user.trialEndsAt) < new Date()
+    const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
+    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
     
-    if (isTrialExpired) {
+    if (isExpired) {
       e.preventDefault()
-      setIsTrialModalOpen(true)
+      setIsPlanModalOpen(true)
     }
   }
 
@@ -117,9 +118,9 @@ export default function ProjectsPage() {
         </Link>
       </div>
 
-      <TrialExpiredModal 
-        isOpen={isTrialModalOpen} 
-        onClose={() => setIsTrialModalOpen(false)} 
+      <PlanExpiredModal 
+        isOpen={isPlanModalOpen} 
+        onClose={() => setIsPlanModalOpen(false)} 
       />
 
       {/* Search */}
