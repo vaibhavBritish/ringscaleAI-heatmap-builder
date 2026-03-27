@@ -20,7 +20,7 @@ const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
 // Define plan pricing securely on the server
 const PLANS = {
   'plan_lite': {
-    priceUSD: 499,
+    priceUSD: 1,
     priceINR: 15000, 
     credits: 1200,
     name: 'Advance Plan',

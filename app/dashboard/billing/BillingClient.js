@@ -30,8 +30,8 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
       .then(data => {
-        if (data.country_code === 'IN') {
-          setIsIndia(true)
+        if (data.country_code) {
+          setIsIndia(data.country_code === 'IN')
         }
       })
       .catch(err => console.error('Geo detection failed:', err))
@@ -121,17 +121,20 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       credits: '300',
       priceUSD: 0,
       priceINR: 0,
-      features: ['300 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner']
+      badge: '7 DAY FREE',
+      features: ['300 Credits', '7 Days Access', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner']
     },
     {
       id: 'plan_lite',
       name: 'Advance Plan',
       credits: '1200',
-      priceUSD: 499,
+      priceUSD: 1,
       priceINR: 15000,
       popular: true,
       duration: '1 Month',
-      features: ['1200 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 10']
+      ribbon: 'MONTHLY',
+      badge: '7 DAY FREE',
+      features: ['1200 Credits', '1 Month Access', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 10']
     },
     {
       id: 'plan_pro',
@@ -140,7 +143,9 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       priceUSD: 1299,
       priceINR: 40000,
       duration: '3 Months',
-      features: ['2400 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 15']
+      ribbon: '3 MONTHS',
+      badge: '7 DAY FREE',
+      features: ['2400 Credits', '3 Months Access', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 15']
     }
   ]
 
@@ -315,7 +320,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className={`text-xl font-black ${isExpired ? 'text-red-900' : 'text-blue-900'}`}>
-                  {getPlanDisplayName(userPlan).toUpperCase()} PLAN
+                  {getPlanDisplayName(userPlan).toUpperCase()}
                 </h3>
                 {!isExpired && (
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
@@ -551,7 +556,25 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
         
         <div className="grid md:grid-cols-2 gap-6">
           {plans.map((plan) => (
-            <div key={plan.id} className={`bg-white rounded-[2rem] p-8 border ${plan.popular ? 'border-blue-600 shadow-xl relative scale-[1.02]' : 'border-slate-200'} flex flex-col`}>
+            <div key={plan.id} className={`bg-white rounded-[2rem] p-8 border ${plan.popular ? 'border-blue-600 shadow-xl relative scale-[1.02]' : 'border-slate-200'} flex flex-col relative overflow-hidden`}>
+              {/* Ribbon */}
+              {plan.ribbon && (
+                <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none z-10">
+                  <div className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest py-1 w-32 text-center absolute top-5 right-[-34px] rotate-45 shadow-sm">
+                    {plan.ribbon}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Badge */}
+              {plan.badge && (
+                <div className="absolute top-6 right-6 z-0">
+                  <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider border border-emerald-100/50">
+                    {plan.badge}
+                  </span>
+                </div>
+              )}
+
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">
                   Most Popular
@@ -563,7 +586,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 <span className="text-4xl font-black text-slate-900">
                   {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.priceUSD}
                 </span>
-                <span className="text-slate-500 font-bold text-sm">/mo</span>
+                <span className="text-slate-500 font-bold text-sm">/ {plan.duration || '7 Days'}</span>
               </div>
 
               <div className="space-y-3 mb-8 flex-1">

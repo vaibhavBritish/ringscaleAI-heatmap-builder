@@ -31,11 +31,12 @@ export async function POST(request) {
         console.error('Sync: Error retrieving specific session:', e.message)
       }
     } else {
-      const sessions = await stripe.checkout.sessions.list({ limit: 50 })
+      // Increase limit to 100 to find older missing payments
+      const sessions = await stripe.checkout.sessions.list({ limit: 100 })
       userSessions = sessions.data.filter(
         s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
       )
-      console.log(`Sync: Found ${userSessions.length} paid sessions for user in last 50`)
+      console.log(`Sync: Found ${userSessions.length} paid sessions for user in last 100`)
     }
 
     if (userSessions.length === 0) {
@@ -43,49 +44,58 @@ export async function POST(request) {
       return NextResponse.json({ message: 'No completed payments found.', synced: false })
     }
 
+    // Sort sessions by creation date (ascending) to process them in order for stacking
+    userSessions.sort((a, b) => a.created - b.created)
+
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } })
     const existingPayments = await prisma.payment.findMany({
       where: { userId: session.user.id }
     })
     const existingSessionIds = new Set(existingPayments.map(p => p.stripeSessionId))
 
     let totalNewCredits = 0
-    let latestPlan = null
-    let latestPlanEndsAt = null
-    let latestCustomerId = null
+    let currentPlanEndsAt = user?.planEndsAt ? new Date(user.planEndsAt) : null
+    let latestPlan = user?.plan
+    let latestCustomerId = user?.stripeCustomerId
     let latestCard = null
     let anyUpdates = false
 
     for (const stripeSession of userSessions) {
       const { planId, credits } = stripeSession.metadata || {}
       
-      // Calculate expiration for this specific session
-      // Base it on the session creation time to be accurate
-      let sessionEndsAt = new Date(stripeSession.created * 1000)
-      if (planId === 'plan_lite') {
-        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
-      } else if (planId === 'plan_pro') {
-        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
-      } else if (planId === 'trial') {
-        sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
-      }
-
-      // Track the latest expiration across ALL sessions found
-      if (!latestPlanEndsAt || sessionEndsAt > latestPlanEndsAt) {
-        latestPlan = planId
-        latestPlanEndsAt = sessionEndsAt
-        anyUpdates = true
-      }
-
       if (existingSessionIds.has(stripeSession.id)) {
         console.log(`Sync: Session ${stripeSession.id} already exists in DB`)
+        // Still update latest info if this is a recent session
+        if (planId) latestPlan = planId
+        if (stripeSession.customer) latestCustomerId = stripeSession.customer
         continue
       }
 
       console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
+      anyUpdates = true
       
+      // Calculate stacking expiration
+      // If the current plan is still active, start from its end date.
+      // Otherwise, start from the session creation date.
+      const sessionCreated = new Date(stripeSession.created * 1000)
+      let baseDate = (currentPlanEndsAt && currentPlanEndsAt > sessionCreated) 
+        ? currentPlanEndsAt 
+        : sessionCreated
+
+      let sessionEndsAt = new Date(baseDate)
+      if (planId === 'plan_lite') {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
+      } else if (planId === 'plan_pro') {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
+      } else if (planId === 'trial' || planId === 'plan_trial') {
+        sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
+      }
+
+      currentPlanEndsAt = sessionEndsAt
+      if (planId) latestPlan = planId
+
       if (!credits) {
-        console.warn(`Sync: Skipping session ${stripeSession.id} - Missing credits in metadata`)
-        continue
+        console.warn(`Sync: Missing credits in metadata for ${stripeSession.id}`)
       }
 
       let cardDetails = null
@@ -120,10 +130,9 @@ export async function POST(request) {
         console.error('Sync: Error fetching details:', e.message)
       }
 
-      totalNewCredits += Number(credits)
+      if (credits) totalNewCredits += Number(credits)
       latestCustomerId = stripeSession.customer
       if (cardDetails) latestCard = cardDetails
-      anyUpdates = true
 
       await prisma.payment.create({
         data: {
@@ -134,7 +143,7 @@ export async function POST(request) {
           stripePaymentIntentId: stripeSession.payment_intent,
           stripeInvoiceId: stripeSession.invoice,
           planId,
-          credits: Number(credits),
+          credits: Number(credits || 0),
           amountTotal: stripeSession.amount_total,
           currency: stripeSession.currency,
           customerEmail: stripeSession.customer_details?.email,
@@ -152,35 +161,36 @@ export async function POST(request) {
         }
       })
 
-      // Send confirmation email as fallback
+      // Send confirmation email
       try {
         const planNames = {
           'plan_lite': 'Advance',
           'plan_pro': 'Pro',
+          'plan_trial': 'Trial',
           'trial': 'Trial'
         }
 
         await sendSubscriptionEmail(stripeSession.customer_details?.email || session.user.email, {
           planName: planNames[planId] || planId,
-          credits: Number(credits),
+          credits: Number(credits || 0),
           amount: stripeSession.amount_total / 100,
           currency: stripeSession.currency,
-          planEndsAt: sessionEndsAt,
+          planEndsAt: currentPlanEndsAt,
           receiptUrl: receiptUrl,
           invoicePdf: invoicePdf
         })
       } catch (e) {
-        console.error('Sync: Email fallback failed:', e.message)
+        console.error('Sync: Email failed:', e.message)
       }
     }
 
     if (anyUpdates) {
-      console.log(`Sync: Updating user ${session.user.id} with ${totalNewCredits} new credits and exp ${latestPlanEndsAt}`)
+      console.log(`Sync: Updating user ${session.user.id} with ${totalNewCredits} new credits and exp ${currentPlanEndsAt}`)
       const updateData = {
         updatedAt: new Date(),
         credits: { increment: totalNewCredits },
         ...(latestPlan && { plan: latestPlan }),
-        ...(latestPlanEndsAt && { planEndsAt: latestPlanEndsAt }),
+        ...(currentPlanEndsAt && { planEndsAt: currentPlanEndsAt }),
         ...(latestCustomerId && { stripeCustomerId: latestCustomerId }),
         ...(latestCard && {
           cardBrand: latestCard.brand,

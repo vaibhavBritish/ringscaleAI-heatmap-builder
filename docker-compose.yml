@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -9,14 +7,13 @@ services:
         NEXT_PUBLIC_GOOGLE_API_KEY: ${NEXT_PUBLIC_GOOGLE_API_KEY}
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
         NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID}
 
     container_name: seo-heatmap-app
     restart: always
 
     ports:
-      - "3011:3000"
+      - "3010:3000"
 
     env_file:
       - .env
@@ -24,9 +21,15 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
+      VIRTUAL_HOST: ringscale.ai
+      VIRTUAL_PORT: 3000
 
     depends_on:
       - redis
+
+    networks:
+      - default
+      - nginx-proxy
 
     logging:
       driver: json-file
@@ -42,6 +45,12 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - default
 
 volumes:
   redis_data:
+
+networks:
+  nginx-proxy:
+    external: true
