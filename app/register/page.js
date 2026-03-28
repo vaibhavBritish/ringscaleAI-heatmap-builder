@@ -75,12 +75,12 @@ export default function RegisterPage() {
 
   const handleSendOTP = async (e) => {
     if (e) e.preventDefault()
-    
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match')
       return
     }
-    
+
     if (!formData.smsConsent) {
       toast.error('Please agree to receive SMS messages')
       return
@@ -178,7 +178,7 @@ export default function RegisterPage() {
           <h1 className="text-3xl lg:text-5xl font-black text-slate-900 leading-tight">
             Your spot in the <span className="text-blue-600 underline decoration-blue-200 underline-offset-8">Top 3</span> starts here
           </h1>
-          
+
           <div className="relative mt-12 transform hover:scale-105 transition-transform duration-500 drop-shadow-2xl">
             <Image
               src="/image.png"
@@ -201,7 +201,7 @@ export default function RegisterPage() {
         <div className="max-w-xl w-full space-y-12">
           {/* Header & Headlines */}
           <div className="space-y-6 text-center lg:text-left pt-8">
-            
+
             <div className="space-y-4">
               <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
                 Our <span className="text-blue-600">AI-Powered</span> SaaS Platform Gets You in the Top 3
@@ -209,10 +209,10 @@ export default function RegisterPage() {
               <p className="text-lg text-slate-500 font-medium">
                 We'll analyze your location and show how our AI-driven insights can move your business toward Top 3 visibility
               </p>
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-8 bg-white rounded-3xl p-2 lg:p-0">
+          <div className="space-y-8 bg-white rounded-3xl p-2 lg:p-0">
             <div className="space-y-4 text-center lg:text-left">
               <h3 className="text-2xl font-black text-slate-900">
                 {step === 'details' ? "Let's see if your location is available first" : "Almost there! Verify your email"}
@@ -256,13 +256,13 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Phone Number (as listed on Google)</Label>
                   <div className="flex gap-2">
-                    <Select 
-                      value={formData.countryCode} 
+                    <Select
+                      value={formData.countryCode}
                       onValueChange={(val) => setFormData({ ...formData, countryCode: val })}
                     >
-                    <SelectTrigger className="w-[110px] h-12 rounded-xl border-slate-200 focus:ring-blue-500 font-bold bg-slate-50/50">
-                      <SelectValue placeholder="+91" />
-                    </SelectTrigger>
+                      <SelectTrigger className="w-[110px] h-12 rounded-xl border-slate-200 focus:ring-blue-500 font-bold bg-slate-50/50">
+                        <SelectValue placeholder="+91" />
+                      </SelectTrigger>
                       <SelectContent>
                         {countryCodes.map((c) => (
                           <SelectItem key={c.id} value={c.id} className="font-bold">
@@ -312,10 +312,10 @@ export default function RegisterPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-4 pt-2 group">
-                  <Checkbox 
-                    id="smsConsent" 
+                  <Checkbox
+                    id="smsConsent"
                     checked={formData.smsConsent}
                     onCheckedChange={(checked) => setFormData({ ...formData, smsConsent: checked })}
                     className="mt-1 w-5 h-5 rounded-md border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 transition-all cursor-pointer"
@@ -325,7 +325,7 @@ export default function RegisterPage() {
                       htmlFor="smsConsent"
                       className="text-xs leading-relaxed text-slate-500 font-medium cursor-pointer select-none group-hover:text-slate-600 transition-colors"
                     >
-                      I agree to receive SMS messages from Jumper Media. By providing your phone number and submitting this form, you consent to receive text messages from Jumper Media regarding your account and services. Message frequency varies. Message and data rates may apply. Reply STOP to cancel or HELP for help. View our <Link href="/privacy-policy" className="text-blue-600 hover:underline font-bold">Privacy Policy</Link> | <Link href="/terms-and-conditions" className="text-blue-600 hover:underline font-bold">Terms of Service</Link>.
+                      I agree to receive SMS messages from Ringscale AI. By providing your phone number and submitting this form, you consent to receive text messages from Ringscale AI regarding your account and services. Message frequency varies. Message and data rates may apply. Reply STOP to cancel or HELP for help. View our <Link href="/privacy-policy" className="text-blue-600 hover:underline font-bold">Privacy Policy</Link> | <Link href="/terms-and-conditions" className="text-blue-600 hover:underline font-bold">Terms of Service</Link>.
                     </label>
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export default function RegisterPage() {
                       />
                     ))}
                   </div>
-                  
+
                   <button
                     type="button"
                     onClick={handleResendOTP}
