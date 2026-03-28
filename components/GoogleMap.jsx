@@ -26,7 +26,7 @@ const GoogleMap = memo(function GoogleMap({
     }
 
     setOptions({
-      apiKey,
+      key:apiKey,
       version: 'weekly',
     })
 
