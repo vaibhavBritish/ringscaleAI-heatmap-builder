@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
+  const [cancellingScanId, setCancellingScanId] = useState(null)
 
   useEffect(() => {
     fetchStats()
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   }
 
   const handleCancelScan = async (scanId) => {
+    setCancellingScanId(scanId)
     try {
       const response = await fetch(`/api/scans/${scanId}/cancel`, { method: 'POST' })
       if (!response.ok) throw new Error('Failed to cancel scan')
@@ -50,6 +52,8 @@ export default function DashboardPage() {
       toast.success('Scan cancelled')
     } catch (error) {
       toast.error('Failed to cancel scan')
+    } finally {
+      setCancellingScanId(null)
     }
   }
 
@@ -203,15 +207,18 @@ export default function DashboardPage() {
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(scan.status)}`}>
                       {scan.status}
                     </span>
-                    {scan.status === 'completed' ? (
+                    {scan.status === 'completed' && (
                       <Button variant="ghost" size="sm" className="hidden group-hover:flex">
                         View Results
                       </Button>
-                    ) : (scan.status === 'queued' || scan.status === 'processing') && (
+                    )}
+                    {((scan.status === 'queued' || scan.status === 'processing') && !cancellingScanId) && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="text-red-600 hover:bg-red-50 hover:text-red-700 hidden group-hover:flex"
+                        isLoading={cancellingScanId === scan.id}
+                        cooldown={2000}
                         onClick={(e) => {
                           e.stopPropagation()
                           handleCancelScan(scan.id)
@@ -219,6 +226,9 @@ export default function DashboardPage() {
                       >
                         Cancel
                       </Button>
+                    )}
+                    {cancellingScanId === scan.id && (
+                      <Loader2 className="w-4 h-4 animate-spin text-red-500" />
                     )}
                   </div>
                 </div>

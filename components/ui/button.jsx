@@ -34,13 +34,40 @@ const buttonVariants = cva(
   }
 )
 
-const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
+import { Loader2 } from "lucide-react"
+
+const Button = React.forwardRef(({ className, variant, size, asChild = false, isLoading, cooldown, onClick, disabled, children, ...props }, ref) => {
+  const [internalCooldown, setInternalCooldown] = React.useState(false)
   const Comp = asChild ? Slot : "button"
+  
+  const handleClick = async (e) => {
+    if (isLoading || internalCooldown) return
+    
+    if (onClick) {
+      await onClick(e)
+    }
+
+    if (cooldown) {
+      setInternalCooldown(true)
+      setTimeout(() => setInternalCooldown(false), typeof cooldown === 'number' ? cooldown : 1000)
+    }
+  }
+
   return (
     <Comp
       className={cn(buttonVariants({ variant, size, className }))}
       ref={ref}
-      {...props} />
+      disabled={disabled || isLoading || internalCooldown}
+      onClick={handleClick}
+      {...props}
+    >
+      {asChild ? children : (
+        <>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {children}
+        </>
+      )}
+    </Comp>
   );
 })
 Button.displayName = "Button"

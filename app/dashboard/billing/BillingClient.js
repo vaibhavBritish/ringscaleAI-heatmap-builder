@@ -128,7 +128,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       name: 'Advance Plan',
       credits: '1200',
       priceUSD: 499,
-      priceINR: 15000,
+      priceINR: 8000,
       popular: true,
       duration: '1 Month',
       features: ['1200 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 10']
@@ -138,7 +138,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       name: 'Pro Plan',
       credits: '2400',
       priceUSD: 1299,
-      priceINR: 40000,
+      priceINR: 15000,
       duration: '3 Months',
       features: ['2400 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 15']
     }
@@ -357,9 +357,10 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
               variant="outline"
               className="h-10 px-5 rounded-xl font-bold gap-2 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-sm"
               onClick={handleManualSync}
-              disabled={loading === 'sync'}
+              isLoading={loading === 'sync'}
+              cooldown={5000}
             >
-              {loading === 'sync' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <RefreshCw className="w-4 h-4" />
               Refresh Credits
             </Button>
 
@@ -368,9 +369,10 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 variant="outline"
                 className="h-10 px-5 rounded-xl font-bold gap-2 border-blue-200 hover:bg-blue-100 hover:text-blue-700 text-sm"
                 onClick={handleManageBilling}
-                disabled={loading === 'portal'}
+                isLoading={loading === 'portal'}
+                cooldown={5000}
               >
-                {loading === 'portal' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                <ExternalLink className="w-4 h-4" />
                 Manage Billing
               </Button>
             )}
@@ -579,21 +581,18 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
 
               <Button 
                 onClick={() => handleCheckout(plan)}
-                disabled={!!loading}
+                isLoading={loading === plan.id}
+                cooldown={5000}
                 className={`w-full h-12 rounded-xl font-bold text-base transition-all ${
                   plan.popular 
                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' 
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
                 }`}
               >
-                {loading === plan.id ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    {hasPaid ? `Buy ${plan.name}` : `Upgrade to ${plan.name}`}
-                  </span>
-                )}
+                <span className="flex items-center justify-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  {hasPaid ? `Buy ${plan.name}` : `Upgrade to ${plan.name}`}
+                </span>
               </Button>
             </div>
           ))}

@@ -47,6 +47,7 @@ export default function ProjectDetailPage() {
     searchRadiusMeters: '5000'
   })
   const [startingScan, setStartingScan] = useState(false)
+  const [cancellingScanId, setCancellingScanId] = useState(null)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [competitors, setCompetitors] = useState([])
   const [loadingCompetitors, setLoadingCompetitors] = useState(false)
@@ -188,6 +189,7 @@ export default function ProjectDetailPage() {
   }
 
   const handleCancelScan = async (scanId) => {
+    setCancellingScanId(scanId)
     try {
       const response = await fetch(`/api/scans/${scanId}/cancel`, { method: 'POST' })
       if (!response.ok) throw new Error('Failed to cancel scan')
@@ -196,6 +198,8 @@ export default function ProjectDetailPage() {
       toast.success('Scan cancelled')
     } catch (error) {
       toast.error('Failed to cancel scan')
+    } finally {
+      setCancellingScanId(null)
     }
   }
 
@@ -365,8 +369,8 @@ export default function ProjectDetailPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowScanDialog(false)}>Cancel</Button>
-              <Button onClick={handleStartScan} disabled={startingScan || keywords.length === 0}>
+              <Button type="button" variant="outline" onClick={() => setShowScanDialog(false)}>Cancel</Button>
+              <Button type="button" onClick={handleStartScan} disabled={startingScan || keywords.length === 0}>
                 {startingScan ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Scan'}
               </Button>
             </DialogFooter>
@@ -493,14 +497,23 @@ export default function ProjectDetailPage() {
                             </Link>
                           )}
                           {(scan.status === 'queued' || scan.status === 'processing') && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                              onClick={() => handleCancelScan(scan.id)}
-                            >
-                              Cancel
-                            </Button>
+                            <>
+                              {!cancellingScanId && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                  isLoading={cancellingScanId === scan.id}
+                                  cooldown={2000}
+                                  onClick={() => handleCancelScan(scan.id)}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                              {cancellingScanId === scan.id && (
+                                <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -515,16 +528,19 @@ export default function ProjectDetailPage() {
                 <BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 mb-4">No scans yet. Add a keyword and run your first scan.</p>
                 {keywords.length > 0 && (
-                  <Button onClick={() => {
-                    const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
-                    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
-                    
-                    if (isExpired) {
-                      setIsPlanModalOpen(true)
-                    } else {
-                      setShowScanDialog(true)
-                    }
-                  }}>
+                  <Button 
+                    cooldown={2000}
+                    onClick={() => {
+                      const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
+                      const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
+                      
+                      if (isExpired) {
+                        setIsPlanModalOpen(true)
+                      } else {
+                        setShowScanDialog(true)
+                      }
+                    }}
+                  >
                     <Play className="w-4 h-4 mr-2" />
                     Run Your First Scan
                   </Button>

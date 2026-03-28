@@ -128,6 +128,9 @@ export default function NewProjectPage() {
     
     if (scanning && activeScanJobId) {
       pollInterval = setInterval(async () => {
+        // Skip polling if tab is hidden to save API requests
+        if (document.visibilityState !== 'visible') return
+
         try {
           const response = await fetch(`/api/scans/${activeScanJobId}/results?aggregate=true`)
           if (!response.ok) throw new Error('Failed to fetch results')
@@ -188,7 +191,7 @@ export default function NewProjectPage() {
         } catch (error) {
           console.error('Polling error:', error)
         }
-      }, 3000)
+      }, 8000)
     }
     
     return () => {
@@ -391,9 +394,15 @@ export default function NewProjectPage() {
       toast.success('Project created! Starting scan...')
       
       if (data.scanJobIds && data.scanJobIds.length > 0) {
-        setActiveScanJobId(data.scanJobIds[0])
+        const firstScanId = data.scanJobIds[0]
+        setActiveScanJobId(firstScanId)
         setScanning(true)
         setScanProgress(0)
+        
+        // Persist scan ID in URL so a refresh doesn't lose state
+        const url = new URL(window.location.href)
+        url.searchParams.set('rescanJobId', firstScanId)
+        window.history.replaceState({}, '', url.toString())
       } else {
         router.push(`/dashboard/projects/${data.project.id}`)
       }
@@ -535,6 +544,7 @@ export default function NewProjectPage() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      autoComplete="off"
                     />
                     {searching && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -803,15 +813,18 @@ export default function NewProjectPage() {
               </div>
               
               <Button 
+                type="button"
                 onClick={scanning ? handleCancelScan : handleCreateProject}
-                disabled={creating || (!scanning && (!selectedBusiness || keywords.length === 0))}
+                isLoading={creating}
+                cooldown={2000}
+                disabled={!scanning && (!selectedBusiness || keywords.length === 0)}
                 className={`flex-1 h-12 rounded-xl font-bold shadow-lg transition-all text-base ${
                   scanning 
                     ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700' 
                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95'
                 }`}
               >
-                {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : (scanning ? 'Stop Scan' : 'Run Scan')}
+                {scanning ? 'Stop Scan' : 'Run Scan'}
               </Button>
             </div>
             {activeScanJobId && scanProgress === 100 && (

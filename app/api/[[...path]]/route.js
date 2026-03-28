@@ -8,6 +8,7 @@ import { generateGrid, calculateAnalytics } from '@/lib/grid-utils'
 import { runScanJob } from '@/lib/scan-engine'
 import prisma from '@/lib/prisma'
 import redis from '@/lib/redis'
+import { rateLimit } from '@/lib/rate-limit'
 import { headers } from 'next/headers'
 
 // Helper function to handle CORS
@@ -121,7 +122,7 @@ async function handleRoute(request, { params }) {
         const blob = await response.blob()
         const responseHeaders = new Headers()
         responseHeaders.set('Content-Type', response.headers.get('Content-Type') || 'image/png')
-        responseHeaders.set('Cache-Control', 'public, max-age=3600')
+        responseHeaders.set('Cache-Control', 'public, max-age=86400')
 
         const nextResponse = new NextResponse(blob, { status: 200, headers: responseHeaders })
         return handleCORS(nextResponse)
@@ -135,6 +136,14 @@ async function handleRoute(request, { params }) {
 
     // Search businesses
     if (route === '/google/search-business' && method === 'POST') {
+      // RATE LIMIT: 10 searches per 60 seconds
+      const limiter = await rateLimit(currentUser.id, 'search-business', 10, 60)
+      if (!limiter.success) {
+        return handleCORS(NextResponse.json({ 
+          error: 'Too many search attempts. Please wait a minute.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        }, { status: 429 }))
+      }
       const body = await request.json()
       const { query } = body
 
@@ -142,7 +151,20 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Query is required' }, { status: 400 }))
       }
 
+      const cacheKey = `google:search:business:${query.toLowerCase().trim()}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) return handleCORS(NextResponse.json({ results: JSON.parse(cached), cached: true }))
+        } catch (e) {}
+      }
+
       const results = await searchBusinessByText(query)
+
+      if (redis && results?.length > 0) {
+        try { await redis.set(cacheKey, JSON.stringify(results), 'EX', 3600) } catch (e) {}
+      }
+
       return handleCORS(NextResponse.json({ results }))
     }
 
@@ -155,7 +177,20 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Place ID are required' }, { status: 400 }))
       }
 
+      const cacheKey = `google:place:${placeId}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) return handleCORS(NextResponse.json(JSON.parse(cached)))
+        } catch (e) {}
+      }
+
       const details = await getPlaceDetails(placeId)
+
+      if (redis && details) {
+        try { await redis.set(cacheKey, JSON.stringify(details), 'EX', 86400) } catch (e) {}
+      }
+
       return handleCORS(NextResponse.json(details))
     }
 
@@ -168,8 +203,21 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ results: [] }))
       }
 
+      const cacheKey = `google:suggestions:${query.toLowerCase().trim()}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) return handleCORS(NextResponse.json({ results: JSON.parse(cached), cached: true }))
+        } catch (e) {}
+      }
+
       const { getQuerySuggestions } = require('@/lib/google-places')
       const results = await getQuerySuggestions(query)
+
+      if (redis && results?.length > 0) {
+        try { await redis.set(cacheKey, JSON.stringify(results), 'EX', 86400) } catch (e) {}
+      }
+
       return handleCORS(NextResponse.json({ results }))
     }
 
@@ -179,6 +227,15 @@ async function handleRoute(request, { params }) {
     if (route === '/projects' && method === 'GET') {
       const projects = await prisma.project.findMany({
         where: { userId: currentUser.id },
+        select: {
+          id: true,
+          businessName: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          createdAt: true
+          // we omit gridSettings here as it's not needed for the list view
+        },
         orderBy: { createdAt: 'desc' }
       })
 
@@ -203,6 +260,15 @@ async function handleRoute(request, { params }) {
 
     // Create or update project
     if (route === '/projects' && method === 'POST') {
+      // RATE LIMIT: 5 projects per 60 seconds (generous but prevents rapid-fire)
+      const limiter = await rateLimit(currentUser.id, 'create-project', 5, 60)
+      if (!limiter.success) {
+        return handleCORS(NextResponse.json({ 
+          error: 'Too many project creation attempts. Please wait a minute.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        }, { status: 429 }))
+      }
+
       const body = await request.json()
       const businessName = body.businessName || body.name
       const placeId = body.placeId || body.businessId
@@ -461,6 +527,15 @@ async function handleRoute(request, { params }) {
 
     // Create scan job(s)
     if (route === '/scans' && method === 'POST') {
+      // RATE LIMIT: 5 scans per 10 seconds
+      const limiter = await rateLimit(currentUser.id, 'create-scan', 5, 10)
+      if (!limiter.success) {
+        return handleCORS(NextResponse.json({ 
+          error: 'Too many requests. Please wait a few seconds before starting another scan.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        }, { status: 429 }))
+      }
+
       const body = await request.json()
       const { projectId, keywordId, keywordIds, gridSize = 3, spacingMeters = 1000, searchRadiusMeters = 5000 } = body
 
@@ -566,70 +641,120 @@ async function handleRoute(request, { params }) {
       const project = await prisma.project.findFirst({ where: { id: scanJob.projectId } })
       const keyword = await prisma.keyword.findFirst({ where: { id: scanJob.keywordId } })
 
-      const scanPoints = await prisma.scanPoint.findMany({
+      // Fetch all results for this scan job
+      const scanResults = await prisma.scanResult.findMany({ 
         where: { scanJobId: scanId },
+        select: {
+          id: true,
+          scanJobId: true,
+          rowIndex: true,
+          colIndex: true,
+          latitude: true,
+          longitude: true,
+          found: true,
+          rank: true,
+          errorMessage: true,
+          competitorsJson: true
+        },
         orderBy: [{ rowIndex: 'asc' }, { colIndex: 'asc' }]
       })
 
       let mergedResults = []
 
       if (isAggregate) {
-        // Fetch ALL results for ALL scan jobs in this project
+        // Fetch ALL scan jobs for this project to get project-wide best ranks
         const allProjectScanJobIds = (await prisma.scanJob.findMany({
           where: { projectId: scanJob.projectId },
           select: { id: true }
         })).map(j => j.id)
 
+        // Fetch ALL results across ALL jobs, but exclude competitorsJson for the first pass to save memory
         const allResults = await prisma.scanResult.findMany({
-          where: { scanJobId: { in: allProjectScanJobIds } }
+          where: { scanJobId: { in: allProjectScanJobIds } },
+          select: {
+            id: true,
+            rowIndex: true,
+            colIndex: true,
+            latitude: true,
+            longitude: true,
+            found: true,
+            rank: true,
+            scanJobId: true
+          }
         })
 
-        const allProjectPoints = await prisma.scanPoint.findMany({
-          where: { scanJobId: { in: allProjectScanJobIds } }
-        })
-        const projectPointToCoord = new Map(allProjectPoints.map(p => [p.id, `${p.rowIndex},${p.colIndex}`]))
-
-        // Aggregate: Group results by coordinate and pick Best Rank
-        const aggregatedMap = new Map()
+        // Group by coordinate (row,col) and pick BEST RANK ID
+        const bestResultMap = new Map()
+        
         allResults.forEach(r => {
-          const coord = projectPointToCoord.get(r.scanPointId)
-          if (!coord) return
-          const existing = aggregatedMap.get(coord)
+          if (r.rowIndex === null) return 
+
+          const coordKey = `${r.rowIndex},${r.colIndex}`
+          const existing = bestResultMap.get(coordKey)
+
           if (!r.found && (!existing || !existing.found)) {
-            if (!existing) aggregatedMap.set(coord, { ...r, found: false, rank: null })
+            if (!existing) bestResultMap.set(coordKey, r)
             return
           }
+          
           if (!existing || !existing.found || (r.rank && (!existing.rank || r.rank < existing.rank))) {
-            aggregatedMap.set(coord, r)
+            bestResultMap.set(coordKey, r)
           }
         })
 
-        mergedResults = scanPoints.map(point => {
-          const coord = `${point.rowIndex},${point.colIndex}`
-          const bestResult = aggregatedMap.get(coord) || {}
+        // Fetch competitorsJson only for the best results to save significant memory
+        const bestIds = Array.from(bestResultMap.values()).map(r => r.id)
+        const detailedResults = await prisma.scanResult.findMany({
+          where: { id: { in: bestIds } },
+          select: {
+            id: true,
+            competitorsJson: true,
+            errorMessage: true
+          }
+        })
+        const detailMap = new Map(detailedResults.map(d => [d.id, d]))
+
+        mergedResults = Array.from(bestResultMap.values()).sort((a, b) => {
+          if (a.rowIndex !== b.rowIndex) return a.rowIndex - b.rowIndex
+          return a.colIndex - b.colIndex
+        }).map(r => {
+          const detail = detailMap.get(r.id)
           return {
-            ...point,
-            found: bestResult.found || false,
-            rank: bestResult.rank || null,
-            competitors: bestResult.competitorsJson ? JSON.parse(bestResult.competitorsJson) : [],
-            rawResults: bestResult.rawResultsJson ? JSON.parse(bestResult.rawResultsJson) : [],
-            error: bestResult.errorMessage || null
+            ...r,
+            competitors: detail?.competitorsJson ? JSON.parse(detail.competitorsJson) : [],
+            error: detail?.errorMessage || null
           }
         })
       } else {
-        // Standard single-scan result
-        const scanResults = await prisma.scanResult.findMany({ where: { scanJobId: scanId } })
+        // Standard single-scan result (Hybrid)
+        // For backward compatibility, check if we need points
+        const needsPoints = scanResults.some(r => r.rowIndex === null && r.scanPointId)
+        let pointMap = new Map()
+        if (needsPoints) {
+          const points = await prisma.scanPoint.findMany({ where: { scanJobId: scanId } })
+          pointMap = new Map(points.map(p => [p.id, p]))
+        }
 
-        const resultsMap = new Map(scanResults.map(r => [r.scanPointId, r]))
-        mergedResults = scanPoints.map(point => {
-          const result = resultsMap.get(point.id) || {}
+        mergedResults = scanResults.map(r => {
+          let row = r.rowIndex, col = r.colIndex, lat = r.latitude, lng = r.longitude
+          if (row === null && r.scanPointId) {
+            const p = pointMap.get(r.scanPointId)
+            if (p) {
+              row = p.rowIndex; col = p.colIndex; lat = p.latitude; lng = p.longitude
+            }
+          }
+
           return {
-            ...point,
-            found: result.found || false,
-            rank: result.rank || null,
-            competitors: result.competitorsJson ? JSON.parse(result.competitorsJson) : [],
-            rawResults: result.rawResultsJson ? JSON.parse(result.rawResultsJson) : [],
-            error: result.errorMessage || null
+            id: r.id,
+            scanJobId: r.scanJobId,
+            rowIndex: row,
+            colIndex: col,
+            latitude: lat,
+            longitude: lng,
+            found: r.found,
+            rank: r.rank,
+            competitors: r.competitorsJson ? JSON.parse(r.competitorsJson) : [],
+            error: r.errorMessage || null
           }
         })
       }
@@ -767,6 +892,89 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ scans: enrichedScans }))
     }
 
+    // Get Project-wide aggregate results (equivalent to aggregate scan results)
+    const projectResultsMatch = route.match(/^\/projects\/([^/]+)\/results$/)
+    if (projectResultsMatch && method === 'GET') {
+      const projectId = projectResultsMatch[1]
+      if (!(await verifyProject(projectId, currentUser.id))) {
+        return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
+      }
+
+      // Fetch latest scan job of this project just to have a reference Job
+      const scanJob = await prisma.scanJob.findFirst({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      if (!scanJob) {
+        return handleCORS(NextResponse.json({ error: 'No scan jobs found for this project' }, { status: 404 }))
+      }
+
+      const project = await prisma.project.findFirst({ where: { id: projectId } })
+      const allProjectScanJobIds = (await prisma.scanJob.findMany({
+        where: { projectId },
+        select: { id: true }
+      })).map(j => j.id)
+
+      const allResults = await prisma.scanResult.findMany({
+        where: { scanJobId: { in: allProjectScanJobIds } },
+        select: { id: true, rowIndex: true, colIndex: true, latitude: true, longitude: true, found: true, rank: true, scanJobId: true }
+      })
+
+      const bestResultMap = new Map()
+      allResults.forEach(r => {
+        if (r.rowIndex === null) return
+        const coordKey = `${r.rowIndex},${r.colIndex}`
+        const existing = bestResultMap.get(coordKey)
+        if (!r.found && (!existing || !existing.found)) {
+          if (!existing) bestResultMap.set(coordKey, r)
+          return
+        }
+        if (!existing || !existing.found || (r.rank && (!existing.rank || r.rank < existing.rank))) {
+          bestResultMap.set(coordKey, r)
+        }
+      })
+
+      const bestIds = Array.from(bestResultMap.values()).map(r => r.id)
+      const detailedResults = await prisma.scanResult.findMany({
+        where: { id: { in: bestIds } },
+        select: { id: true, competitorsJson: true, errorMessage: true }
+      })
+      const detailMap = new Map(detailedResults.map(d => [d.id, d]))
+
+      const mergedResults = Array.from(bestResultMap.values()).sort((a, b) => {
+        if (a.rowIndex !== b.rowIndex) return a.rowIndex - b.rowIndex
+        return a.colIndex - b.colIndex
+      }).map(r => {
+        const detail = detailMap.get(r.id)
+        return {
+          ...r,
+          competitors: detail?.competitorsJson ? JSON.parse(detail.competitorsJson) : [],
+          error: detail?.errorMessage || null
+        }
+      })
+
+      const analytics = calculateAnalytics(mergedResults)
+      const allKeywords = await prisma.keyword.findMany({ where: { projectId } })
+      const projectScans = await Promise.all(allKeywords.map(async (kw) => {
+        const latestJob = await prisma.scanJob.findFirst({ where: { keywordId: kw.id }, orderBy: { createdAt: 'desc' } })
+        return { keyword: kw.keyword, keywordId: kw.id, scanId: latestJob?.id || null, status: latestJob?.status || 'none', processedPoints: latestJob?.processedPoints || 0, totalPoints: latestJob?.totalPoints || 0 }
+      }))
+
+      // Aggregating top competitors
+      const allCompetitors = new Map()
+      mergedResults.forEach(r => {
+        r.competitors.forEach(c => {
+          if (!allCompetitors.has(c.placeId)) allCompetitors.set(c.placeId, { ...c, appearances: 0, totalRank: 0 })
+          const comp = allCompetitors.get(c.placeId)
+          comp.appearances++; comp.totalRank += c.rank
+        })
+      })
+      const topCompetitors = Array.from(allCompetitors.values()).map(c => ({ ...c, avgRank: c.totalRank / c.appearances })).sort((a, b) => b.appearances - a.appearances).slice(0, 10)
+
+      return handleCORS(NextResponse.json({ project, results: mergedResults, analytics, topCompetitors, projectScans }))
+    }
+
     // ==================== DASHBOARD ROUTES ====================
 
     if (route === '/dashboard/stats' && method === 'GET') {
@@ -796,6 +1004,17 @@ async function handleRoute(request, { params }) {
 
       const recentScanJobs = await prisma.scanJob.findMany({
         where: { projectId: { in: userProjectIds } },
+        select: {
+          id: true,
+          projectId: true,
+          keywordId: true,
+          status: true,
+          processedPoints: true,
+          totalPoints: true,
+          createdAt: true,
+          completedAt: true
+          // omit gridSize, spacingMeters, searchRadiusMeters, errorMessage for the condensed list
+        },
         orderBy: { createdAt: 'desc' },
         take: 10
       })
