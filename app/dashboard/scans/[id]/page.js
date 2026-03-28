@@ -76,8 +76,8 @@ export default function ScanResultsPage() {
         // Generate the pins directly from results
         const pins = data.results.map((result, index) => ({
           id: `pin-${index}`,
-          latitude: result.latitude,
-          longitude: result.longitude,
+          latitude: Number(result.latitude),
+          longitude: Number(result.longitude),
           rank: result.rank,
           found: result.found,
           keyword: result.keyword || (viewMode === 'overall' ? 'Multiple' : '')
@@ -231,6 +231,17 @@ export default function ScanResultsPage() {
         })
         
         y += 40
+
+        // Add scan config secondary info
+        const scanUnit = scanData.project?.gridSettings?.unit || 'km'
+        const scanRadius = scanUnit === 'mi' 
+          ? (scanData.scanJob?.searchRadiusMeters / 1609.34).toFixed(1)
+          : (scanData.scanJob?.searchRadiusMeters / 1000).toFixed(1)
+
+        doc.setFontSize(8)
+        doc.setTextColor(100, 116, 139)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Configuration: ${scanAnalytics.totalPoints} Points | ${scanRadius} ${scanUnit} Radius | ${scanData.project?.gridSettings?.shape || 'Circle'} Grid`, 15, y - 8)
       }
       
       // 4. Map Image
@@ -433,9 +444,22 @@ export default function ScanResultsPage() {
 
   if (!scanData) {
     return (
-      <div className="h-[calc(100vh-56px)] lg:h-screen flex flex-col items-center justify-center -m-4 md:-m-6 bg-slate-50 gap-4">
-        <h2 className="text-xl font-bold text-slate-800">Scan not found</h2>
-        <Button onClick={() => router.push('/dashboard')}>Return to Dashboard</Button>
+      <div className="h-[calc(100vh-56px)] lg:h-screen flex flex-col items-center justify-center -m-4 md:-m-6 bg-slate-50 gap-6 p-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+          <X className="w-10 h-10 text-slate-400" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-slate-800">Scan Results Unavailable</h2>
+          <p className="text-slate-500 max-w-sm mx-auto">
+            We couldn't find the scan results you're looking for. This might happen if the scan is still being processed or was deleted.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button variant="outline" onClick={() => router.push('/dashboard')}>Return to Dashboard</Button>
+          <Button onClick={fetchScanResults} className="bg-blue-600 hover:bg-blue-700">
+            <RefreshCw className="w-4 h-4 mr-2" /> Try Again
+          </Button>
+        </div>
       </div>
     )
   }
@@ -611,6 +635,14 @@ export default function ScanResultsPage() {
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400">Total Points</span>
                         <span className="font-bold">{scanAnalytics.totalPoints}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Radius</span>
+                        <span className="font-bold">
+                          {scanData.project?.gridSettings?.unit === 'mi'
+                            ? `${(scanData.scanJob?.searchRadiusMeters / 1609.34).toFixed(1)} mi`
+                            : `${(scanData.scanJob?.searchRadiusMeters / 1000).toFixed(1)} km`}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400">Location</span>

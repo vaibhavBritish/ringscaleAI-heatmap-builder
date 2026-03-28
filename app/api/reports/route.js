@@ -59,6 +59,7 @@ export async function GET(req) {
       keyword: keywordMap[scan.keywordId] || 'Unknown Keyword',
       totalPoints: scan.totalPoints,
       searchRadiusMeters: scan.searchRadiusMeters,
+      gridSettings: projectMap[scan.projectId]?.gridSettings || null,
       createdAt: scan.createdAt,
       completedAt: scan.completedAt,
     }))

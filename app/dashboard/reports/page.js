@@ -96,7 +96,12 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-xs font-semibold mb-0.5">Coverage</p>
-                    <p className="font-bold text-slate-900">{(report.searchRadiusMeters / 1000).toFixed(1)} km</p>
+                    <p className="font-bold text-slate-900">
+                      {report.gridSettings?.unit === 'mi' 
+                        ? `${(report.searchRadiusMeters / 1609.34).toFixed(1)} mi`
+                        : `${(report.searchRadiusMeters / 1000).toFixed(1)} km`
+                      }
+                    </p>
                   </div>
                 </div>
 

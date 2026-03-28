@@ -13,6 +13,7 @@ model User {
   id               String    @unique
   name             String?
   email            String    @unique
+  phone            String?
   password         String
   plan             String    @default("trial")
   credits          Int       @default(0)
@@ -43,6 +44,7 @@ model Project {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([userId])
   @@map("projects")
 }
 
@@ -54,6 +56,7 @@ model Keyword {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([projectId])
   @@map("keywords")
 }
 
@@ -73,6 +76,8 @@ model ScanJob {
   startedAt          DateTime?
   completedAt        DateTime?
 
+  @@index([projectId])
+  @@index([keywordId])
   @@map("scan_jobs")
 }
 
@@ -86,14 +91,19 @@ model ScanPoint {
   longitude Float
   createdAt DateTime @default(now())
 
+  @@index([scanJobId])
   @@map("scan_points")
 }
 
 model ScanResult {
   oid             String   @id @default(auto()) @map("_id") @db.ObjectId
   id              String   @unique
-  scanPointId     String
+  scanPointId     String? // Optional for new structure
   scanJobId       String
+  rowIndex        Int? // New coordinate field
+  colIndex        Int? // New coordinate field
+  latitude        Float? // New coordinate field
+  longitude       Float? // New coordinate field
   found           Boolean
   rank            Int?
   competitorsJson String?
@@ -101,6 +111,9 @@ model ScanResult {
   errorMessage    String?
   createdAt       DateTime @default(now())
 
+  @@index([scanJobId])
+  @@index([scanPointId])
+  @@index([scanJobId, rowIndex, colIndex])
   @@map("scan_results")
 }
 
@@ -131,5 +144,6 @@ model Payment {
   syncedAt              DateTime?
   createdAt             DateTime  @default(now())
 
+  @@index([userId])
   @@map("payments")
 }

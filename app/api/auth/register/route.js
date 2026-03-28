@@ -6,7 +6,7 @@ import prisma from '@/lib/prisma'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { name, email, password, otp } = body
+    const { name, email, password, phone, otp } = body
 
     if (!email || !password || !otp) {
       return NextResponse.json(
@@ -53,6 +53,7 @@ export async function POST(request) {
         id: uuidv4(),
         name: name || email.split('@')[0],
         email: email.toLowerCase(),
+        phone: phone || null,
         password: hashedPassword,
         plan: 'trial',
         credits: 300,
@@ -60,6 +61,12 @@ export async function POST(request) {
         createdAt: now,
         updatedAt: now
       }
+    })
+
+    // Send welcome email (async, don't await to avoid delaying the response)
+    const { sendWelcomeEmail } = await import('@/lib/mail')
+    sendWelcomeEmail(user.email, user.name).catch(err => {
+      console.error('Error sending welcome email after registration:', err)
     })
 
     return NextResponse.json({

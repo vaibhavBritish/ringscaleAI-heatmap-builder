@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, memo } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 
-export default function GoogleMap({ 
+const GoogleMap = memo(function GoogleMap({ 
   center = { lat: 39.8283, lng: -98.5795 }, // USA Center
   zoom = 4, 
   markers = [], 
@@ -93,82 +93,114 @@ export default function GoogleMap({
 
     const { Marker, Animation, SymbolPath, LatLngBounds } = googleRefs
 
-    // Efficiently update markers
-    // For large grids, we don't want to destroy and recreate everything every time
-    // But for now, we'll do simple cleanup since it's easier to maintain
-    markersRef.current.forEach(m => m.setMap(null))
-    markersRef.current = []
+    // --- RECONCILIATION LOGIC ---
+    // Instead of destroying everything, we update existing markers
+    const getMarkerId = (m) => m.id || m.placeId || `temp-${m.latitude}-${m.longitude}`
+    
+    // Filter out invalid coordinates
+    const validMarkers = markers.filter(m => 
+      m && typeof m.latitude === 'number' && typeof m.longitude === 'number' &&
+      !isNaN(m.latitude) && !isNaN(m.longitude)
+    )
 
-    if (markers.length === 0) return
+    const newMarkerIds = new Set(validMarkers.map(getMarkerId))
+    
+    // 1. Remove markers that are no longer in the list
+    const markersMap = markersRef.current // Map { id => google.maps.Marker }
+    if (!(markersMap instanceof Map)) {
+      // Initialize if first run or coming from legacy array
+      markersRef.current = new Map()
+    }
+    
+    for (const [id, marker] of markersRef.current.entries()) {
+      if (!newMarkerIds.has(id)) {
+        marker.setMap(null)
+        markersRef.current.delete(id)
+      }
+    }
 
-    markers.forEach((markerData) => {
-      if (typeof markerData.latitude !== 'number' || typeof markerData.longitude !== 'number') return
-
-      const isPin = markerData.id?.startsWith('pin-')
-      const hasRank = typeof markerData.rank === 'number'
+    // 2. Add or update markers
+    validMarkers.forEach((markerData) => {
+      const id = getMarkerId(markerData)
+      let marker = markersRef.current.get(id)
       
-      // Determine color based on rank (matching grid-utils logic)
-      let pinColor = '#3b82f6' // Default blue
+      const hasRank = typeof markerData.rank === 'number'
+      const isPin = markerData.id?.startsWith('pin-')
+      
+      // Determine color based on rank
+      let pinColor = '#3b82f6'
       if (hasRank) {
-        if (markerData.rank <= 3) pinColor = '#22c55e' // Green
-        else if (markerData.rank <= 10) pinColor = '#eab308' // Yellow
-        else if (markerData.rank < 20) pinColor = '#f97316' // Orange
-        else pinColor = '#94a3b8' // Gray for >= 20
+        if (markerData.rank <= 3) pinColor = '#22c55e'
+        else if (markerData.rank <= 10) pinColor = '#eab308'
+        else if (markerData.rank < 20) pinColor = '#f97316'
+        else pinColor = '#94a3b8'
       }
 
-      const marker = new Marker({
-        position: { lat: markerData.latitude, lng: markerData.longitude },
-        map,
-        title: hasRank ? `Rank: ${markerData.rank}` : (markerData.name || ''),
-        animation: (!isPin && !hasRank) ? Animation.DROP : null,
-        zIndex: markerData.selected ? 9999 : (hasRank ? 10 : 1),
-        label: hasRank ? {
-          text: String(markerData.rank),
-          color: markerData.rank <= 10 && markerData.rank > 3 ? '#000000' : '#ffffff',
-          fontSize: '10px',
-          fontWeight: 'bold'
-        } : (markerData.found === false ? {
-          text: 'X',
-          color: '#ffffff',
-          fontSize: '12px',
-          fontWeight: 'black'
-        } : null),
-        icon: isPin ? {
-          path: SymbolPath.CIRCLE,
-          fillColor: markerData.found === false ? '#94a3b8' : pinColor,
-          fillOpacity: (hasRank || markerData.found === false) ? 0.9 : 0.1,
-          strokeColor: markerData.found === false ? '#64748b' : pinColor,
-          strokeWeight: (hasRank || markerData.found === false) ? 1 : 2,
-          scale: markerData.found === false ? 12 : (hasRank ? 14 : 11)
-        } : (markerData.selected ? {
-          path: SymbolPath.CIRCLE,
-          fillColor: '#b91c1c',  // Strong red fill
-          fillOpacity: 1,
-          strokeColor: '#3b82f6', // Bright blue outline
-          strokeWeight: 5,       // Thick visible outline
-          scale: 16              // Larger scale than normal pins
-        } : {
-          path: SymbolPath.CIRCLE,
-          fillColor: '#0c4bb0',
-          fillOpacity: 0.8,
-          strokeColor: '#0c4bb0',
-          strokeWeight: 2,
-          scale: 9
-        })
+      const label = hasRank ? {
+        text: String(markerData.rank),
+        color: markerData.rank <= 10 && markerData.rank > 3 ? '#000000' : '#ffffff',
+        fontSize: '10px',
+        fontWeight: 'bold'
+      } : (markerData.found === false ? {
+        text: 'X',
+        color: '#ffffff',
+        fontSize: '12px',
+        fontWeight: 'black'
+      } : null)
+
+      const icon = isPin ? {
+        path: SymbolPath.CIRCLE,
+        fillColor: markerData.found === false ? '#94a3b8' : pinColor,
+        fillOpacity: (hasRank || markerData.found === false) ? 0.9 : 0.1,
+        strokeColor: markerData.found === false ? '#64748b' : pinColor,
+        strokeWeight: (hasRank || markerData.found === false) ? 1 : 2,
+        scale: markerData.found === false ? 12 : (hasRank ? 14 : 11)
+      } : (markerData.selected ? {
+        path: SymbolPath.CIRCLE,
+        fillColor: '#b91c1c',
+        fillOpacity: 1,
+        strokeColor: '#3b82f6',
+        strokeWeight: 5,
+        scale: 16
+      } : {
+        path: SymbolPath.CIRCLE,
+        fillColor: '#0c4bb0',
+        fillOpacity: 0.8,
+        strokeColor: '#0c4bb0',
+        strokeWeight: 2,
+        scale: 9
       })
 
-      if (!isPin) {
-        marker.addListener('click', () => onMarkerClick(markerData))
-      }
+      if (marker) {
+        // Update existing marker
+        marker.setPosition({ lat: markerData.latitude, lng: markerData.longitude })
+        marker.setIcon(icon)
+        marker.setLabel(label)
+        marker.setZIndex(markerData.selected ? 9999 : (hasRank ? 10 : 1))
+      } else {
+        // Create new marker
+        marker = new Marker({
+          position: { lat: markerData.latitude, lng: markerData.longitude },
+          map,
+          title: hasRank ? `Rank: ${markerData.rank}` : (markerData.name || ''),
+          animation: (!isPin && !hasRank) ? Animation.DROP : null,
+          zIndex: markerData.selected ? 9999 : (hasRank ? 10 : 1),
+          label,
+          icon
+        })
 
-      markersRef.current.push(marker)
+        if (!isPin) {
+          marker.addListener('click', () => onMarkerClick(markerData))
+        }
+
+        markersRef.current.set(id, marker)
+      }
     })
 
     // Bounds handling
-    // Bounds handling
-    if (markers.length > 1) {
+    if (validMarkers.length > 1) {
       const bounds = new LatLngBounds()
-      markers.forEach(m => bounds.extend({ lat: m.latitude, lng: m.longitude }))
+      validMarkers.forEach(m => bounds.extend({ lat: m.latitude, lng: m.longitude }))
       map.fitBounds(bounds)
       
       // Ensure we don't zoom in *too* closely if pins are very tight
@@ -176,8 +208,8 @@ export default function GoogleMap({
         if (map.getZoom() > 18) map.setZoom(18); 
         window.google.maps.event.removeListener(listener); 
       });
-    } else if (markers.length === 1) {
-      map.panTo({ lat: markers[0].latitude, lng: markers[0].longitude })
+    } else if (validMarkers.length === 1) {
+      map.panTo({ lat: validMarkers[0].latitude, lng: validMarkers[0].longitude })
       map.setZoom(16)
     }
   }, [map, markers, googleRefs])
@@ -214,4 +246,6 @@ export default function GoogleMap({
       )}
     </div>
   )
-}
+})
+
+export default GoogleMap

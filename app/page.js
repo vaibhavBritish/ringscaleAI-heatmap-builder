@@ -105,7 +105,10 @@ const seoSolutions = [
   }
 ];
 
+import { useSession } from 'next-auth/react'
+
 export default function HomePage() {
+  const { data: session } = useSession()
   const sliderRef = useRef(null)
   const [activeGbpFeature, setActiveGbpFeature] = useState(1)
   const [activeRankFeature, setActiveRankFeature] = useState(3)
@@ -144,21 +147,21 @@ export default function HomePage() {
           <div className="text-center max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-8 animate-bounce-slow">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              New: AI-Powered Review Automations
+              AI-Powered SaaS Platform
             </div>
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-8 leading-[1.1] tracking-tight">
-              Dominating Local Search <br />
+              The #1 <span className="text-blue-600">AI-Powered</span> <br />
               <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
-                Shouldn't Be Hard.
-              </span>
+                SaaS Platform
+              </span> for Local SEO.
             </h1>
             <p className="text-lg md:text-xl text-slate-500 font-medium mb-12 max-w-2xl mx-auto leading-relaxed">
-              Visualize, track, and optimize your local presence with the world's most accurate geo-grid heatmap system.
+              Visualize, track, and optimize your local presence with the world's most advanced AI-driven geo-grid heatmap system.
             </p>
 
-            <Link href="/register">
+            <Link href={session ? "/dashboard" : "/register"}>
               <Button size="lg" className="bg-gradient-to-r from-blue-700 to-blue-400 hover:from-blue-800 hover:to-blue-500 text-white rounded-full text-2xl font-black px-12 py-10 shadow-2xl hover:scale-105 transition-all flex items-center gap-4 mx-auto">
-                Start Free Trial* <span className="text-3xl">→</span>
+                {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
               </Button>
             </Link>
 
@@ -180,7 +183,7 @@ export default function HomePage() {
             </div>
             <div className="pt-8 p-4">
               <img
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=600&fit=crop"
+                src="/Before.png"
                 alt="Dashboard Preview"
                 className="rounded-lg w-full"
               />
@@ -256,15 +259,14 @@ export default function HomePage() {
                 <div className="mt-auto pt-8 flex items-center justify-between border-t border-blue-100/50">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                      The Most Accurate, Fastest & Affordable
+                      The World's Leading AI-Powered SaaS
                     </p>
                     <p className="text-[12px] font-black text-blue-600 uppercase tracking-tight">
-                      Google Maps Rank Tracker
+                      Ringscale AI
                     </p>
                   </div>
                   <div className="flex flex-col items-end opacity-80">
-                    <span className="font-black text-sm text-slate-800 leading-none tracking-tighter">Local</span>
-                    <span className="font-black text-sm text-blue-600 leading-none tracking-tighter">DOMINATOR</span>
+                    <span className="font-black text-sm text-blue-600 leading-none tracking-tighter">Ringscale AI</span>
                   </div>
                 </div>
               </div>
@@ -273,12 +275,12 @@ export default function HomePage() {
         </div>
 
         <div className="mt-24 text-center">
-          <Link href="/register">
+          <Link href={session ? "/dashboard" : "/register"}>
             <Button
               size="lg"
               className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-16 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6 mx-auto"
             >
-              Start Free Trial* <span className="text-3xl">→</span>
+              {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
             </Button>
           </Link>
         </div>
@@ -368,9 +370,9 @@ export default function HomePage() {
                     ))}
                   </div>
 
-                  <Link href="/register">
+                  <Link href={session ? "/dashboard" : "/register"}>
                     <Button className="w-full bg-gradient-to-r from-blue-700 to-blue-400 hover:from-blue-800 hover:to-blue-500 text-white rounded-2xl py-10 text-2xl font-black shadow-2xl hover:scale-[1.02] transition-all">
-                      Start Free Trial* <span className="ml-3 text-3xl">→</span>
+                      {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="ml-3 text-3xl">→</span>
                     </Button>
                   </Link>
                 </div>
@@ -505,9 +507,9 @@ export default function HomePage() {
               ))}
 
               <div className="pt-10">
-                <Link href="/register">
+                <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6">
-                    Start Free Trial* <span className="text-3xl">→</span>
+                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
                   </Button>
                 </Link>
               </div>
@@ -556,9 +558,9 @@ export default function HomePage() {
               ))}
 
               <div className="pt-8">
-                <Link href="/register">
+                <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all">
-                    Start Free Trial* <span className="text-3xl ml-2">→</span>
+                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
                   </Button>
                 </Link>
               </div>
@@ -754,9 +756,9 @@ export default function HomePage() {
               ))}
 
               <div className="pt-10">
-                <Link href="/register">
+                <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6">
-                    Start Free Trial* <span className="text-3xl ml-2">→</span>
+                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
                   </Button>
                 </Link>
               </div>
@@ -875,9 +877,9 @@ export default function HomePage() {
               ))}
 
               <div className="pt-10">
-                <Link href="/register">
+                <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all">
-                    Start Free Trial* <span className="text-3xl ml-4">→</span>
+                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-4">→</span>
                   </Button>
                 </Link>
               </div>
@@ -962,9 +964,9 @@ export default function HomePage() {
         </div>
 
         <div className="text-center mt-20">
-          <Link href="/register">
+          <Link href={session ? "/dashboard" : "/register"}>
             <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6 mx-auto">
-              Start Free Trial* <span className="text-3xl ml-2">→</span>
+              {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
             </Button>
           </Link>
         </div>
@@ -1025,36 +1027,52 @@ export default function HomePage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {[
               {
+                id: 'plan_trial',
                 name: "7-Day Trial",
                 desc: "Try it for free",
                 icon: <Settings className="w-6 h-6 text-blue-500" />,
                 price: "0",
                 priceINR: 0,
-                features: ["300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Local Pack Rank Tracker"],
+                features: ["5 Miles Google Map Pack Ranking", "300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Google Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
               },
               {
+                id: 'plan_lite',
                 name: "Advance",
                 desc: "Best for Local Owners",
                 icon: <Rocket className="w-6 h-6 text-blue-600" />,
                 price: "499",
                 priceINR: 15000,
                 popular: true,
-                features: ["1200 Credits", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 10", "Local Pack Rank Tracker"],
+                features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-blue-50/95",
                 textColor: "text-slate-900",
                 badge: "Monthly"
               },
               {
+                id: 'plan_pro',
                 name: "Pro",
                 desc: "Best for Agency Owners",
                 icon: <Trophy className="w-6 h-6 text-blue-600" />,
-                price: "1299",
+                price: "799",
                 priceINR: 40000,
-                features: ["2400 Credits", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 15", "Local Pack Rank Tracker"],
+                features: ["2400 Credits", "10 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "15 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
+              },
+              {
+                id: 'plan_pro_plus',
+                name: "Pro Plus",
+                desc: "Best for Agency Owners",
+                icon: <Rocket className="w-6 h-6 text-blue-600" />,
+                price: "1299",
+                priceINR: 60000,
+                popular: true,
+                features: ["5000 Credits", "20 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+                color: "bg-blue-50/95",
+                textColor: "text-slate-900",
+                badge: "Monthly"
               }
             ].map((plan, idx) => (
               <div
@@ -1104,9 +1122,9 @@ export default function HomePage() {
                     <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest pt-3 opacity-50">...and more</div>
                   </div>
 
-                  <Link href="/register" className="block">
+                  <Link href={session ? "/dashboard" : "/register"} className="block">
                     <Button className={`w-full py-7 rounded-2xl text-base font-black transition-all shadow-xl group-hover:scale-[1.02] ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200' : 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-100'}`}>
-                      Start Now <span className="ml-3 transition-transform group-hover:translate-x-1.5">→</span>
+                      {session ? 'Go to Dashboard' : 'Start Now'} <span className="ml-3 transition-transform group-hover:translate-x-1.5">→</span>
                     </Button>
                   </Link>
                 </div>
@@ -1127,9 +1145,9 @@ export default function HomePage() {
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Dominate Local Search?</h2>
           <p className="text-xl text-slate-600 mb-10">Join hundreds of agencies already using Local Rank Heatmap to win more clients.</p>
-          <Link href="/register">
+          <Link href={session ? "/dashboard" : "/register"}>
             <Button size="lg" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-lg px-8 py-6">
-              Start Your Free Trial Today
+              {session ? 'Go to Dashboard' : 'Start Your Free Trial Today'}
             </Button>
           </Link>
         </div>
