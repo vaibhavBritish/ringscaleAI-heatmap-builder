@@ -147,16 +147,16 @@ export default function HomePage() {
           <div className="text-center max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-bold mb-8 animate-bounce-slow">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              New: AI-Powered Review Automations
+              AI-Powered SaaS Platform
             </div>
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-8 leading-[1.1] tracking-tight">
-              Dominating Local Search <br />
+              The #1 <span className="text-blue-600">AI-Powered</span> <br />
               <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
-                Shouldn't Be Hard.
-              </span>
+                SaaS Platform
+              </span> for Local SEO.
             </h1>
             <p className="text-lg md:text-xl text-slate-500 font-medium mb-12 max-w-2xl mx-auto leading-relaxed">
-              Visualize, track, and optimize your local presence with the world's most accurate geo-grid heatmap system.
+              Visualize, track, and optimize your local presence with the world's most advanced AI-driven geo-grid heatmap system.
             </p>
 
             <Link href={session ? "/dashboard" : "/register"}>
@@ -183,7 +183,7 @@ export default function HomePage() {
             </div>
             <div className="pt-8 p-4">
               <img
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=600&fit=crop"
+                src="/Before.png"
                 alt="Dashboard Preview"
                 className="rounded-lg w-full"
               />
@@ -259,15 +259,14 @@ export default function HomePage() {
                 <div className="mt-auto pt-8 flex items-center justify-between border-t border-blue-100/50">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                      The Most Accurate, Fastest & Affordable
+                      The World's Leading AI-Powered SaaS
                     </p>
                     <p className="text-[12px] font-black text-blue-600 uppercase tracking-tight">
-                      Google Maps Rank Tracker
+                      Ringscale AI
                     </p>
                   </div>
                   <div className="flex flex-col items-end opacity-80">
-                    <span className="font-black text-sm text-slate-800 leading-none tracking-tighter">Local</span>
-                    <span className="font-black text-sm text-blue-600 leading-none tracking-tighter">DOMINATOR</span>
+                    <span className="font-black text-sm text-blue-600 leading-none tracking-tighter">Ringscale AI</span>
                   </div>
                 </div>
               </div>
@@ -1028,36 +1027,52 @@ export default function HomePage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {[
               {
+                id: 'plan_trial',
                 name: "7-Day Trial",
                 desc: "Try it for free",
                 icon: <Settings className="w-6 h-6 text-blue-500" />,
                 price: "0",
                 priceINR: 0,
-                features: ["300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Local Pack Rank Tracker"],
+                features: ["5 Miles Google Map Pack Ranking", "300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Google Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
               },
               {
+                id: 'plan_lite',
                 name: "Advance",
                 desc: "Best for Local Owners",
                 icon: <Rocket className="w-6 h-6 text-blue-600" />,
                 price: "499",
                 priceINR: 15000,
                 popular: true,
-                features: ["1200 Credits", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 10", "Local Pack Rank Tracker"],
+                features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-blue-50/95",
                 textColor: "text-slate-900",
                 badge: "Monthly"
               },
               {
+                id: 'plan_pro',
                 name: "Pro",
                 desc: "Best for Agency Owners",
                 icon: <Trophy className="w-6 h-6 text-blue-600" />,
-                price: "1299",
+                price: "799",
                 priceINR: 40000,
-                features: ["2400 Credits", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top 15", "Local Pack Rank Tracker"],
+                features: ["2400 Credits", "10 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "15 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
+              },
+              {
+                id: 'plan_pro_plus',
+                name: "Pro Plus",
+                desc: "Best for Agency Owners",
+                icon: <Rocket className="w-6 h-6 text-blue-600" />,
+                price: "1299",
+                priceINR: 60000,
+                popular: true,
+                features: ["5000 Credits", "20 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+                color: "bg-blue-50/95",
+                textColor: "text-slate-900",
+                badge: "Monthly"
               }
             ].map((plan, idx) => (
               <div

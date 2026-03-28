@@ -21,17 +21,24 @@ const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
 const PLANS = {
   'plan_lite': {
     priceUSD: 499,
-    priceINR: 8000, 
+    priceINR: 15000, 
     credits: 1200,
     name: 'Advance Plan',
     durationMonths: 1
   },
   'plan_pro': {
-    priceUSD: 1299,
-    priceINR: 15000, 
+    priceUSD: 799,
+    priceINR: 40000, 
     credits: 2400,
     name: 'Pro Plan',
     durationMonths: 3
+  },
+  'plan_pro_plus': {
+    priceUSD: 1299,
+    priceINR: 60000, 
+    credits: 5000,
+    name: 'Pro Plus',
+    durationMonths: 1
   }
 }
 
@@ -126,6 +133,7 @@ export async function POST(request) {
           },
         ],
         mode: 'payment',
+        allow_promotion_codes: true,
         success_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}&userId=${session.user.id}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?canceled=true`,
       }

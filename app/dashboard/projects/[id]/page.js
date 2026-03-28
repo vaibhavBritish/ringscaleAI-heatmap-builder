@@ -281,12 +281,12 @@ export default function ProjectDetailPage() {
           }
           setShowScanDialog(open)
         }}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800">
+          <Link href={`/dashboard/projects/new?projectId=${projectId}`}>
+            <Button className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 focus:ring-0 shadow-lg shadow-blue-500/20 active:scale-95 transition-all h-10 px-6 font-bold rounded-xl">
               <Play className="w-4 h-4 mr-2" />
               Run Scan
             </Button>
-          </DialogTrigger>
+          </Link>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Configure Scan</DialogTitle>
@@ -528,22 +528,14 @@ export default function ProjectDetailPage() {
                 <BarChart3 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 mb-4">No scans yet. Add a keyword and run your first scan.</p>
                 {keywords.length > 0 && (
-                  <Button 
-                    cooldown={2000}
-                    onClick={() => {
-                      const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
-                      const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
-                      
-                      if (isExpired) {
-                        setIsPlanModalOpen(true)
-                      } else {
-                        setShowScanDialog(true)
-                      }
-                    }}
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Run Your First Scan
-                  </Button>
+                  <Link href={`/dashboard/projects/new?projectId=${projectId}`}>
+                    <Button 
+                      className="h-11 px-8 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Run Your First Scan
+                    </Button>
+                  </Link>
                 )}
               </CardContent>
             </Card>

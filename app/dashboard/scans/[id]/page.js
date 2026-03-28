@@ -231,6 +231,17 @@ export default function ScanResultsPage() {
         })
         
         y += 40
+
+        // Add scan config secondary info
+        const scanUnit = scanData.project?.gridSettings?.unit || 'km'
+        const scanRadius = scanUnit === 'mi' 
+          ? (scanData.scanJob?.searchRadiusMeters / 1609.34).toFixed(1)
+          : (scanData.scanJob?.searchRadiusMeters / 1000).toFixed(1)
+
+        doc.setFontSize(8)
+        doc.setTextColor(100, 116, 139)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Configuration: ${scanAnalytics.totalPoints} Points | ${scanRadius} ${scanUnit} Radius | ${scanData.project?.gridSettings?.shape || 'Circle'} Grid`, 15, y - 8)
       }
       
       // 4. Map Image
@@ -624,6 +635,14 @@ export default function ScanResultsPage() {
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400">Total Points</span>
                         <span className="font-bold">{scanAnalytics.totalPoints}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Radius</span>
+                        <span className="font-bold">
+                          {scanData.project?.gridSettings?.unit === 'mi'
+                            ? `${(scanData.scanJob?.searchRadiusMeters / 1609.34).toFixed(1)} mi`
+                            : `${(scanData.scanJob?.searchRadiusMeters / 1000).toFixed(1)} km`}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400">Location</span>

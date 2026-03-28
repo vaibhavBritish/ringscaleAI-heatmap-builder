@@ -7,8 +7,8 @@ export default function Footer() {
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-12 mb-24">
           <div className="col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-auto h-auto rounded-xl flex items-center justify-center ">
+            <div className="flex flex-col items-center lg:items-start gap-4 mb-6">
+              <div className="w-auto h-auto rounded-xl flex items-center justify-center">
                 <Image
                   src="/logo.png"
                   alt="Ringscale AI"
@@ -17,6 +17,9 @@ export default function Footer() {
                   className="h-48 w-auto object-contain" 
                 />
               </div>
+              <p className="text-[#526484] font-bold text-sm max-w-xs text-center lg:text-left">
+                The World's #1 <span className="text-blue-600">AI-Powered</span> SaaS Platform for Local Search Dominance.
+              </p>
             </div>
           </div>
 

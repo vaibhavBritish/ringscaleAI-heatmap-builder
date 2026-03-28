@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, memo } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 
-export default function GoogleMap({ 
+const GoogleMap = memo(function GoogleMap({ 
   center = { lat: 39.8283, lng: -98.5795 }, // USA Center
   zoom = 4, 
   markers = [], 
@@ -246,4 +246,6 @@ export default function GoogleMap({
       )}
     </div>
   )
-}
+})
+
+export default GoogleMap

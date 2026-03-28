@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ import {
   Settings, ChevronDown, ChevronUp, Plus, X, 
   Target, Zap, CreditCard, RefreshCw, Layers, ChevronRight
 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import GoogleMap from '@/components/GoogleMap'
@@ -18,6 +20,9 @@ import { generateHeatmapGrid } from '@/lib/heatmap-utils'
 import { calculateAnalytics } from '@/lib/grid-utils'
 
 export default function NewProjectPage() {
+  const { data: session } = useSession()
+  const userPlan = session?.user?.plan || 'trial'
+  
   const router = useRouter()
   const [searching, setSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -30,7 +35,7 @@ export default function NewProjectPage() {
   const [gridShape, setGridShape] = useState('circle')
   const [gridDensity, setGridDensity] = useState(133)
   const [gridRadius, setGridRadius] = useState(1)
-  const [gridUnit, setGridUnit] = useState('km')
+  const [gridUnit, setGridUnit] = useState('mi')
   const [keywords, setKeywords] = useState([])
   const [newKeyword, setNewKeyword] = useState('')
   const [source, setSource] = useState('google-maps')
@@ -41,6 +46,31 @@ export default function NewProjectPage() {
   const [activeScanJobId, setActiveScanJobId] = useState(null)
   const [scanProgress, setScanProgress] = useState(0)
   const [scanAnalytics, setScanAnalytics] = useState(null)
+  
+  // Auto-clamp radius when unit changes or session loads
+  useEffect(() => {
+    const limits = {
+      'trial': 5,
+      'plan_lite': 5,
+      'plan_pro': 10,
+      'plan_pro_plus': 20
+    }
+    
+    // Max radius is always defined in miles according to requirements
+    const maxMiles = limits[userPlan] || 5
+    const max = gridUnit === 'mi' ? maxMiles : Math.round(maxMiles * 1.60934)
+    
+    if (gridRadius > max) {
+      setGridRadius(max)
+      toast.warning(`Radius restricted to ${max} ${gridUnit} for your ${userPlan === 'trial' ? 'Trial' : userPlan.replace('plan_', '').toUpperCase()} plan`, {
+        description: "Upgrade your plan for a larger search radius.",
+        action: {
+          label: "Plans",
+          onClick: () => router.push('/dashboard/billing')
+        }
+      })
+    }
+  }, [gridUnit, userPlan, gridRadius])
   
 
   // UI State
@@ -56,21 +86,75 @@ export default function NewProjectPage() {
 
   const searchParams = useSearchParams()
   const rescanJobId = searchParams.get('rescanJobId')
+  const existingProjectId = searchParams.get('projectId')
 
-  // Generate grid when center or settings change
+  // Load existing project if provided
+  useEffect(() => {
+    if (existingProjectId) {
+      fetchProjectDetails(existingProjectId)
+    }
+  }, [existingProjectId])
+
+  const fetchProjectDetails = async (id) => {
+    setSearching(true)
+    try {
+      const response = await fetch(`/api/projects/${id}`)
+      if (!response.ok) throw new Error('Failed to load project')
+      
+      const data = await response.json()
+      const proj = data.project
+      
+      setSelectedBusiness({
+        placeId: proj.placeId,
+        businessName: proj.businessName,
+        address: proj.address,
+        latitude: proj.latitude,
+        longitude: proj.longitude,
+        primaryType: proj.primaryType
+      })
+      
+      setSearchQuery(proj.businessName)
+      
+      if (proj.gridSettings) {
+        setGridShape(proj.gridSettings.shape || 'circle')
+        setGridDensity(proj.gridSettings.density || 133)
+        setGridRadius(proj.gridSettings.radius || 1)
+        setGridUnit(proj.gridSettings.unit || 'mi')
+      }
+      
+      if (data.keywords) {
+        setKeywords(data.keywords.map(k => k.keyword))
+      }
+      
+      toast.success('Project details loaded')
+    } catch (error) {
+      console.error('Error loading project details:', error)
+      toast.error('Failed to load project details')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // Generate grid when center or settings change (Debounced to save API calls/CPU)
   useEffect(() => {
     if (selectedBusiness && !scanning && !scanAnalytics) {
-      const pins = generateHeatmapGrid(
-        { lat: selectedBusiness.latitude, lng: selectedBusiness.longitude },
-        gridShape,
-        gridDensity,
-        gridRadius
-      )
-      setHeatmapPins(pins)
+      const timer = setTimeout(() => {
+        // Internal utility requires km
+        const radiusInKm = gridUnit === 'mi' ? gridRadius * 1.60934 : gridRadius
+        const pins = generateHeatmapGrid(
+          { lat: selectedBusiness.latitude, lng: selectedBusiness.longitude },
+          gridShape,
+          gridDensity,
+          radiusInKm
+        )
+        setHeatmapPins(pins)
+      }, 300)
+
+      return () => clearTimeout(timer)
     } else if (!selectedBusiness) {
       setHeatmapPins([])
     }
-  }, [selectedBusiness, gridShape, gridDensity, gridRadius, scanning, scanAnalytics])
+  }, [selectedBusiness, gridShape, gridDensity, gridRadius, gridUnit, scanning, scanAnalytics])
 
   // Handle rescan/observation from URL
   useEffect(() => {
@@ -151,10 +235,11 @@ export default function NewProjectPage() {
           if (data.results && data.results.length > 0) {
             setHeatmapPins(prevPins => {
               return prevPins.map((pin) => {
-                // Find a matching result by coordinates (rounded to 6 decimals)
+                // Find a matching result by coordinates with a bit more tolerance 
+                // for floating point differences between server and client
                 const match = data.results.find(r => 
-                  Math.abs(r.latitude - pin.latitude) < 0.000001 && 
-                  Math.abs(r.longitude - pin.longitude) < 0.000001
+                  Math.abs(r.latitude - pin.latitude) < 0.0001 && 
+                  Math.abs(r.longitude - pin.longitude) < 0.0001
                 )
                 
                 if (match && (match.found || match.rank)) {
@@ -365,8 +450,10 @@ export default function NewProjectPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: selectedBusiness.name,
+          // Send all possible variations to ensure backend catches them
+          placeId: selectedBusiness.placeId,
           businessId: selectedBusiness.placeId,
+          name: selectedBusiness.name,
           businessName: selectedBusiness.name,
           address: selectedBusiness.address,
           coordinates: {
@@ -387,11 +474,12 @@ export default function NewProjectPage() {
         if (response.status === 402) {
           throw new Error('No more credits. Please purchase more credits to run the scan.')
         }
-        throw new Error('Failed to create project')
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to trigger scan')
       }
 
       const data = await response.json()
-      toast.success('Project created! Starting scan...')
+      toast.success(existingProjectId ? 'Scan started!' : 'Project created! Starting scan...')
       
       if (data.scanJobIds && data.scanJobIds.length > 0) {
         const firstScanId = data.scanJobIds[0]
@@ -408,7 +496,7 @@ export default function NewProjectPage() {
       }
     } catch (error) {
       console.error('Create error:', error)
-      toast.error('Failed to create project')
+      toast.error(error.message)
     } finally {
       setCreating(false)
     }
@@ -782,16 +870,30 @@ export default function NewProjectPage() {
                           <Input 
                             type="number" 
                             step="0.1"
+                            min="0"
+                            max={gridUnit === 'mi' ? 25 : 40}
                             value={gridRadius}
-                            onChange={(e) => setGridRadius(Number(e.target.value))}
+                            onChange={(e) => {
+                              const val = Number(e.target.value)
+                              const max = gridUnit === 'mi' ? 25 : 40
+                              if (val > max) {
+                                setGridRadius(max)
+                                toast.error(`Maximum radius is ${max} ${gridUnit}`)
+                              } else {
+                                setGridRadius(Math.max(0, val))
+                              }
+                            }}
                             className="h-9 rounded-l-lg rounded-r-none border-r-0 text-sm w-full"
                           />
-                          <button 
-                            onClick={() => setGridUnit(gridUnit === 'km' ? 'mi' : 'km')}
-                            className="h-9 px-2 rounded-r-lg border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition"
-                          >
-                            {gridUnit.toUpperCase()}
-                          </button>
+                          <Select value={gridUnit} onValueChange={setGridUnit}>
+                            <SelectTrigger className="h-9 w-20 px-2 rounded-r-lg rounded-l-none border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 focus:ring-0">
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="mi">MI</SelectItem>
+                              <SelectItem value="km">KM</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>

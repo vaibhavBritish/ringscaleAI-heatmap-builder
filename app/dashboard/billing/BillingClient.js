@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { 
-  Check, CreditCard, Zap, Loader2, ExternalLink, RefreshCw, 
+import {
+  Check, CreditCard, Zap, Loader2, ExternalLink, RefreshCw,
   Download, Mail, Shield, Calendar, Receipt, ChevronRight,
-  Wallet, Clock, BadgeCheck
+  Wallet, Clock, BadgeCheck,
+  Settings,
+  Rocket,
+  Trophy
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -43,21 +46,21 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   useEffect(() => {
     const success = searchParams.get('success')
     const sessionId = searchParams.get('session_id')
-    
+
     if (success === 'true' && !hasRefreshed) {
       console.log('Detected successful checkout, triggering sync...')
       setHasRefreshed(true)
       toast.success('Payment successful! Your account is being updated...')
-      
+
       const performSync = async () => {
         try {
-          const syncRes = await fetch(`/api/stripe/sync${sessionId ? `?session_id=${sessionId}` : ''}`, { 
+          const syncRes = await fetch(`/api/stripe/sync${sessionId ? `?session_id=${sessionId}` : ''}`, {
             method: 'POST',
             cache: 'no-store'
           })
           const syncData = await syncRes.json()
           console.log('Sync result:', syncData)
-          
+
           if (syncData.synced) {
             toast.success(`Synced! Added ${syncData.newCredits} credits.`)
           }
@@ -101,7 +104,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       if (res.ok) {
         const data = await res.json()
         setBillingData(data)
-        
+
         // Auto-sync session if credits changed
         if (session?.user && data.user && data.user.credits !== session.user.credits) {
           update()
@@ -117,30 +120,55 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const plans = [
     {
       id: 'plan_trial',
-      name: '7-Day Trial',
-      credits: '300',
+      name: "7-Day Trial",
+      desc: "Try it for free",
+      icon: <Settings className="w-6 h-6 text-blue-500" />,
+      price: "0",
       priceUSD: 0,
       priceINR: 0,
-      features: ['300 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner']
+      features: ["5 Miles Google Map Pack Ranking", "300 Credits", "7 Days Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "Google Pack Rank Tracker"],
+      color: "bg-white",
+      textColor: "text-slate-800"
     },
     {
       id: 'plan_lite',
-      name: 'Advance Plan',
-      credits: '1200',
+      name: "Advance",
+      desc: "Best for Local Owners",
+      icon: <Rocket className="w-6 h-6 text-blue-600" />,
+      price: "499",
       priceUSD: 499,
-      priceINR: 8000,
+      priceINR: 15000,
       popular: true,
-      duration: '1 Month',
-      features: ['1200 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 10']
+      features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
+      color: "bg-blue-50/95",
+      textColor: "text-slate-900",
+      badge: "Monthly"
     },
     {
       id: 'plan_pro',
-      name: 'Pro Plan',
-      credits: '2400',
+      name: "Pro",
+      desc: "Best for Agency Owners",
+      icon: <Trophy className="w-6 h-6 text-blue-600" />,
+      price: "799",
+      priceUSD: 799,
+      priceINR: 40000,
+      features: ["2400 Credits", "10 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "15 Keywords", "Local Pack Rank Tracker"],
+      color: "bg-white",
+      textColor: "text-slate-800"
+    },
+    {
+      id: 'plan_pro_plus',
+      name: "Pro Plus",
+      desc: "Best for Agency Owners",
+      icon: <Rocket className="w-6 h-6 text-blue-600" />,
+      price: "1299",
       priceUSD: 1299,
-      priceINR: 15000,
-      duration: '3 Months',
-      features: ['2400 Credits', 'Heatmap Dashboard', 'Free Website', 'AI QR Scanner', 'GMB Rank Top 15']
+      priceINR: 60000,
+      popular: true,
+      features: ["5000 Credits", "20 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+      color: "bg-blue-50/95",
+      textColor: "text-slate-900",
+      badge: "Monthly"
     }
   ]
 
@@ -188,7 +216,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const userPlan = user?.plan
   const planEndsAt = user?.planEndsAt ? new Date(user.planEndsAt) : null
   const trialEndsAt = user?.trialEndsAt ? new Date(user.trialEndsAt) : null
-  
+
   const expiryDate = planEndsAt || trialEndsAt
   const isExpired = (expiryDate && expiryDate < new Date()) || (user?.credits <= 0)
   const isTrial = userPlan === 'trial' || userPlan === 'plan_trial'
@@ -353,7 +381,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Button 
+            <Button
               variant="outline"
               className="h-10 px-5 rounded-xl font-bold gap-2 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-sm"
               onClick={handleManualSync}
@@ -365,7 +393,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
             </Button>
 
             {!isIndia && currentSession?.user?.stripeCustomerId && (
-              <Button 
+              <Button
                 variant="outline"
                 className="h-10 px-5 rounded-xl font-bold gap-2 border-blue-200 hover:bg-blue-100 hover:text-blue-700 text-sm"
                 onClick={handleManageBilling}
@@ -550,7 +578,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       <div>
         <h2 className="text-xl font-black text-slate-900 mb-1">{hasPaid ? 'Add More Credits' : 'Choose a Plan'}</h2>
         <p className="text-sm text-slate-500 mb-6">Select a plan to {hasPaid ? 'top up your' : 'get'} credits.</p>
-        
+
         <div className="grid md:grid-cols-2 gap-6">
           {plans.map((plan) => (
             <div key={plan.id} className={`bg-white rounded-[2rem] p-8 border ${plan.popular ? 'border-blue-600 shadow-xl relative scale-[1.02]' : 'border-slate-200'} flex flex-col`}>
@@ -559,7 +587,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                   Most Popular
                 </div>
               )}
-              
+
               <h3 className="text-2xl font-black text-slate-900 mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-6">
                 <span className="text-4xl font-black text-slate-900">
@@ -579,15 +607,14 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 ))}
               </div>
 
-              <Button 
+              <Button
                 onClick={() => handleCheckout(plan)}
                 isLoading={loading === plan.id}
                 cooldown={5000}
-                className={`w-full h-12 rounded-xl font-bold text-base transition-all ${
-                  plan.popular 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' 
+                className={`w-full h-12 rounded-xl font-bold text-base transition-all ${plan.popular
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                }`}
+                  }`}
               >
                 <span className="flex items-center justify-center gap-2">
                   <CreditCard className="w-4 h-4" />

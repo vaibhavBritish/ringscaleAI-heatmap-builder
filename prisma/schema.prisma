@@ -13,6 +13,7 @@ model User {
   id               String    @unique
   name             String?
   email            String    @unique
+  phone            String?
   password         String
   plan             String    @default("trial")
   credits          Int       @default(0)

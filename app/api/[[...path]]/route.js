@@ -81,6 +81,18 @@ async function handleRoute(request, { params }) {
       return isTimeExpired || isCreditsExpired
     }
 
+    // Helper to get max radius based on plan (in miles)
+    const getMaxRadius = (plan) => {
+      const limits = {
+        'trial': 5,
+        'plan_trial': 5,
+        'plan_lite': 5,
+        'plan_pro': 10,
+        'plan_pro_plus': 20
+      }
+      return limits[plan] || 5 // Default to 5
+    }
+
     // Helper to verify project ownership
     const verifyProject = async (projectId, userId) => {
       const project = await prisma.project.findFirst({ where: { id: projectId, userId } })
@@ -323,6 +335,16 @@ async function handleRoute(request, { params }) {
         })
       }
 
+      // Radius validation
+      const maxAllowedRadius = getMaxRadius(currentUser.plan)
+      const requestedRadius = gridSettings?.radius || 5
+      if (requestedRadius > maxAllowedRadius) {
+        return handleCORS(NextResponse.json({
+          error: `Your current plan allows a maximum search radius of ${maxAllowedRadius} miles. Please upgrade for more.`,
+          maxAllowedRadius
+        }, { status: 403 }))
+      }
+
       // Automatically add keywords and start scan jobs
       const scanJobIds = []
       if (keywords.length > 0) {
@@ -356,6 +378,10 @@ async function handleRoute(request, { params }) {
 
           // Create a new scan job for this keyword
           const scanJobId = uuidv4()
+          const radius = gridSettings?.radius || 5
+          const unit = gridSettings?.unit || 'km'
+          const calculatedRadiusMeters = unit === 'mi' ? Math.round(radius * 1609.34) : Math.round(radius * 1000)
+
           await prisma.scanJob.create({
             data: {
               id: scanJobId,
@@ -364,7 +390,7 @@ async function handleRoute(request, { params }) {
               status: 'queued',
               processedPoints: 0,
               totalPoints: gridSettings?.density || 133,
-              searchRadiusMeters: (gridSettings?.radius || 5) * 1000,
+              searchRadiusMeters: calculatedRadiusMeters,
               createdAt: new Date()
             }
           })
@@ -537,7 +563,23 @@ async function handleRoute(request, { params }) {
       }
 
       const body = await request.json()
-      const { projectId, keywordId, keywordIds, gridSize = 3, spacingMeters = 1000, searchRadiusMeters = 5000 } = body
+      const { 
+        projectId, 
+        keywordId, 
+        keywordIds, 
+        gridSize = 3, 
+        spacingMeters = 1000, 
+        searchRadiusMeters: bodyRadiusMeters,
+        radius,
+        unit = 'km'
+      } = body
+
+      let searchRadiusMeters = bodyRadiusMeters
+      if (!searchRadiusMeters && radius) {
+        searchRadiusMeters = unit === 'mi' ? Math.round(radius * 1609.34) : Math.round(radius * 1000)
+      } else if (!searchRadiusMeters) {
+        searchRadiusMeters = 5000
+      }
 
       if (!projectId || (!keywordId && (!keywordIds || !keywordIds.length))) {
         return handleCORS(NextResponse.json({ error: 'Project ID and keyword ID(s) are required' }, { status: 400 }))
@@ -545,6 +587,16 @@ async function handleRoute(request, { params }) {
 
       if (!(await verifyProject(projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
+      }
+
+      // Radius validation
+      const maxAllowedRadius = getMaxRadius(currentUser.plan)
+      const requestedRadius = radius || (bodyRadiusMeters ? bodyRadiusMeters / 1609.34 : 5)
+      if (requestedRadius > maxAllowedRadius) {
+        return handleCORS(NextResponse.json({
+          error: `Your current plan allows a maximum search radius of ${maxAllowedRadius} miles. Please upgrade for more.`,
+          maxAllowedRadius
+        }, { status: 403 }))
       }
 
       if (isPlanExpired(currentUser)) {
