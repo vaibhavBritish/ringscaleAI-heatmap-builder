@@ -59,3 +59,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+// Trigger restart for prisma client update

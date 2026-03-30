@@ -147,3 +147,16 @@ model Payment {
   @@index([userId])
   @@map("payments")
 }
+
+model BusinessAudit {
+  oid               String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                String   @unique
+  projectId         String
+  auditDataJson     String
+  optimizationScore Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("business_audits")
+}

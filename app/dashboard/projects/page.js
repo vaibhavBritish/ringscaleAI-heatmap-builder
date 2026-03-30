@@ -17,11 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Search, MapPin, Calendar, Tag, Trash2, ExternalLink, MoreVertical } from 'lucide-react'
+import { Plus, Search, MapPin, Calendar, Tag, Trash2, ExternalLink, MoreVertical, ShieldCheck, BarChart3 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDistanceToNow } from 'date-fns'
@@ -159,9 +160,9 @@ export default function ProjectsPage() {
                     <CardTitle className="text-lg font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
                       {project.businessName}
                     </CardTitle>
-                    <div className="flex items-start gap-1.5 mt-2 text-slate-500 group-hover:text-slate-600">
-                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <p className="text-xs font-medium leading-relaxed line-clamp-2">
+                    <div className="flex items-start gap-1.5 mt-2 text-slate-500 group-hover:text-slate-600 min-h-[32px]">
+                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-500" />
+                      <p className="text-[11px] font-bold leading-relaxed line-clamp-2 opacity-80 uppercase tracking-tight">
                         {project.address || 'No address provided'}
                       </p>
                     </div>
@@ -172,13 +173,20 @@ export default function ProjectsPage() {
                         <MoreVertical className="w-4 h-4 text-slate-400" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem asChild>
                         <Link href={`/dashboard/projects/${project.id}`}>
                           <ExternalLink className="w-4 h-4 mr-2" />
                           Details
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/audit/${project.id}`}>
+                          <ShieldCheck className="w-4 h-4 mr-2" />
+                          Business Audit
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         className="text-red-600 focus:text-red-600 focus:bg-red-50"
                         onClick={() => setDeleteProject(project)}
@@ -215,11 +223,18 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                <Link href={`/dashboard/projects/${project.id}`} className="block pt-2">
-                  <Button className="w-full bg-slate-50 hover:bg-blue-600 text-slate-700 hover:text-white border border-slate-200 hover:border-blue-600 rounded-xl font-bold h-11 transition-all">
-                    Open Project
-                  </Button>
-                </Link>
+                <div className="flex gap-3 pt-2">
+                  <Link href={`/dashboard/projects/${project.id}`} className="flex-1">
+                    <Button className="w-full bg-slate-50 hover:bg-blue-600 text-slate-700 hover:text-white border border-slate-200 hover:border-blue-600 rounded-xl font-bold h-11 transition-all">
+                      Open Project
+                    </Button>
+                  </Link>
+                  <Link href={`/dashboard/audit/${project.id}`}>
+                    <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" title="View Audit Report">
+                      <ShieldCheck className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ))}
