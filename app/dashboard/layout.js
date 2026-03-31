@@ -235,7 +235,7 @@ export default function DashboardLayout({ children }) {
         {/* Page content */}
         <main className="flex-1 flex flex-col min-h-0">
           <PlanStatusBanner />
-          <div className={`p-4 md:p-6 flex-1 flex flex-col min-h-0 ${pathname.includes('/scans/') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${pathname.includes('/scans/') ? 'p-0' : 'p-4 md:p-6'} flex-1 flex flex-col min-h-0 relative ${pathname.includes('/scans/') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {children}
           </div>
         </main>

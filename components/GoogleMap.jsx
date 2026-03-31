@@ -129,46 +129,53 @@ const GoogleMap = memo(function GoogleMap({
       
       // Determine color based on rank
       let pinColor = '#3b82f6'
-      if (hasRank) {
+      if (markerData.found === false || hasRank && markerData.rank > 20) pinColor = '#94a3b8' // Slate 400
+      else if (hasRank) {
         if (markerData.rank <= 3) pinColor = '#22c55e'
         else if (markerData.rank <= 10) pinColor = '#eab308'
-        else if (markerData.rank < 20) pinColor = '#f97316'
-        else pinColor = '#94a3b8'
+        else if (markerData.rank <= 20) pinColor = '#f97316'
       }
 
-      const label = hasRank ? {
+      const isSelected = markerData.selected // Usually the target business
+      
+      const label = isSelected ? {
+        text: 'B',
+        color: '#ffffff',
+        fontSize: '11px',
+        fontWeight: 'black'
+      } : (hasRank && markerData.rank <= 20 ? {
         text: String(markerData.rank),
         color: markerData.rank <= 10 && markerData.rank > 3 ? '#000000' : '#ffffff',
         fontSize: '10px',
         fontWeight: 'bold'
-      } : (markerData.found === false ? {
+      } : {
         text: 'X',
         color: '#ffffff',
         fontSize: '12px',
         fontWeight: 'black'
-      } : null)
+      })
 
       const icon = isPin ? {
         path: SymbolPath.CIRCLE,
-        fillColor: markerData.found === false ? '#94a3b8' : pinColor,
-        fillOpacity: (hasRank || markerData.found === false) ? 0.9 : 0.1,
-        strokeColor: markerData.found === false ? '#64748b' : pinColor,
-        strokeWeight: (hasRank || markerData.found === false) ? 1 : 2,
-        scale: markerData.found === false ? 12 : (hasRank ? 14 : 11)
-      } : (markerData.selected ? {
+        fillColor: pinColor,
+        fillOpacity: 0.9,
+        strokeColor: '#ffffff',
+        strokeWeight: 1,
+        scale: 14
+      } : (isSelected ? {
         path: SymbolPath.CIRCLE,
-        fillColor: '#b91c1c',
+        fillColor: '#ef4444', // Red 500
         fillOpacity: 1,
-        strokeColor: '#3b82f6',
-        strokeWeight: 5,
-        scale: 16
+        strokeColor: '#ffffff',
+        strokeWeight: 3,
+        scale: 18
       } : {
         path: SymbolPath.CIRCLE,
-        fillColor: '#0c4bb0',
-        fillOpacity: 0.8,
-        strokeColor: '#0c4bb0',
+        fillColor: '#3b82f6', // Blue 500
+        fillOpacity: 0.9,
+        strokeColor: '#ffffff',
         strokeWeight: 2,
-        scale: 9
+        scale: 11
       })
 
       if (marker) {

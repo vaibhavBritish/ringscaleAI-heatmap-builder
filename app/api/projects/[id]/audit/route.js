@@ -7,7 +7,6 @@ import { getPlaceDetails, getNearbyCompetitors } from '@/lib/google-places'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(req, { params }) {
-  console.log('Prisma keys:', Object.keys(prisma))
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -25,26 +24,25 @@ export async function GET(req, { params }) {
         const cached = await redis.get(cacheKey)
         if (cached) {
           const cachedData = JSON.parse(cached)
-          // Defensive check: if cache is missing reviews, status or competitors, force a DB check or fresh fetch
-          const hasNewFields = cachedData.businessInfo?.reviews && 
-                              cachedData.businessInfo?.status && 
-                              cachedData.competitors
-          if (hasNewFields) {
-            console.log(`[Audit] Serving from Redis cache for project ${projectId}`)
+          // Defensive check: if cache has all required fields, serve it
+          const hasRequiredFields = cachedData.businessInfo?.reviews && 
+                                   cachedData.businessInfo?.status && 
+                                   cachedData.competitors
+          if (hasRequiredFields) {
+            console.log(`[Audit] [Cache Hit] Serving from Redis for project ${projectId}`)
             return NextResponse.json(cachedData)
           }
-          console.log(`[Audit] Redis cache stale (missing fields), checking DB...`)
+          console.log(`[Audit] [Cache Stale] Redis data missing fields, checking DB...`)
         }
       } catch (e) {
-        console.warn('Redis Cache Get Error:', e)
+        console.warn('[Audit] [Redis Error] Get failed:', e.message)
       }
     }
 
     // 2. Check Database for recent audit (Freshness: 24 hours)
     if (!forceRefresh) {
-      const recentAudit = await prisma.businessAudit.findFirst({
-        where: { projectId },
-        orderBy: { updatedAt: 'desc' }
+      const recentAudit = await prisma.businessAudit.findUnique({
+        where: { id: projectId }
       })
 
       if (recentAudit) {
@@ -52,21 +50,24 @@ export async function GET(req, { params }) {
         const isFresh = new Date(recentAudit.updatedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
         
         // Defensive check: if DB record is missing reviews, status or competitors, it's "stale" regardless of date
-        const hasNewFields = auditData.businessInfo?.reviews && 
-                            auditData.businessInfo?.status && 
-                            auditData.competitors
+        const hasRequiredFields = auditData.businessInfo?.reviews && 
+                                 auditData.businessInfo?.status && 
+                                 auditData.competitors
         
-        if (isFresh && hasNewFields) {
-          console.log(`[Audit] Serving from Database for project ${projectId}`)
+        if (isFresh && hasRequiredFields) {
+          console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
           
           // Populate Redis cache for next time
           if (redis) {
-            try { await redis.set(cacheKey, JSON.stringify(auditData), 'EX', 3600) } catch (e) {}
+            try { 
+              await redis.set(cacheKey, JSON.stringify(auditData), 'EX', 3600) 
+              console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
+            } catch (e) {}
           }
           
           return NextResponse.json(auditData)
         }
-        console.log(`[Audit] DB record found but stale or missing fields for ${projectId}`)
+        console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
       }
     }
 
