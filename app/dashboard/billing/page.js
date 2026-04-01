@@ -8,7 +8,7 @@ export default async function BillingPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const headersList = headers()
+  const headersList = await headers()
   const country = headersList.get('cf-ipcountry') || headersList.get('x-vercel-ip-country') || 'US'
   const isIndia = country === 'IN'
 

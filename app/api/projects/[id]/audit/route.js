@@ -6,7 +6,8 @@ import redis from '@/lib/redis'
 import { getPlaceDetails, getNearbyCompetitors } from '@/lib/google-places'
 import { v4 as uuidv4 } from 'uuid'
 
-export async function GET(req, { params }) {
+export async function GET(req, props) {
+  const params = await props.params
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -55,19 +56,19 @@ export async function GET(req, { params }) {
                                  auditData.competitors
         
         if (isFresh && hasRequiredFields) {
-          console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
+          // console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
           
           // Populate Redis cache for next time
           if (redis) {
             try { 
               await redis.set(cacheKey, JSON.stringify(auditData), 'EX', 3600) 
-              console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
+              // console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
             } catch (e) {}
           }
           
           return NextResponse.json(auditData)
         }
-        console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
+        // console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
       }
     }
 

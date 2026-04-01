@@ -6,27 +6,10 @@ import {
   Users, 
   LayoutDashboard, 
   Settings, 
-  Database, 
   LogOut,
-  ShieldCheck,
-  Search,
-  Plus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { 
-  Sidebar, 
-  SidebarContent, 
-  SidebarFooter, 
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent
-} from "@/components/ui/sidebar"
 import { signOut } from "next-auth/react"
 
 const adminNavItems = [
@@ -40,99 +23,109 @@ const adminNavItems = [
     href: "/admin/users",
     icon: Users,
   },
-  // {
-  //   title: "Platform Stats",
-  //   href: "/admin/stats",
-  //   icon: Database,
-  // },
 ]
 
 export function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar className="border-r border-slate-800 bg-slate-950 text-white">
-      <SidebarHeader className="p-6 border-b border-slate-900/50">
-        <Link href="/" className="flex items-center gap-3 group transition-transform hover:scale-[1.02]">
-          <div className="relative h-12 w-full">
+    <aside
+      style={{ width: "256px", minWidth: "256px", background: "#020817" }}
+      className="fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-800"
+    >
+      {/* Logo */}
+      <div className="flex items-center justify-center px-5 py-4 border-b border-slate-800/60" style={{ height: "85px" }}>
+        <Link href="/" className="flex items-center justify-center w-full transition-all duration-300 hover:scale-[1.02] active:scale-95">
+          <div className="relative" style={{ height: "96px", width: "200px" }}>
             <Image
               src="/logo.png"
               alt="Ringscale AI"
               fill
-              className="object-contain object-left"
+              sizes="300px"
+              className="object-contain object-center"
               priority
             />
           </div>
         </Link>
-      </SidebarHeader>
-      
-      <SidebarContent className="px-4 py-2">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Main Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent className="mt-2">
-            <SidebarMenu>
-              {adminNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link 
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200",
-                        pathname === item.href 
-                          ? "bg-blue-600/10 text-blue-400 font-medium" 
-                          : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-                      )}
-                    >
-                      <item.icon className="h-[18px] w-[18px]" />
-                      <span>{item.title}</span>
-                      {pathname === item.href && (
-                        <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      </div>
 
-        <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            System
-          </SidebarGroupLabel>
-          <SidebarGroupContent className="mt-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link 
-                    href="/admin/settings"
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+        {/* Main Menu */}
+        <div>
+          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+            Main Menu
+          </p>
+          <ul className="space-y-1">
+            {adminNavItems.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 text-slate-400 hover:bg-slate-900 hover:text-slate-200",
-                      pathname === "/admin/settings" && "bg-slate-900 text-slate-200"
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
+                      isActive
+                        ? "bg-blue-600/15 text-blue-600 ring-1 ring-blue-600/20"
+                        : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                     )}
                   >
-                    <Settings className="h-[18px] w-[18px]" />
-                    <span>Settings</span>
+                    <item.icon
+                      className={cn(
+                        "h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110",
+                        isActive ? "text-blue-400" : "text-slate-500"
+                      )}
+                    />
+                    <span className="tracking-tight">{item.title}</span>
+                    {isActive && (
+                      <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse" />
+                    )}
                   </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
 
-      <SidebarFooter className="border-t border-slate-900 p-4">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-3 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
-          onClick={() => signOut({ callbackUrl: '/' })}
+        {/* System */}
+        <div>
+          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+            System
+          </p>
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/admin/settings"
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
+                  pathname === "/admin/settings"
+                    ? "bg-blue-600/15 text-blue-400 ring-1 ring-blue-600/20"
+                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                )}
+              >
+                <Settings
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110",
+                    pathname === "/admin/settings" ? "text-blue-400" : "text-slate-500"
+                  )}
+                />
+                <span className="tracking-tight">Settings</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      {/* Footer / Sign Out */}
+      <div className="p-4 border-t border-slate-800/60">
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-all duration-200 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/20"
         >
-          <LogOut className="h-[18px] w-[18px]" />
+          <LogOut className="h-[18px] w-[18px] shrink-0" />
           <span>Sign Out</span>
-        </Button>
-      </SidebarFooter>
-    </Sidebar>
+        </button>
+      </div>
+    </aside>
   )
 }

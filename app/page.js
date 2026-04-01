@@ -118,15 +118,17 @@ export default function HomePage() {
   const [isIndia, setIsIndia] = useState(false)
 
   useEffect(() => {
-    // Detect country
-    fetch('https://ipapi.co/json/')
+    // Detect country via server-side headers (works on Vercel/Cloudflare, safe on localhost)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+
+    fetch('/api/geo', { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
-        if (data.country_code === 'IN') {
-          setIsIndia(true)
-        }
+        if (data.country === 'IN') setIsIndia(true)
       })
-      .catch(err => console.error('Geo detection failed:', err))
+      .catch(() => {}) // Silently fall back to default (US pricing)
+      .finally(() => clearTimeout(timeout))
   }, [])
 
   const scrollLeft = () => {
@@ -433,7 +435,7 @@ export default function HomePage() {
                     <div className="flex gap-2 text-slate-400 text-lg"><span>‹</span><span>›</span></div>
                   </div>
                   <div className="grid grid-cols-7 gap-1 text-[10px] font-black text-slate-400 mb-2 text-center">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <span key={d}>{d}</span>)}
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={`day-${d}-${i}`}>{d}</span>)}
                   </div>
                   <div className="grid grid-cols-7 gap-1 text-[10px] font-black text-center">
                     {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (

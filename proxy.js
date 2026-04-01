@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl
   
   // 0. Skip maintenance check for maintenance page itself and static assets
@@ -13,23 +13,10 @@ export async function middleware(request) {
     return NextResponse.next()
   }
 
-  // 1. Check Maintenance Mode (only for non-admin paths)
-  if (!pathname.startsWith('/admin')) {
-    try {
-      // In a real production environment with high traffic, you'd use a faster store like Redis
-      // For now, we fetch from our internal status API
-      const origin = request.nextUrl.origin
-      const maintenanceRes = await fetch(`${origin}/api/admin/settings/maintenance-status`, {
-        next: { revalidate: 0 } // Don't cache the maintenance check
-      })
-      const { maintenanceMode } = await maintenanceRes.json()
-      
-      if (maintenanceMode) {
-        return NextResponse.redirect(new URL('/maintenance', request.url))
-      }
-    } catch (err) {
-      console.error("Maintenance check failed:", err)
-    }
+  // 1. Check Maintenance Mode via env var (avoids self-HTTP-fetch SSL errors in Docker)
+  // To enable: set MAINTENANCE_MODE=true in your docker-compose.yml / .env and restart
+  if (!pathname.startsWith('/admin') && process.env.MAINTENANCE_MODE === 'true') {
+    return NextResponse.redirect(new URL('/maintenance', request.url))
   }
 
   // 2. Skip paths that ALREADY have the country code
@@ -55,7 +42,7 @@ export async function middleware(request) {
   return NextResponse.redirect(url)
 }
 
-// Ensure middleware only strictly intercepts non-static paths
+// Ensure proxy only strictly intercepts non-static paths
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }

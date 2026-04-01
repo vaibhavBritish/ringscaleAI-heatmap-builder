@@ -55,6 +55,9 @@ export default function BusinessAuditPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const handleDownloadPDF = async () => {
     if (!data) return
@@ -388,6 +391,7 @@ export default function BusinessAuditPage() {
                   competitors={data.competitors} 
                   metrics={metrics} 
                   myBusiness={{ name: businessInfo.name, rating: businessInfo.rating, reviewCount: businessInfo.reviewCount }}
+                  mounted={mounted}
                 />
              </div>
           </TabsContent>
@@ -527,7 +531,7 @@ function ProfileTab({ businessInfo }) {
   )
 }
 
-function CompetitorsTab({ competitors, metrics, myBusiness }) {
+function CompetitorsTab({ competitors, metrics, myBusiness, mounted }) {
   const { averageCompetitorRating, topCompetitor } = metrics
 
   return (
@@ -545,38 +549,40 @@ function CompetitorsTab({ competitors, metrics, myBusiness }) {
            </div>
            
            <Card className="border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm bg-white overflow-hidden relative">
-              <div className="h-[300px] w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={[
-                    { name: 'You', rating: myBusiness.rating, isMe: true },
-                    ...(competitors || []).map(c => ({ name: c.name.substring(0, 10) + '...', rating: c.rating, isMe: false }))
-                  ]}>
-                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} />
-                    <YAxis domain={[0, 5]} hide />
-                    <RechartsTooltip 
-                      cursor={{fill: 'transparent'}}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-slate-900 px-4 py-2 rounded-xl shadow-2xl border border-white/10">
-                              <p className="text-white font-black text-xs">{payload[0].payload.name}</p>
-                              <p className="text-blue-400 font-black text-sm">{payload[0].value} Stars</p>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Bar dataKey="rating" radius={[8, 8, 8, 8]} barSize={40}>
-                      {[
-                        { name: 'You', rating: myBusiness.rating, isMe: true },
-                        ...(competitors || []).map(c => ({ name: c.name, rating: c.rating, isMe: false }))
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.isMe ? '#2563eb' : '#f1f5f9'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="w-full mt-4">
+                {mounted && (
+                  <ResponsiveContainer width="100%" height={300} minWidth={0}>
+                    <BarChart data={[
+                      { name: 'You', rating: myBusiness.rating, isMe: true },
+                      ...(competitors || []).map(c => ({ name: c.name.substring(0, 10) + '...', rating: c.rating, isMe: false }))
+                    ]}>
+                      <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} />
+                      <YAxis domain={[0, 5]} hide />
+                      <RechartsTooltip 
+                        cursor={{fill: 'transparent'}}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-slate-900 px-4 py-2 rounded-xl shadow-2xl border border-white/10">
+                                <p className="text-white font-black text-xs">{payload[0].payload.name}</p>
+                                <p className="text-blue-400 font-black text-sm">{payload[0].value} Stars</p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Bar dataKey="rating" radius={[8, 8, 8, 8]} barSize={40}>
+                        {[
+                          { name: 'You', rating: myBusiness.rating, isMe: true },
+                          ...(competitors || []).map(c => ({ name: c.name, rating: c.rating, isMe: false }))
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.isMe ? '#2563eb' : '#f1f5f9'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
            </Card>
         </div>

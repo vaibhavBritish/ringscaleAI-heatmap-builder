@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import bcrypt from "bcryptjs"
+import redis from "@/lib/redis"
 
 async function checkAdmin() {
     const session = await getServerSession(authOptions)
@@ -12,7 +13,8 @@ async function checkAdmin() {
     return true
 }
 
-export async function PATCH(request, { params }) {
+export async function PATCH(request, props) {
+    const params = await props.params
     if (!await checkAdmin()) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
@@ -76,6 +78,10 @@ export async function PATCH(request, { params }) {
             data: updateData
         })
 
+        // Bust the user's dashboard stats cache so credits reflect immediately
+        if (redis && (updateData.credits !== undefined || updateData.plan !== undefined)) {
+            try { await redis.del(`user:stats:${id}`) } catch (e) {}
+        }
 
         return NextResponse.json({
             message: "User updated successfully",
@@ -83,7 +89,9 @@ export async function PATCH(request, { params }) {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                credits: user.credits,
+                plan: user.plan
             }
         })
     } catch (error) {
@@ -92,7 +100,8 @@ export async function PATCH(request, { params }) {
     }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, props) {
+    const params = await props.params
     if (!await checkAdmin()) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
