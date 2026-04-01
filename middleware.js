@@ -1,13 +1,40 @@
 import { NextResponse } from 'next/server'
 
-export function middleware(request) {
+export async function middleware(request) {
   const { pathname } = request.nextUrl
   
-  // Skip internal next.js paths, api, static files, and paths that ALREADY have the country code
+  // 0. Skip maintenance check for maintenance page itself and static assets
   if (
     pathname.startsWith('/_next') || 
     pathname.startsWith('/api') ||
-    pathname.match(/\.(.*)$/) || // skip files with extensions
+    pathname.match(/\.(.*)$/) ||
+    pathname.includes('/maintenance')
+  ) {
+    return NextResponse.next()
+  }
+
+  // 1. Check Maintenance Mode (only for non-admin paths)
+  if (!pathname.startsWith('/admin')) {
+    try {
+      // In a real production environment with high traffic, you'd use a faster store like Redis
+      // For now, we fetch from our internal status API
+      const origin = request.nextUrl.origin
+      const maintenanceRes = await fetch(`${origin}/api/admin/settings/maintenance-status`, {
+        next: { revalidate: 0 } // Don't cache the maintenance check
+      })
+      const { maintenanceMode } = await maintenanceRes.json()
+      
+      if (maintenanceMode) {
+        return NextResponse.redirect(new URL('/maintenance', request.url))
+      }
+    } catch (err) {
+      console.error("Maintenance check failed:", err)
+    }
+  }
+
+  // 2. Skip paths that ALREADY have the country code
+  if (
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/in') ||
     pathname.startsWith('/us')
   ) {

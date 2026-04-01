@@ -1,7 +1,17 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
+import { useSettings } from '@/components/providers'
 
 export default function Footer() {
+  const { settings } = useSettings()
+  
+  const branding = settings?.branding || {
+    appName: 'Ringscale AI',
+    logoUrl: '/logo.png'
+  }
+
   return (
     <footer className="bg-[#EBF2F9] py-24 px-6 border-t border-slate-200/50">
       <div className="container mx-auto max-w-7xl">
@@ -10,8 +20,8 @@ export default function Footer() {
             <div className="flex flex-col items-center lg:items-start gap-4 mb-6">
               <div className="w-auto h-auto rounded-xl flex items-center justify-center">
                 <Image
-                  src="/logo.png"
-                  alt="Ringscale AI"
+                  src={branding.logoUrl || "/logo.png"}
+                  alt={branding.appName || "Ringscale AI"}
                   width={360}
                   height={260}
                   className="h-48 w-auto object-contain" 

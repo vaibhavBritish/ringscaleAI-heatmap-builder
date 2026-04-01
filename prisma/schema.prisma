@@ -15,6 +15,7 @@ model User {
   email            String    @unique
   phone            String?
   password         String
+  role             String    @default("user")
   plan             String    @default("trial")
   credits          Int       @default(0)
   trialEndsAt      DateTime?
@@ -159,4 +160,12 @@ model BusinessAudit {
 
   @@index([projectId])
   @@map("business_audits")
+}
+
+model GlobalSetting {
+  key       String   @id @map("_id")
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("global_settings")
 }
