@@ -59,9 +59,38 @@ export async function PATCH(request, props) {
             updateData.role = role
         }
 
-        if (plan && plan !== currentUser.plan) {
-            updateData.plan = plan
+        // ALWAYS reset plan dates on every save for a "fresh reset"
+        const activePlan = (plan || currentUser.plan || 'Trial').toLowerCase().replace('plan_', '')
+        const now = new Date()
+        
+        updateData.planStartedAt = now
+        updateData.planEndsAt = null
+        updateData.trialEndsAt = null
+
+        if (activePlan.includes('lite') || activePlan.includes('advance')) {
+            const date = new Date(now)
+            date.setMonth(date.getMonth() + 1)
+            updateData.planEndsAt = date
+        } else if (activePlan.includes('pro_plus') || activePlan.includes('pro plus')) {
+            const date = new Date(now)
+            date.setMonth(date.getMonth() + 3)
+            updateData.planEndsAt = date
+        } else if (activePlan.includes('pro')) {
+            const date = new Date(now)
+            date.setMonth(date.getMonth() + 3)
+            updateData.planEndsAt = date
+        } else if (activePlan.includes('trial')) {
+            const date = new Date(now)
+            date.setDate(date.getDate() + 7)
+            updateData.trialEndsAt = date
+        } else {
+            // Default fail-safe to 1 month
+            const date = new Date(now)
+            date.setMonth(date.getMonth() + 1)
+            updateData.planEndsAt = date
         }
+
+        if (plan) updateData.plan = plan
 
         if (credits !== undefined && parseInt(credits) !== currentUser.credits) {
             const newCredits = parseInt(credits)
@@ -78,7 +107,7 @@ export async function PATCH(request, props) {
             data: updateData
         })
 
-        // Bust the user's dashboard stats cache so credits reflect immediately
+        // Bust the user's dashboard stats cache so changes reflect immediately
         if (redis && (updateData.credits !== undefined || updateData.plan !== undefined)) {
             try { await redis.del(`user:stats:${id}`) } catch (e) {}
         }

@@ -19,6 +19,7 @@ model User {
   plan             String    @default("trial")
   credits          Int       @default(0)
   trialEndsAt      DateTime?
+  planStartedAt    DateTime?
   planEndsAt       DateTime?
   stripeCustomerId String?
   cardBrand        String?

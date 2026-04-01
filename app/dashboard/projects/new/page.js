@@ -49,21 +49,30 @@ export default function NewProjectPage() {
   
   // Auto-clamp radius when unit changes or session loads
   useEffect(() => {
-    const limits = {
-      'trial': 5,
-      'plan_lite': 5,
-      'plan_pro': 10,
-      'plan_pro_plus': 20
+    const getLimit = (plan) => {
+      const p = (plan || 'trial')
+        .toLowerCase()
+        .replace('plan_', '')
+        .replace(' ', '_')
+        .replace('lite', 'advance')
+        
+      const limits = {
+        'trial': 5,
+        'advance': 5,
+        'pro': 10,
+        'pro_plus': 20
+      }
+      return limits[p] || 5
     }
     
     // Max radius is always defined in miles according to requirements
-    const maxMiles = limits[userPlan] || 5
+    const maxMiles = getLimit(userPlan)
     const max = gridUnit === 'mi' ? maxMiles : Math.round(maxMiles * 1.60934)
     
     if (gridRadius > max) {
       setGridRadius(max)
-      toast.warning(`Radius restricted to ${max} ${gridUnit} for your ${userPlan === 'trial' ? 'Trial' : userPlan.replace('plan_', '').toUpperCase()} plan`, {
-        description: "Upgrade your plan for a larger search radius.",
+      toast.warning(`Radius restricted to ${max} ${gridUnit} for your ${userPlan.toLowerCase().includes('trial') ? 'Trial' : userPlan.replace('plan_', '').split('_').map(w => w.toUpperCase()).join(' ')} plan`, {
+        description: `Your plan allows a maximum radius of ${maxMiles} miles.`,
         action: {
           label: "Plans",
           onClick: () => router.push('/dashboard/billing')
@@ -393,10 +402,12 @@ export default function NewProjectPage() {
     if (!newKeyword.trim()) return
     if (keywords.includes(newKeyword.trim().toLowerCase())) {
       setNewKeyword('')
+      setShowSuggestions(false)
       return
     }
     setKeywords([...keywords, newKeyword.trim().toLowerCase()])
     setNewKeyword('')
+    setShowSuggestions(false)
   }
 
   const removeKeyword = (kw) => {
@@ -815,6 +826,10 @@ export default function NewProjectPage() {
                           value={newKeyword}
                           onChange={(e) => setNewKeyword(e.target.value)}
                           onFocus={() => newKeyword.length >= 2 && setShowSuggestions(true)}
+                          onBlur={() => {
+                            // Delay hiding so clicks on suggestions can still fire
+                            setTimeout(() => setShowSuggestions(false), 200)
+                          }}
                         />
                       </form>
 

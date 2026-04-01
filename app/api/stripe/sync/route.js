@@ -51,6 +51,7 @@ export async function POST(request) {
     let totalNewCredits = 0
     let latestPlan = null
     let latestPlanEndsAt = null
+    let latestPlanStartedAt = null
     let latestCustomerId = null
     let latestCard = null
     let anyUpdates = false
@@ -60,18 +61,23 @@ export async function POST(request) {
       
       // Calculate expiration for this specific session
       // Base it on the session creation time to be accurate
+      const sessionStartedAt = new Date(stripeSession.created * 1000)
       let sessionEndsAt = new Date(stripeSession.created * 1000)
-      if (planId === 'plan_lite') {
+      const id = (planId || 'Trial').toLowerCase()
+      
+      if (id.includes('lite') || id.includes('advance')) {
         sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
-      } else if (planId === 'plan_pro') {
+      } else if (id.includes('pro')) {
+        // Covers both Pro and Pro Plus (both 3 months)
         sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
-      } else if (planId === 'trial') {
+      } else if (id.includes('trial')) {
         sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
       }
 
       // Track the latest expiration across ALL sessions found
       if (!latestPlanEndsAt || sessionEndsAt > latestPlanEndsAt) {
         latestPlan = planId
+        latestPlanStartedAt = sessionStartedAt
         latestPlanEndsAt = sessionEndsAt
         anyUpdates = true
       }
@@ -180,6 +186,7 @@ export async function POST(request) {
         updatedAt: new Date(),
         credits: { increment: totalNewCredits },
         ...(latestPlan && { plan: latestPlan }),
+        ...(latestPlanStartedAt && { planStartedAt: latestPlanStartedAt }),
         ...(latestPlanEndsAt && { planEndsAt: latestPlanEndsAt }),
         ...(latestCustomerId && { stripeCustomerId: latestCustomerId }),
         ...(latestCard && {

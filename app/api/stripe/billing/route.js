@@ -59,6 +59,7 @@ export async function GET() {
         stripeCustomerId: user.stripeCustomerId,
         createdAt: user.createdAt,
         trialEndsAt: user.trialEndsAt,
+        planStartedAt: user.planStartedAt,
         planEndsAt: user.planEndsAt,
       },
       cardInfo,

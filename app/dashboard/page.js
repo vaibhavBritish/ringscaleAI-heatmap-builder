@@ -82,6 +82,15 @@ export default function DashboardPage() {
     }
   }
 
+  const getPlanDisplayName = (plan) => {
+    const p = (plan || '').toLowerCase()
+    if (p.includes('trial')) return '7-Day Trial'
+    if (p.includes('lite') || p.includes('advance')) return 'Advance Plan'
+    if (p.includes('pro_plus') || p.includes('pro plus')) return 'Pro Plus'
+    if (p.includes('pro')) return 'Pro Plan'
+    return 'Trial'
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -158,8 +167,8 @@ export default function DashboardPage() {
                 )}
               </div>
               <PlanTimer 
-                expiryDate={stats?.user?.planEndsAt || stats?.user?.trialEndsAt || session?.user?.planEndsAt || session?.user?.trialEndsAt} 
-                planName={stats?.user?.plan === 'trial' ? '7-Day Trial' : (stats?.user?.plan === 'plan_lite' ? 'Advance Plan' : 'Pro Plan')} 
+                expiryDate={ (stats?.user?.plan || '').toLowerCase().includes('trial') ? (stats?.user?.trialEndsAt || session?.user?.trialEndsAt) : (stats?.user?.planEndsAt || session?.user?.planEndsAt) } 
+                planName={getPlanDisplayName(stats?.user?.plan || session?.user?.plan)} 
               />
             </div>
           </CardContent>

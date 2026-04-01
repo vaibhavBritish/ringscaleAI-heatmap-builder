@@ -38,7 +38,7 @@ const PLANS = {
     priceINR: 60000, 
     credits: 5000,
     name: 'Pro Plus',
-    durationMonths: 1
+    durationMonths: 3
   }
 }
 
@@ -49,7 +49,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { planId, isIndia } = await request.json()
+    let { planId, isIndia } = await request.json()
+    
+    // Normalize planId to handle typos/variations from frontend
+    const id = (planId || '').toLowerCase()
+    if (id.includes('lite') || id.includes('advance')) {
+      planId = 'plan_lite'
+    } else if (id.includes('pro_plus') || id.includes('pro plus')) {
+      planId = 'plan_pro_plus'
+    } else if (id.includes('pro')) {
+      planId = 'plan_pro'
+    }
+    
     const plan = PLANS[planId]
 
     if (!plan) {
