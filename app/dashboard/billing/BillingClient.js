@@ -408,7 +408,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
               Refresh Credits
             </Button>
 
-            {!isIndia && currentSession?.user?.stripeCustomerId && (
+            {!isIndia && user?.stripeCustomerId && (
               <Button
                 variant="outline"
                 className="h-10 px-5 rounded-xl font-bold gap-2 border-blue-200 hover:bg-blue-100 hover:text-blue-700 text-sm"
