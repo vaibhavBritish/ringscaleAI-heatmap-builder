@@ -48,7 +48,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
     const sessionId = searchParams.get('session_id')
 
     if (success === 'true' && !hasRefreshed) {
-      console.log('Detected successful checkout, triggering sync...')
+      //console.log('Detected successful checkout, triggering sync...')
       setHasRefreshed(true)
       toast.success('Payment successful! Your account is being updated...')
 
@@ -59,7 +59,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
             cache: 'no-store'
           })
           const syncData = await syncRes.json()
-          console.log('Sync result:', syncData)
+          //console.log('Sync result:', syncData)
 
           if (syncData.synced) {
             toast.success(`Synced! Added ${syncData.newCredits} credits.`)
@@ -408,7 +408,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
               Refresh Credits
             </Button>
 
-            {!isIndia && currentSession?.user?.stripeCustomerId && (
+            {!isIndia && user?.stripeCustomerId && (
               <Button
                 variant="outline"
                 className="h-10 px-5 rounded-xl font-bold gap-2 border-blue-200 hover:bg-blue-100 hover:text-blue-700 text-sm"

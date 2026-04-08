@@ -22,7 +22,7 @@ export async function POST(req) {
   if (expectedSignature === sig) {
     const event = JSON.parse(body)
 
-    console.log(`Razorpay webhook received: ${event.event}`)
+    //console.log(`Razorpay webhook received: ${event.event}`)
 
     if (event.event === 'payment.captured' || event.event === 'order.paid') {
       const payment = event.payload.payment?.entity || event.payload.order?.entity
@@ -53,7 +53,7 @@ export async function POST(req) {
           }
         })
 
-        console.log(`Razorpay webhook: User updated for userId=${userId}`)
+        //console.log(`Razorpay webhook: User updated for userId=${userId}`)
 
         await prisma.payment.create({
           data: {
@@ -72,7 +72,7 @@ export async function POST(req) {
           }
         })
 
-        console.log(`Razorpay webhook: Payment record stored for user ${userId}`)
+        //console.log(`Razorpay webhook: Payment record stored for user ${userId}`)
 
         // Send confirmation email
         try {
@@ -91,7 +91,7 @@ export async function POST(req) {
             receiptUrl: null, // Razorpay doesn't provide a direct receipt URL in the same way via simple webhook entity
             invoicePdf: null
           })
-          console.log(`Razorpay webhook: Confirmation email sent to ${payment.email || notes?.email}`)
+          //console.log(`Razorpay webhook: Confirmation email sent to ${payment.email || notes?.email}`)
         } catch (emailError) {
           console.error('Razorpay webhook: Failed to send confirmation email:', emailError.message)
         }

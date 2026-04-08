@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function migratePlans() {
-  console.log("Starting plan name migration...")
+  //console.log("Starting plan name migration...")
   
   // 1. Convert 'trail' (lowercase) to 'Trial' (Capitalized)
   const trailResult = await prisma.user.updateMany({
@@ -16,7 +16,7 @@ async function migratePlans() {
       plan: 'Trial'
     }
   })
-  console.log(`Updated ${trailResult.count} users from 'trail/trial' to 'Trial'`)
+  //console.log(`Updated ${trailResult.count} users from 'trail/trial' to 'Trial'`)
 
   // 2. Map old 'plan_pro' to 'pro' (or 'Pro' if we are following the new convention)
   // According to the user's recent edits, they kept 'pro', 'advance', 'pro_plus' lowercase in the mapping but 'Trial' uppercase.
@@ -39,7 +39,7 @@ async function migratePlans() {
       plan: 'pro'
     }
   })
-  console.log(`Updated ${proResult.count} users from 'plan_pro' to 'pro'`)
+  //console.log(`Updated ${proResult.count} users from 'plan_pro' to 'pro'`)
 
   const liteResult = await prisma.user.updateMany({
     where: {
@@ -49,9 +49,9 @@ async function migratePlans() {
       plan: 'Trial' // Mapping lite to Trial as it's the closest lower tier
     }
   })
-  console.log(`Updated ${liteResult.count} users from 'plan_lite' to 'Trial'`)
+  //console.log(`Updated ${liteResult.count} users from 'plan_lite' to 'Trial'`)
 
-  console.log("Migration complete.")
+  //console.log("Migration complete.")
 }
 
 migratePlans()

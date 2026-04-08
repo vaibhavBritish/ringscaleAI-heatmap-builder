@@ -241,8 +241,15 @@ async function handleRoute(request, props) {
 
     // ==================== PROJECT ROUTES ====================
 
-    // List projects
     if (route === '/projects' && method === 'GET') {
+      const cacheKey = `user:projects:${currentUser.id}`
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey)
+          if (cached) return handleCORS(NextResponse.json(JSON.parse(cached)))
+        } catch (e) {}
+      }
+
       const projects = await prisma.project.findMany({
         where: { userId: currentUser.id },
         select: {
@@ -273,7 +280,12 @@ async function handleRoute(request, props) {
         }
       }))
 
-      return handleCORS(NextResponse.json({ projects: enrichedProjects }))
+      const projectsResponse = { projects: enrichedProjects }
+      if (redis) {
+        try { await redis.set(cacheKey, JSON.stringify(projectsResponse), 'EX', 300) } catch (e) {}
+      }
+
+      return handleCORS(NextResponse.json(projectsResponse))
     }
 
     // Create or update project
@@ -419,7 +431,10 @@ async function handleRoute(request, props) {
 
       // Invalidate dashboard stats
       if (redis) {
-        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
+        try { 
+          await redis.del(`user:stats:${currentUser.id}`)
+          await redis.del(`user:projects:${currentUser.id}`)
+        } catch (e) {}
       }
 
       return handleCORS(NextResponse.json({ project, scanJobIds, creditsRemaining: updatedUser?.credits || 0 }))
@@ -457,7 +472,10 @@ async function handleRoute(request, props) {
 
       // Invalidate dashboard stats
       if (redis) {
-        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
+        try { 
+          await redis.del(`user:stats:${currentUser.id}`)
+          await redis.del(`user:projects:${currentUser.id}`)
+        } catch (e) {}
       }
 
       return handleCORS(NextResponse.json({ success: true }))
@@ -638,7 +656,10 @@ async function handleRoute(request, props) {
 
       // Invalidate dashboard stats
       if (redis) {
-        try { await redis.del(`user:stats:${currentUser.id}`) } catch (e) {}
+        try { 
+          await redis.del(`user:stats:${currentUser.id}`)
+          await redis.del(`user:projects:${currentUser.id}`)
+        } catch (e) {}
       }
 
       return handleCORS(NextResponse.json(scanJobs.length === 1 ? scanJobs[0] : { success: true, count: scanJobs.length, scans: scanJobs }))
@@ -1053,7 +1074,7 @@ async function handleRoute(request, props) {
       // Fetch FRESH user from DB — session/JWT may be stale after admin credit updates
       const freshUser = await prisma.user.findUnique({
         where: { id: currentUser.id },
-        select: { credits: true, plan: true, planEndsAt: true, trialEndsAt: true, planStartedAt: true }
+        select: { credits: true, plan: true, planEndsAt: true, trialEndsAt: true, planStartedAt: true, stripeCustomerId: true }
       })
 
       // Get all project IDs for this user
@@ -1099,7 +1120,8 @@ async function handleRoute(request, props) {
           plan: freshUser?.plan ?? currentUser.plan,
           planEndsAt: freshUser?.planEndsAt ?? currentUser.planEndsAt,
           trialEndsAt: freshUser?.trialEndsAt ?? currentUser.trialEndsAt,
-          planStartedAt: freshUser?.planStartedAt ?? currentUser.planStartedAt
+          planStartedAt: freshUser?.planStartedAt ?? currentUser.planStartedAt,
+          stripeCustomerId: freshUser?.stripeCustomerId ?? currentUser.stripeCustomerId
         }
       }
 

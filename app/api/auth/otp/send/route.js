@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import redis from '@/lib/redis'
 import { sendOTPEmail } from '@/lib/mail'
+import { rateLimit } from '@/lib/rate-limit'
+import { headers } from 'next/headers'
 
 export async function POST(request) {
   try {
@@ -9,6 +11,18 @@ export async function POST(request) {
 
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+    }
+
+    // Rate limiting: 3 OTPs per hour per email/IP
+    const ip = (await headers()).get('x-forwarded-for') || '127.0.0.1'
+    const identifier = `${email.toLowerCase()}_${ip}`
+    const limiter = await rateLimit(identifier, 'otp-send', 3, 3600)
+    
+    if (!limiter.success) {
+      return NextResponse.json({ 
+        error: 'Too many OTP requests. Please try again after an hour.',
+        code: 'RATE_LIMIT_EXCEEDED'
+      }, { status: 429 })
     }
 
     // Check if user already exists

@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import redis from "@/lib/redis"
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,11 @@ export async function GET(request) {
     }
 
     try {
+        const cacheKey = 'admin:stats:summary'
+        if (redis) {
+            const cached = await redis.get(cacheKey)
+            if (cached) return NextResponse.json(JSON.parse(cached))
+        }
         const [totalUsers, totalProjects, totalScans, totalCredits] = await Promise.all([
             prisma.user.count(),
             prisma.project.count(),
@@ -108,7 +114,7 @@ export async function GET(request) {
             }
         })
 
-        return NextResponse.json({
+        const responseData = {
             stats: [
                 { title: "Total Users", value: totalUsers, change: recentUsersCount, period: "last 7 days" },
                 { title: "Active Projects", value: totalProjects, change: null },
@@ -117,7 +123,14 @@ export async function GET(request) {
             ],
             planStats,
             topKeywords
-        })
+        }
+
+        if (redis) {
+            // Cache for 15 minutes
+            await redis.set(cacheKey, JSON.stringify(responseData), 'EX', 900)
+        }
+
+        return NextResponse.json(responseData)
     } catch (error) {
         console.error('Error fetching admin stats:', error)
         return NextResponse.json({ error: 'Failed to fetch admin stats' }, { status: 500 })

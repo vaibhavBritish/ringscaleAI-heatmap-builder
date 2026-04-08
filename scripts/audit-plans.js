@@ -12,7 +12,7 @@ async function checkPlans() {
     planCounts[u.plan] = (planCounts[u.plan] || 0) + 1
   })
   
-  console.log("Current plans in DB:", JSON.stringify(planCounts, null, 2))
+  //console.log("Current plans in DB:", JSON.stringify(planCounts, null, 2))
 }
 
 checkPlans()

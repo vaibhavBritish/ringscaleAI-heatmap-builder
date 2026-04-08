@@ -43,12 +43,12 @@ const DEFAULT_SETTINGS = [
 
 export async function GET() {
     if (!await checkAdmin()) {
-        // console.log("--- SETTINGS DEBUG --- Unauthorized access attempt")
+        // //console.log("--- SETTINGS DEBUG --- Unauthorized access attempt")
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     try {
-        // console.log("--- SETTINGS DEBUG --- Fetching global settings...")
+        // //console.log("--- SETTINGS DEBUG --- Fetching global settings...")
         
         // Use bracket access to bypass potential stale model mapping in stale objects
         const model = prisma['globalSetting']
@@ -59,17 +59,17 @@ export async function GET() {
         }
 
         const settings = await model.findMany()
-        // console.log("--- SETTINGS DEBUG --- Found settings count:", settings.length)
+        // //console.log("--- SETTINGS DEBUG --- Found settings count:", settings.length)
         
         // If no settings exist, seed defaults
         if (settings.length === 0) {
-            // console.log("--- SETTINGS DEBUG --- Seeding default settings...")
+            // //console.log("--- SETTINGS DEBUG --- Seeding default settings...")
             await Promise.all(
                 DEFAULT_SETTINGS.map(s => 
                     model.create({ data: s })
                 )
             )
-            // console.log("--- SETTINGS DEBUG --- Seeding complete.")
+            // //console.log("--- SETTINGS DEBUG --- Seeding complete.")
             return NextResponse.json(DEFAULT_SETTINGS.reduce((acc, curr) => {
                 acc[curr.key] = curr.value
                 return acc
