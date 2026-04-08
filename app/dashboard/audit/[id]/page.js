@@ -44,7 +44,7 @@ import AuditResultsCards from '@/components/dashboard/AuditResultsCards'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+import { toPng } from 'html-to-image'
 import { Download } from 'lucide-react'
 
 
@@ -64,6 +64,14 @@ export default function BusinessAuditPage() {
     
     try {
       setDownloading(true)
+      
+      // Wait for all components (including off-screen PDF source) to be fully rendered
+      await new Promise(r => setTimeout(r, 500))
+      // Force a resize event to ensure Recharts in hidden containers calculate their layout
+      window.dispatchEvent(new Event('resize'))
+      // Another short wait for charts to respond to resize
+      await new Promise(r => setTimeout(r, 100))
+
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
@@ -114,20 +122,33 @@ export default function BusinessAuditPage() {
         const originalOverflow = el.style.overflow
         el.style.overflow = 'hidden'
         
-        const canvas = await html2canvas(el, { 
-          scale: 3, 
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false
-        })
-        
-        el.style.overflow = originalOverflow
-        
-        const imgData = canvas.toDataURL('image/png')
-        const imgWidth = width
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
-        return imgHeight
+        try {
+          // html-to-image handles modern CSS (lab, oklch, etc.) much better than html2canvas
+          const imgData = await toPng(el, { 
+            quality: 0.95,
+            pixelRatio: 2,
+            backgroundColor: '#ffffff',
+            style: {
+              overflow: 'hidden'
+            }
+          })
+          
+          el.style.overflow = originalOverflow
+          
+          // Image size calculation
+          const img = new Image()
+          img.src = imgData
+          await new Promise((resolve) => { img.onload = resolve })
+          
+          const imgWidth = width
+          const imgHeight = (img.height * imgWidth) / img.width
+          doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
+          return imgHeight
+        } catch (err) {
+          console.warn(`[PDF] Failed to capture element ${id}:`, err)
+          el.style.overflow = originalOverflow
+          return 0
+        }
       }
 
       // --- PAGE 1: VISUAL DASHBOARD SUMMARY ---
@@ -135,20 +156,37 @@ export default function BusinessAuditPage() {
       
       let currentY = 35
       // 1. Sidebar Score & Info snapshot
-      const sidebarHeight = await captureAndAdd('pdf-sidebar', margin, currentY, (pageWidth - (margin * 2)) * 0.4)
+      const sidebarHeight = await captureAndAdd('pdf-source-sidebar', margin, currentY, (pageWidth - (margin * 2)) * 0.4)
       
-      // 2. Audit Results snapshot (placed next to sidebar if it fits, or stacked)
-      const resultsHeight = await captureAndAdd('pdf-results', margin + ((pageWidth - (margin * 2)) * 0.42), currentY, (pageWidth - (margin * 2)) * 0.55)
+      // 2. Audit Results snapshot
+      const resultsHeight = await captureAndAdd('pdf-source-results', margin + ((pageWidth - (margin * 2)) * 0.42), currentY, (pageWidth - (margin * 2)) * 0.55)
       
       currentY += Math.max(sidebarHeight, resultsHeight) + 10
       
       // 3. CTA card snapshot
-      await captureAndAdd('pdf-cta', margin, currentY, pageWidth - (margin * 2))
+      await captureAndAdd('pdf-source-cta', margin, currentY, pageWidth - (margin * 2))
+
+      // --- PAGE 2: MARKET INTELLIGENCE (COMPETITORS) ---
+      doc.addPage()
+      drawFullHeader('Market Intelligence')
+      
+      currentY = 35
+      // 1. Benchmarking chart
+      const benchHeight = await captureAndAdd('pdf-source-benchmarking', margin, currentY, pageWidth - (margin * 2))
+      currentY += (benchHeight > 0 ? benchHeight + 10 : 0)
+
+      // 2. Comparison Metrics
+      const marketHeight = await captureAndAdd('pdf-source-market-comparison', margin, currentY, pageWidth - (margin * 2))
+      currentY += (marketHeight > 0 ? marketHeight + 10 : 0)
+
+      // 3. Competitor Directory Table
+      await captureAndAdd('pdf-source-competitor-directory', margin, currentY, pageWidth - (margin * 2))
 
       // Finalize PDF
       drawFooter()
       
-      doc.save(`Professional_Audit_${businessInfo.name.replace(/\s+/g, '_')}.pdf`)
+      const fileName = `Audit_${(businessInfo?.name || 'Report').replace(/[^a-z0-9]/gi, '_')}.pdf`
+      doc.save(fileName)
       toast.success('Visual Dashboard Report Downloaded!')
     } catch (error) {
       console.error('Visual PDF Export Error:', error)
@@ -342,7 +380,6 @@ export default function BusinessAuditPage() {
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight">Audit Results</h2>
                 <div className="h-0.5 w-12 bg-blue-600 rounded-full"></div>
               </div>
-              
               <div id="pdf-results">
                 <AuditResultsCards auditResults={data.auditResults} />
               </div>
@@ -379,26 +416,160 @@ export default function BusinessAuditPage() {
           </div>
         </TabsContent>
 
-          <TabsContent value="profile" className="mt-0 ring-offset-0 focus-visible:ring-0">
-             <div id="pdf-profile">
-                <ProfileTab businessInfo={businessInfo} />
-             </div>
-          </TabsContent>
+        <TabsContent value="profile" className="mt-0 ring-offset-0 focus-visible:ring-0">
+           <div id="pdf-profile">
+              <ProfileTab businessInfo={businessInfo} />
+           </div>
+        </TabsContent>
 
-          <TabsContent value="competitors" className="mt-0 ring-offset-0 focus-visible:ring-0">
-             <div id="pdf-competitors">
-                <CompetitorsTab 
-                  competitors={data.competitors} 
-                  metrics={metrics} 
-                  myBusiness={{ name: businessInfo.name, rating: businessInfo.rating, reviewCount: businessInfo.reviewCount }}
-                  mounted={mounted}
-                />
-             </div>
-          </TabsContent>
-        </Tabs>
+        <TabsContent value="competitors" className="mt-0 ring-offset-0 focus-visible:ring-0">
+           <div id="pdf-competitors">
+              <CompetitorsTab 
+                competitors={data.competitors} 
+                metrics={metrics} 
+                myBusiness={{ name: businessInfo.name, rating: businessInfo.rating, reviewCount: businessInfo.reviewCount }}
+                mounted={mounted}
+              />
+           </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* --- DEDICATED PDF SOURCE CONTAINER (OFF-SCREEN) --- */}
+      <div 
+        id="pdf-source-container"
+        style={{ 
+          position: 'absolute', 
+          top: '-10000px', 
+          left: '0', 
+          width: '1200px', 
+          opacity: '1',  // Keep opacity 1 so snapshot is clean
+          pointerEvents: 'none', 
+          zIndex: '-1000',
+          backgroundColor: 'white'
+        }} 
+      >
+         <PDFSourceContainer data={data} mounted={mounted} />
       </div>
-    )
+    </div>
+  )
+}
+
+function PDFSourceContainer({ data, mounted }) {
+  const { businessInfo, metrics, auditResults, competitors } = data
+  const myBusiness = { 
+    name: businessInfo.name, 
+    rating: businessInfo.rating, 
+    reviewCount: businessInfo.reviewCount 
   }
+
+  return (
+    <div className="space-y-12">
+      <div className="flex gap-10 items-start">
+        {/* Page 1: Sidebar Source */}
+        <div id="pdf-source-sidebar" className="w-[400px]">
+          <Card className="border border-slate-100 rounded-[2.5rem] bg-white">
+            <div className="pt-10 pb-6 text-center">
+              <OptimizationScore score={metrics.optimizationScore} />
+            </div>
+            <div className="p-8 space-y-6">
+              <h2 className="text-3xl font-black text-slate-900 uppercase">{businessInfo.name}</h2>
+              <div className="flex items-center gap-2 text-slate-400 font-bold text-sm">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{businessInfo.address}</span>
+              </div>
+              <div className="space-y-4 pt-4 border-t border-slate-50">
+                <div className="flex justify-between"><span className="font-bold text-slate-500">Visibility Score</span><span className="font-black text-slate-900">{metrics.visibilityScore}%</span></div>
+                <div className="flex justify-between"><span className="font-bold text-slate-500">Average Rank</span><span className="font-black text-slate-900">{metrics.averageRank}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-slate-500">Top 3 Coverage</span><span className="font-black text-slate-900">{metrics.top3Coverage}%</span></div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Page 1: Results Source */}
+        <div id="pdf-source-results" className="flex-1">
+          <AuditResultsCards auditResults={auditResults} />
+        </div>
+      </div>
+
+      {/* Page 1: CTA Source */}
+      <div id="pdf-source-cta" className="p-8 rounded-[3rem] bg-slate-900 text-white">
+        <h3 className="text-3xl font-black mb-4">Unlock market dominance with Multi-Point Scans.</h3>
+        <p className="font-bold text-slate-400">Scan targeted keywords across your entire service radius to find ranking gaps and high-intent local customers.</p>
+      </div>
+
+      <div className="h-20" /> {/* Page Break Spacer */}
+
+      {/* Page 2: Competitors Benchmarking Source */}
+      <div id="pdf-source-benchmarking" className="space-y-6">
+        <h2 className="text-2xl font-black text-slate-900">Market Benchmarking</h2>
+        <Card className="border-2 border-slate-100 rounded-[2rem] p-8 bg-white">
+          <div className="h-[300px]">
+            {mounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[
+                  { name: 'You', rating: myBusiness.rating, isMe: true },
+                  ...(competitors || []).map(c => ({ name: c.name.substring(0, 10), rating: c.rating, isMe: false }))
+                ]}>
+                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 5]} hide />
+                  <Bar dataKey="rating" radius={[8, 8, 8, 8]} barSize={40}>
+                    {[
+                      { name: 'You', rating: myBusiness.rating, isMe: true },
+                      ...(competitors || []).map(c => ({ name: c.name, rating: c.rating, isMe: false }))
+                    ].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.isMe ? '#2563eb' : '#f1f5f9'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Page 2: Comparison Source */}
+      <div id="pdf-source-market-comparison" className="grid grid-cols-3 gap-6">
+        {[
+          { label: 'Avg. Market Rating', value: metrics.averageCompetitorRating },
+          { label: 'Market Leader', value: metrics.topCompetitor?.name || 'Competing' },
+          { label: 'Rank Differential', value: metrics.averageRank }
+        ].map((m, i) => (
+          <Card key={i} className="border-2 border-slate-100 rounded-2xl p-6 bg-white shrink-0">
+            <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{m.label}</div>
+            <div className="text-xl font-black text-slate-900 truncate">{m.value}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Page 2: Table Source */}
+      <div id="pdf-source-competitor-directory">
+        <Card className="border-2 border-slate-100 rounded-[2rem] bg-white overflow-hidden">
+          <div className="p-8 border-b border-slate-50 font-black text-xl">Local Competitor Directory</div>
+          <table className="w-full text-left">
+            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+              <th className="px-8 py-4">Business Detail</th>
+              <th className="px-8 py-4 text-center">Trust Metrics</th>
+              <th className="px-8 py-4 text-right">Status</th>
+            </tr>
+            <tr className="bg-blue-50/50">
+              <td className="px-8 py-6 font-black">{myBusiness.name} (YOU)</td>
+              <td className="px-8 py-6 text-center font-black">{myBusiness.rating} ★</td>
+              <td className="px-8 py-6 text-right text-blue-600 font-black">BENCHMARK</td>
+            </tr>
+            {competitors?.map((comp, idx) => (
+              <tr key={idx} className="border-t border-slate-50">
+                <td className="px-8 py-6 font-bold">{comp.name}</td>
+                <td className="px-8 py-6 text-center font-bold">{comp.rating} ★</td>
+                <td className="px-8 py-6 text-right font-bold text-slate-400">COMPETITOR</td>
+              </tr>
+            ))}
+          </table>
+        </Card>
+      </div>
+    </div>
+  )
+}
 
 function ProfileTab({ businessInfo }) {
   const { name, address, phone, website, status, reviewCount, rating, reviews, photos, googleApiKey } = businessInfo
@@ -538,7 +709,7 @@ function CompetitorsTab({ competitors, metrics, myBusiness, mounted }) {
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Left: Benchmarking Chart */}
-        <div className="lg:col-span-7 space-y-6">
+        <div id="pdf-benchmarking" className="lg:col-span-7 space-y-6">
            <div className="flex items-center justify-between px-2">
               <div>
                  <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -588,7 +759,7 @@ function CompetitorsTab({ competitors, metrics, myBusiness, mounted }) {
         </div>
 
         {/* Right: Metrics & Target */}
-        <div className="lg:col-span-5 space-y-6">
+        <div id="pdf-market-comparison" className="lg:col-span-5 space-y-6">
            <h2 className="text-2xl font-black text-slate-900 tracking-tight px-2">Market Comparison</h2>
            <div className="grid grid-cols-1 gap-4">
               {[
@@ -612,7 +783,7 @@ function CompetitorsTab({ competitors, metrics, myBusiness, mounted }) {
       </div>
 
       {/* Competitor List */}
-      <Card className="border-2 border-slate-100 rounded-[2rem] shadow-sm bg-white overflow-hidden">
+      <Card id="pdf-competitor-directory" className="border-2 border-slate-100 rounded-[2rem] shadow-sm bg-white overflow-hidden">
         <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-8 py-6">
           <CardTitle className="text-xl font-black text-slate-900">Local Competitor Directory</CardTitle>
         </CardHeader>

@@ -13,7 +13,7 @@ async function main() {
             where: { email: email.toLowerCase() },
             data: { role: 'admin' }
         })
-        console.log(`Successfully promoted ${user.email} to admin`)
+        //console.log(`Successfully promoted ${user.email} to admin`)
     } catch (error) {
         console.error('Error promoting user:', error)
     } finally {

@@ -16,14 +16,14 @@ export async function POST(request) {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('session_id')
 
-    console.log(`Sync Request: sessionId=${sessionId}, userId=${session.user.id}`)
+    //console.log(`Sync Request: sessionId=${sessionId}, userId=${session.user.id}`)
 
     let userSessions = []
 
     if (sessionId) {
       try {
         const stripeSession = await stripe.checkout.sessions.retrieve(sessionId)
-        console.log(`Sync: Retrieved session ${sessionId}, status=${stripeSession.payment_status}`)
+        //console.log(`Sync: Retrieved session ${sessionId}, status=${stripeSession.payment_status}`)
         if (stripeSession && stripeSession.payment_status === 'paid') {
           userSessions = [stripeSession]
         }
@@ -35,11 +35,11 @@ export async function POST(request) {
       userSessions = sessions.data.filter(
         s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
       )
-      console.log(`Sync: Found ${userSessions.length} paid sessions for user in last 50`)
+      //console.log(`Sync: Found ${userSessions.length} paid sessions for user in last 50`)
     }
 
     if (userSessions.length === 0) {
-      console.log('Sync: No new paid sessions to process')
+      //console.log('Sync: No new paid sessions to process')
       return NextResponse.json({ message: 'No completed payments found.', synced: false })
     }
 
@@ -83,11 +83,11 @@ export async function POST(request) {
       }
 
       if (existingSessionIds.has(stripeSession.id)) {
-        console.log(`Sync: Session ${stripeSession.id} already exists in DB`)
+        //console.log(`Sync: Session ${stripeSession.id} already exists in DB`)
         continue
       }
 
-      console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
+      //console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
       
       if (!credits) {
         console.warn(`Sync: Skipping session ${stripeSession.id} - Missing credits in metadata`)
@@ -181,7 +181,7 @@ export async function POST(request) {
     }
 
     if (anyUpdates) {
-      console.log(`Sync: Updating user ${session.user.id} with ${totalNewCredits} new credits and exp ${latestPlanEndsAt}`)
+      //console.log(`Sync: Updating user ${session.user.id} with ${totalNewCredits} new credits and exp ${latestPlanEndsAt}`)
       const updateData = {
         updatedAt: new Date(),
         credits: { increment: totalNewCredits },
@@ -214,7 +214,7 @@ export async function POST(request) {
       })
     }
 
-    console.log('Sync: No updates needed')
+    //console.log('Sync: No updates needed')
     return NextResponse.json({ message: 'All payments already synced.', synced: false })
   } catch (error) {
     console.error('Stripe sync error:', error)

@@ -31,7 +31,7 @@ const ContactUsPage = () => {
       return;
     }
     setError('');
-    console.log('Form submitted:', formData);
+    //console.log('Form submitted:', formData);
     setSubmitted(true);
     setFormData({
       name: '',

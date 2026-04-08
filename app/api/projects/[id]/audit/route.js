@@ -30,10 +30,10 @@ export async function GET(req, props) {
                                    cachedData.businessInfo?.status && 
                                    cachedData.competitors
           if (hasRequiredFields) {
-            console.log(`[Audit] [Cache Hit] Serving from Redis for project ${projectId}`)
+            // //console.log(`[Audit] [Cache Hit] Serving from Redis for project ${projectId}`)
             return NextResponse.json(cachedData)
           }
-          console.log(`[Audit] [Cache Stale] Redis data missing fields, checking DB...`)
+          // //console.log(`[Audit] [Cache Stale] Redis data missing fields, checking DB...`)
         }
       } catch (e) {
         console.warn('[Audit] [Redis Error] Get failed:', e.message)
@@ -56,19 +56,19 @@ export async function GET(req, props) {
                                  auditData.competitors
         
         if (isFresh && hasRequiredFields) {
-          // console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
+          // //console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
           
           // Populate Redis cache for next time
           if (redis) {
             try { 
               await redis.set(cacheKey, JSON.stringify(auditData), 'EX', 3600) 
-              // console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
+              // //console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
             } catch (e) {}
           }
           
           return NextResponse.json(auditData)
         }
-        // console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
+        // //console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
       }
     }
 
@@ -82,7 +82,7 @@ export async function GET(req, props) {
     }
 
     // 4. Fetch fresh details from Google
-    console.log(`[Audit] Fetching fresh data from Google for project ${projectId}`)
+    // //console.log(`[Audit] Fetching fresh data from Google for project ${projectId}`)
     let googleData = {}
     try {
       googleData = await getPlaceDetails(project.placeId)
@@ -93,12 +93,18 @@ export async function GET(req, props) {
         address: project.address,
         rating: 0,
         reviewCount: 0,
-        photoCount: 0
+        photoCount: 0,
+        reviews: [],
+        photos: [],
+        status: 'OPERATIONAL',
+        summary: '',
+        website: '',
+        phone: ''
       }
     }
 
     // 4.1 Fetch Competitors
-    console.log(`[Audit] Fetching competitors for ${googleData.primaryType} near project ${projectId}`)
+    // //console.log(`[Audit] Fetching competitors for ${googleData.primaryType || 'Business'} near project ${projectId}`)
     let competitors = []
     try {
       competitors = await getNearbyCompetitors(
@@ -144,29 +150,29 @@ export async function GET(req, props) {
     }
 
     // 6. Calculate Optimization Score
-    const ratingScore = Math.min((googleData.rating / 5) * 25, 25)
-    const reviewScore = Math.min((googleData.reviewCount / 100) * 20, 20)
-    const photoScore = Math.min((googleData.photoCount / 20) * 15, 15)
-    const coverageScore = (visibilityMetrics.top3Coverage / 100) * 40
+    const ratingScore = Math.min(((googleData.rating || 0) / 5) * 25, 25)
+    const reviewScore = Math.min(((googleData.reviewCount || 0) / 100) * 20, 20)
+    const photoScore = Math.min(((googleData.photoCount || 0) / 20) * 15, 15)
+    const coverageScore = ((visibilityMetrics.top3Coverage || 0) / 100) * 40
     
     const optimizationScore = Math.round(ratingScore + reviewScore + photoScore + coverageScore)
 
     // 7. Assemble Audit Report
     const auditReport = {
       businessInfo: {
-        name: googleData.name,
-        address: googleData.address,
-        rating: googleData.rating,
-        reviewCount: googleData.reviewCount,
-        website: googleData.website,
-        phone: googleData.phone,
-        summary: googleData.summary,
-        photoCount: googleData.photoCount,
-        status: googleData.status,
-        reviews: googleData.reviews.map(r => ({
+        name: googleData.name || project.businessName,
+        address: googleData.address || project.address,
+        rating: googleData.rating || 0,
+        reviewCount: googleData.reviewCount || 0,
+        website: googleData.website || '',
+        phone: googleData.phone || '',
+        summary: googleData.summary || '',
+        photoCount: googleData.photoCount || 0,
+        status: googleData.status || 'OPERATIONAL',
+        reviews: (googleData.reviews || []).map(r => ({
           author: r.authorAttribution?.displayName || 'Anonymous',
           authorPhoto: r.authorAttribution?.photoUri || null,
-          rating: r.rating,
+          rating: r.rating || 0,
           text: r.text?.text || '',
           relativeTime: r.relativePublishTimeDescription || 'a while ago'
         })),
@@ -177,46 +183,46 @@ export async function GET(req, props) {
         })),
         googleApiKey: process.env.GOOGLE_API_KEY // For direct loading in frontend if needed
       },
-      competitors: competitors.map(c => ({
-        name: c.name,
-        address: c.address,
-        rating: c.rating,
-        reviewCount: c.reviewCount
+      competitors: (competitors || []).map(c => ({
+        name: c.name || 'Unknown Competitor',
+        address: c.address || '',
+        rating: c.rating || 0,
+        reviewCount: c.reviewCount || 0
       })),
       metrics: {
         optimizationScore,
         averageCompetitorRating: competitors.length > 0 
-          ? parseFloat((competitors.reduce((acc, c) => acc + c.rating, 0) / competitors.length).toFixed(1))
+          ? parseFloat((competitors.reduce((acc, c) => acc + (c.rating || 0), 0) / competitors.length).toFixed(1))
           : 0,
         topCompetitor: competitors.length > 0
-          ? competitors.reduce((prev, current) => (prev.rating > current.rating) ? prev : current)
+          ? competitors.reduce((prev, current) => ((prev.rating || 0) > (current.rating || 0)) ? prev : current)
           : null,
         ...visibilityMetrics
       },
       auditResults: [
         {
           title: 'Google Rating',
-          value: `${googleData.rating} / 5`,
-          status: googleData.rating >= 4 ? 'Pass' : 'Warning',
-          description: googleData.rating >= 4 ? 'Great work! Your rating is strong.' : 'Your rating could be improved to build more trust.'
+          value: `${googleData.rating || 0} / 5`,
+          status: (googleData.rating || 0) >= 4 ? 'Pass' : 'Warning',
+          description: (googleData.rating || 0) >= 4 ? 'Great work! Your rating is strong.' : 'Your rating could be improved to build more trust.'
         },
         {
           title: 'Review Volume',
-          value: googleData.reviewCount,
-          status: googleData.reviewCount >= 50 ? 'Pass' : 'Action Required',
-          description: googleData.reviewCount >= 50 ? 'You have a healthy number of reviews.' : 'Consider asking more customers for reviews.'
+          value: googleData.reviewCount || 0,
+          status: (googleData.reviewCount || 0) >= 50 ? 'Pass' : 'Action Required',
+          description: (googleData.reviewCount || 0) >= 50 ? 'You have a healthy number of reviews.' : 'Consider asking more customers for reviews.'
         },
         {
           title: 'Photo Count',
-          value: googleData.photoCount,
-          status: googleData.photoCount >= 10 ? 'Pass' : 'Action Required',
-          description: googleData.photoCount >= 10 ? 'You have enough photos to engage users.' : 'Adding more photos can improve engagement.'
+          value: googleData.photoCount || 0,
+          status: (googleData.photoCount || 0) >= 10 ? 'Pass' : 'Action Required',
+          description: (googleData.photoCount || 0) >= 10 ? 'You have enough photos to engage users.' : 'Adding more photos can improve engagement.'
         },
         {
           title: 'Local Visibility',
-          value: `${visibilityMetrics.top3Coverage}%`,
-          status: visibilityMetrics.top3Coverage >= 50 ? 'Pass' : 'Warning',
-          description: visibilityMetrics.top3Coverage >= 50 ? 'Good visibility across your service area.' : 'You have low visibility in key areas.'
+          value: `${visibilityMetrics.top3Coverage || 0}%`,
+          status: (visibilityMetrics.top3Coverage || 0) >= 50 ? 'Pass' : 'Warning',
+          description: (visibilityMetrics.top3Coverage || 0) >= 50 ? 'Good visibility across your service area.' : 'You have low visibility in key areas.'
         }
       ],
       lastUpdated: new Date().toISOString()

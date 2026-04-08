@@ -27,13 +27,13 @@ export async function POST(req) {
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 })
   }
 
-  console.log(`Stripe webhook received: ${event.type}`)
+  //console.log(`Stripe webhook received: ${event.type}`)
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const { userId, planId, credits } = session.metadata || {}
 
-    console.log(`Stripe webhook: checkout.session.completed for userId=${userId}, planId=${planId}, credits=${credits}`)
+    //console.log(`Stripe webhook: checkout.session.completed for userId=${userId}, planId=${planId}, credits=${credits}`)
 
     if (userId && credits) {
       // Fetch payment intent to get card details
@@ -101,7 +101,7 @@ export async function POST(req) {
         }
       })
 
-      console.log(`Stripe webhook: User updated for userId=${userId}`)
+      //console.log(`Stripe webhook: User updated for userId=${userId}`)
 
       // Store payment record with full details
       await prisma.payment.create({
@@ -129,7 +129,7 @@ export async function POST(req) {
         }
       })
 
-      console.log(`Stripe webhook: Payment record stored for user ${userId}`)
+      //console.log(`Stripe webhook: Payment record stored for user ${userId}`)
 
       // Send confirmation email
       try {
@@ -148,7 +148,7 @@ export async function POST(req) {
           receiptUrl: receiptUrl,
           invoicePdf: invoicePdf
         })
-        console.log(`Stripe webhook: Confirmation email sent to ${updateResult.email || session.customer_details?.email}`)
+        //console.log(`Stripe webhook: Confirmation email sent to ${updateResult.email || session.customer_details?.email}`)
       } catch (emailError) {
         console.error('Stripe webhook: Failed to send confirmation email:', emailError.message)
       }
