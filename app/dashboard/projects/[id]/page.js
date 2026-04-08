@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users
+  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users, ShieldCheck
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
@@ -260,16 +260,18 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/projects" className="text-slate-400 hover:text-slate-600">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">{project.businessName}</h1>
-          <p className="text-slate-500 flex items-center gap-1">
-            <MapPin className="w-4 h-4" />
-            {project.address || 'No address'}
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/projects" className="flex-shrink-0 text-slate-400 hover:text-slate-600 bg-white p-2 rounded-xl border border-slate-100 shadow-sm transition-all hover:scale-110">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-black text-slate-900 leading-tight truncate">{project.businessName}</h1>
+            <p className="text-slate-500 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mt-1">
+              <MapPin className="w-3.5 h-3.5 text-blue-500" />
+              <span className="truncate">{project.address || 'No address provided'}</span>
+            </p>
+          </div>
         </div>
         <Dialog open={showScanDialog} onOpenChange={(open) => {
           const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
@@ -281,12 +283,20 @@ export default function ProjectDetailPage() {
           }
           setShowScanDialog(open)
         }}>
-          <Link href={`/dashboard/projects/new?projectId=${projectId}`}>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 focus:ring-0 shadow-lg shadow-blue-500/20 active:scale-95 transition-all h-10 px-6 font-bold rounded-xl">
+        <div className="flex flex-col xs:flex-row items-center gap-3 w-full sm:w-auto">
+          <Link href={`/dashboard/audit/${projectId}`} className="w-full xs:w-auto">
+            <Button variant="outline" className="w-full h-11 px-6 font-bold rounded-xl border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+              <ShieldCheck className="w-4 h-4 mr-2 text-blue-600" />
+              View Audit
+            </Button>
+          </Link>
+          <Link href={`/dashboard/projects/new?projectId=${projectId}`} className="w-full xs:w-auto">
+            <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 focus:ring-0 shadow-lg shadow-blue-500/20 active:scale-95 transition-all h-11 px-6 font-bold rounded-xl">
               <Play className="w-4 h-4 mr-2" />
               Run Scan
             </Button>
           </Link>
+        </div>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Configure Scan</DialogTitle>

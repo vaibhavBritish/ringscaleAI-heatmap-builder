@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer } from 'lucide-react'
+import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck } from 'lucide-react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
+import { useSettings } from '@/components/providers'
 
 const iconMap = {
   Dumbbell,
@@ -25,6 +26,12 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false)
   const { data: session, status } = useSession()
+  const { settings } = useSettings()
+  
+  const branding = settings?.branding || {
+    appName: 'Ringscale AI',
+    logoUrl: '/logo.png'
+  }
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${mobileMenuOpen ? 'bg-white' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
@@ -32,8 +39,8 @@ export default function Navbar() {
         <div className="flex items-center gap-3 group cursor-pointer animate-in fade-in slide-in-from-left duration-700">
           <Link href="/">
             <Image
-              src="/logo.png"
-              alt="Ringscale AI"
+              src={branding.logoUrl || "/logo.png"}
+              alt={branding.appName || "Ringscale AI"}
               width={260}
               height={260}
               className="h-32 w-auto object-contain"
@@ -85,12 +92,21 @@ export default function Navbar() {
 
           <div className="flex items-center gap-4">
             {session ? (
-              <Link href="/dashboard">
-                <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 px-6 font-bold flex items-center gap-2">
-                  <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
-                </Button>
-              </Link>
+              <div className="flex items-center gap-4">
+                {session.user?.role === 'admin' && (
+                  <Link href="/admin">
+                    <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 px-6 font-bold flex items-center gap-2">
+                       <ShieldCheck className="w-4 h-4" /> Admin Panel
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/dashboard">
+                  <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 px-6 font-bold flex items-center gap-2">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Button>
+                </Link>
+              </div>
             ) : (
               <>
                 <Link href="/login">

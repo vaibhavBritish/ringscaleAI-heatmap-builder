@@ -54,45 +54,45 @@ export async function POST(request) {
     const existingSessionIds = new Set(existingPayments.map(p => p.stripeSessionId))
 
     let totalNewCredits = 0
-    let currentPlanEndsAt = user?.planEndsAt ? new Date(user.planEndsAt) : null
-    let latestPlan = user?.plan
-    let latestCustomerId = user?.stripeCustomerId
+    let latestPlan = null
+    let latestPlanEndsAt = null
+    let latestPlanStartedAt = null
+    let latestCustomerId = null
     let latestCard = null
     let anyUpdates = false
 
     for (const stripeSession of userSessions) {
       const { planId, credits } = stripeSession.metadata || {}
-      
+
+      // Calculate expiration for this specific session
+      // Base it on the session creation time to be accurate
+      const sessionStartedAt = new Date(stripeSession.created * 1000)
+      let sessionEndsAt = new Date(stripeSession.created * 1000)
+      const id = (planId || 'Trial').toLowerCase()
+
+      if (id.includes('lite') || id.includes('advance')) {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
+      } else if (id.includes('pro')) {
+        // Covers both Pro and Pro Plus (both 3 months)
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
+      } else if (id.includes('trial')) {
+        sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
+      }
+
+      // Track the latest expiration across ALL sessions found
+      if (!latestPlanEndsAt || sessionEndsAt > latestPlanEndsAt) {
+        latestPlan = planId
+        latestPlanStartedAt = sessionStartedAt
+        latestPlanEndsAt = sessionEndsAt
+        anyUpdates = true
+      }
+
       if (existingSessionIds.has(stripeSession.id)) {
         console.log(`Sync: Session ${stripeSession.id} already exists in DB`)
-        // Still update latest info if this is a recent session
-        if (planId) latestPlan = planId
-        if (stripeSession.customer) latestCustomerId = stripeSession.customer
         continue
       }
 
       console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
-      anyUpdates = true
-      
-      // Calculate stacking expiration
-      // If the current plan is still active, start from its end date.
-      // Otherwise, start from the session creation date.
-      const sessionCreated = new Date(stripeSession.created * 1000)
-      let baseDate = (currentPlanEndsAt && currentPlanEndsAt > sessionCreated) 
-        ? currentPlanEndsAt 
-        : sessionCreated
-
-      let sessionEndsAt = new Date(baseDate)
-      if (planId === 'plan_lite') {
-        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
-      } else if (planId === 'plan_pro') {
-        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
-      } else if (planId === 'trial' || planId === 'plan_trial') {
-        sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
-      }
-
-      currentPlanEndsAt = sessionEndsAt
-      if (planId) latestPlan = planId
 
       if (!credits) {
         console.warn(`Sync: Missing credits in metadata for ${stripeSession.id}`)
@@ -190,7 +190,8 @@ export async function POST(request) {
         updatedAt: new Date(),
         credits: { increment: totalNewCredits },
         ...(latestPlan && { plan: latestPlan }),
-        ...(currentPlanEndsAt && { planEndsAt: currentPlanEndsAt }),
+        ...(latestPlanStartedAt && { planStartedAt: latestPlanStartedAt }),
+        ...(latestPlanEndsAt && { planEndsAt: latestPlanEndsAt }),
         ...(latestCustomerId && { stripeCustomerId: latestCustomerId }),
         ...(latestCard && {
           cardBrand: latestCard.brand,
@@ -206,8 +207,8 @@ export async function POST(request) {
       })
 
       return NextResponse.json({
-        message: totalNewCredits > 0 
-          ? `Synced new payments. Added ${totalNewCredits} credits.` 
+        message: totalNewCredits > 0
+          ? `Synced new payments. Added ${totalNewCredits} credits.`
           : `Refreshed plan status. Valid until ${latestPlanEndsAt.toLocaleDateString()}.`,
         synced: true,
         newCredits: totalNewCredits,

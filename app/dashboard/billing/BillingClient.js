@@ -100,7 +100,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
 
   const fetchBillingDetails = async () => {
     try {
-      const res = await fetch('/api/stripe/billing')
+      const res = await fetch(`/api/stripe/billing?t=${Date.now()}`)
       if (res.ok) {
         const data = await res.json()
         setBillingData(data)
@@ -165,10 +165,10 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       priceUSD: 1299,
       priceINR: 60000,
       popular: true,
-      features: ["5000 Credits", "20 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+      features: ["5000 Credits", "20 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
       color: "bg-blue-50/95",
       textColor: "text-slate-900",
-      badge: "Monthly"
+      badge: "Quarterly"
     }
   ]
 
@@ -204,9 +204,9 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
     }, [endDate])
 
     return (
-      <div className="flex items-center gap-2 text-rose-600 font-black bg-rose-50 px-3 py-1 rounded-lg border border-rose-100 shadow-sm">
+      <div className="flex items-center gap-2 text-rose-600 font-extrabold bg-rose-50/80 px-3 py-1.5 rounded-xl border border-rose-100 shadow-sm backdrop-blur-sm animate-in fade-in slide-in-from-right-1 duration-500">
         <Clock className="w-4 h-4 animate-pulse" />
-        <span className="tabular-nums text-xs">{timeLeft}</span>
+        <span className="tabular-nums text-[13px] tracking-tight">{timeLeft}</span>
       </div>
     )
   }
@@ -216,10 +216,11 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const userPlan = user?.plan
   const planEndsAt = user?.planEndsAt ? new Date(user.planEndsAt) : null
   const trialEndsAt = user?.trialEndsAt ? new Date(user.trialEndsAt) : null
+  const planStartedAt = user?.planStartedAt ? new Date(user.planStartedAt) : (user?.createdAt ? new Date(user.createdAt) : null)
 
-  const expiryDate = planEndsAt || trialEndsAt
+  const isTrial = (userPlan || '').toLowerCase().includes('trial')
+  const expiryDate = isTrial ? trialEndsAt : planEndsAt
   const isExpired = (expiryDate && expiryDate < new Date()) || (user?.credits <= 0)
-  const isTrial = userPlan === 'trial' || userPlan === 'plan_trial'
   const hasPaid = billingData?.paymentHistory?.length > 0
 
   const loadRazorpay = () => {
@@ -315,10 +316,12 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   }
 
   const getPlanDisplayName = (planId) => {
-    if (planId === 'plan_lite') return 'Advance Plan'
-    if (planId === 'plan_pro') return 'Pro Plan'
-    if (planId === 'trial' || planId === 'plan_trial') return '7-Day Trial'
-    return planId || 'Free'
+    const id = (planId || 'Trial').toLowerCase()
+    if (id.includes('lite') || id.includes('advance')) return 'Advance'
+    if (id.includes('pro_plus') || id.includes('pro plus')) return 'Pro Plus'
+    if (id.includes('pro')) return 'Pro'
+    if (id.includes('trial')) return '7-Day Trial'
+    return id.charAt(0).toUpperCase() + id.slice(1)
   }
 
   const cardBrandIcon = (brand) => {
@@ -343,7 +346,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className={`text-xl font-black ${isExpired ? 'text-red-900' : 'text-blue-900'}`}>
-                  {getPlanDisplayName(userPlan).toUpperCase()}
+                  {getPlanDisplayName(userPlan)} Plan
                 </h3>
                 {!isExpired && (
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
@@ -358,11 +361,24 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
               </div>
               <div className="flex flex-col gap-1 mt-2">
                 {expiryDate && (
-                  <div className="flex items-center gap-3">
-                    <p className={`text-sm font-bold ${isExpired ? 'text-red-600' : 'text-blue-700'}`}>
-                      {isExpired ? 'Time limit reached' : `Valid until ${expiryDate.toLocaleDateString()}`}
-                    </p>
-                    {!isExpired && <ExpirationTimer endDate={expiryDate} />}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest leading-none">Subscription Coverage</span>
+                        <p className={`text-sm font-black tracking-tight ${isExpired ? 'text-red-600' : 'text-blue-700'}`}>
+                          {isExpired ? (
+                            'Subscription period has ended'
+                          ) : (
+                            <>
+                              {planStartedAt ? planStartedAt.toLocaleDateString() : 'Active'}
+                              <span className="mx-2 text-slate-300">→</span>
+                              {expiryDate.toLocaleDateString()}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      {!isExpired && <ExpirationTimer endDate={expiryDate} />}
+                    </div>
                   </div>
                 )}
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">

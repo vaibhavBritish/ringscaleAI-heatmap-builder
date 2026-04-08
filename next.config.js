@@ -3,9 +3,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ['mongodb'],
+  turbopack: {},
   experimental: {
-    // Remove if not using Server Components
-    serverComponentsExternalPackages: ['mongodb'],
+    // Other experimental options can stay here
   },
   webpack(config, { dev }) {
     if (dev) {
@@ -59,3 +60,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+// Trigger restart for prisma client update

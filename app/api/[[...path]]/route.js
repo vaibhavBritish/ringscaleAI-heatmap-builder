@@ -32,7 +32,8 @@ export async function OPTIONS() {
 }
 
 // Route handler function
-async function handleRoute(request, { params }) {
+async function handleRoute(request, props) {
+  const params = await props.params
   const { path = [] } = params
   const route = `/${path.join('/')}`
   const method = request.method
@@ -83,14 +84,19 @@ async function handleRoute(request, { params }) {
 
     // Helper to get max radius based on plan (in miles)
     const getMaxRadius = (plan) => {
+      const p = (plan || 'trial')
+        .toLowerCase()
+        .replace('plan_', '')
+        .replace(' ', '_')
+        .replace('lite', 'advance')
+
       const limits = {
         'trial': 5,
-        'plan_trial': 5,
-        'plan_lite': 5,
-        'plan_pro': 10,
-        'plan_pro_plus': 20
+        'advance': 5,
+        'pro': 10,
+        'pro_plus': 20
       }
-      return limits[plan] || 5 // Default to 5
+      return limits[p] || 5
     }
 
     // Helper to verify project ownership
@@ -1044,6 +1050,12 @@ async function handleRoute(request, { params }) {
 
       const totalProjects = await prisma.project.count({ where: { userId: currentUser.id } })
 
+      // Fetch FRESH user from DB — session/JWT may be stale after admin credit updates
+      const freshUser = await prisma.user.findUnique({
+        where: { id: currentUser.id },
+        select: { credits: true, plan: true, planEndsAt: true, trialEndsAt: true, planStartedAt: true }
+      })
+
       // Get all project IDs for this user
       const userProjectIds = (await prisma.project.findMany({
         where: { userId: currentUser.id },
@@ -1083,10 +1095,11 @@ async function handleRoute(request, { params }) {
         totalScans, 
         recentScans,
         user: {
-          credits: currentUser.credits,
-          plan: currentUser.plan,
-          planEndsAt: currentUser.planEndsAt,
-          trialEndsAt: currentUser.trialEndsAt
+          credits: freshUser?.credits ?? currentUser.credits,
+          plan: freshUser?.plan ?? currentUser.plan,
+          planEndsAt: freshUser?.planEndsAt ?? currentUser.planEndsAt,
+          trialEndsAt: freshUser?.trialEndsAt ?? currentUser.trialEndsAt,
+          planStartedAt: freshUser?.planStartedAt ?? currentUser.planStartedAt
         }
       }
 

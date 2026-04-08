@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -110,6 +110,7 @@ export default function DashboardLayout({ children }) {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
+    { name: 'Audit', href: '/dashboard/audit', icon: ShieldCheck },
     { name: 'Reports', href: '/dashboard/reports', icon: FileText },
     { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -234,7 +235,7 @@ export default function DashboardLayout({ children }) {
         {/* Page content */}
         <main className="flex-1 flex flex-col min-h-0">
           <PlanStatusBanner />
-          <div className={`p-4 md:p-6 flex-1 flex flex-col min-h-0 ${pathname.includes('/scans/') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${pathname.includes('/scans/') ? 'p-0' : 'p-4 md:p-6'} flex-1 flex flex-col min-h-0 relative ${pathname.includes('/scans/') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {children}
           </div>
         </main>

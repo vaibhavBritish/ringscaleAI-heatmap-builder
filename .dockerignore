@@ -8,3 +8,5 @@ README.md
 .env*
 !.env.production
 .DS_Store
+prisma.config.ts
+middleware.js

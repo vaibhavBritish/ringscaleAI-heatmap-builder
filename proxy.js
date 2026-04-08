@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server'
 
-export function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl
   
-  // Skip internal next.js paths, api, static files, and paths that ALREADY have the country code
+  // 0. Skip maintenance check for maintenance page itself and static assets
   if (
     pathname.startsWith('/_next') || 
     pathname.startsWith('/api') ||
-    pathname.match(/\.(.*)$/) || // skip files with extensions
+    pathname.match(/\.(.*)$/) ||
+    pathname.includes('/maintenance')
+  ) {
+    return NextResponse.next()
+  }
+
+  // 1. Check Maintenance Mode via env var (avoids self-HTTP-fetch SSL errors in Docker)
+  // To enable: set MAINTENANCE_MODE=true in your docker-compose.yml / .env and restart
+  if (!pathname.startsWith('/admin') && process.env.MAINTENANCE_MODE === 'true') {
+    return NextResponse.redirect(new URL('/maintenance', request.url))
+  }
+
+  // 2. Skip paths that ALREADY have the country code
+  if (
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/in') ||
     pathname.startsWith('/us')
   ) {
@@ -28,7 +42,7 @@ export function middleware(request) {
   return NextResponse.redirect(url)
 }
 
-// Ensure middleware only strictly intercepts non-static paths
+// Ensure proxy only strictly intercepts non-static paths
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }
