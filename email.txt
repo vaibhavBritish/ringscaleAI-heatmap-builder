@@ -1,0 +1,206 @@
+{
+  "name": "Cold Email Sender - Google Sheets to Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sheetWithinDocument",
+        "operation": "getRows",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_SPREADSHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "options": {}
+      },
+      "id": "2",
+      "name": "Get row(s) in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const blocked = ['sent', 'replied', 'unsubscribe', 'unsubscribed', 'bounced', 'do_not_contact'];\nconst out = [];\n\nfor (const item of items) {\n  const r = item.json;\n  const email = (r.email || '').trim();\n  const status = String(r.status || '').toLowerCase().trim();\n\n  if (!email) continue;\n  if (blocked.includes(status)) continue;\n\n  const firstName = (r.first_name || 'there').trim();\n  const company = (r.company_name || 'your business').trim();\n  const sequenceStep = Number(r.sequence_step || 0);\n\n  const subject = (r.subject && String(r.subject).trim())\n    ? r.subject\n    : `Quick idea for ${company}`;\n\n  const body = (r.body && String(r.body).trim())\n    ? r.body\n    : `Hi ${firstName},\\n\\nI came across ${company} and wanted to reach out with a quick idea that could help generate more local visibility and inbound leads.\\n\\nIf useful, I can send over a short breakdown tailored to your business.\\n\\nBest,\\nYour Name`;\n\n  out.push({\n    json: {\n      ...r,\n      email,\n      first_name: firstName,\n      company_name: company,\n      subject,\n      body,\n      status: 'sent',\n      last_sent_at: new Date().toISOString(),\n      sequence_step: sequenceStep + 1\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "3",
+      "name": "Filter Eligible Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "4",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "5",
+      "name": "Send a message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1260,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sheetWithinDocument",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_SPREADSHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "matchingColumns": [
+          "email"
+        ],
+        "options": {
+          "handlingExtraFields": "ignore"
+        }
+      },
+      "id": "6",
+      "name": "Append or update row in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1520,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Filter Eligible Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Eligible Leads": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}

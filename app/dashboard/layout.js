@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -164,7 +164,7 @@ export default function DashboardLayout({ children }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 space-y-2">
+          <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -180,6 +180,46 @@ export default function DashboardLayout({ children }) {
                 </span>
               </Link>
             ))}
+
+            {/* SEOOS Admin Section */}
+            {session?.user?.role === 'admin' && (
+              <>
+                <div className="pt-4 pb-1">
+                  <div className="flex items-center gap-2 px-3">
+                    <div className="flex-1 h-px bg-gradient-to-r from-blue-200 to-indigo-200 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300" />
+                    <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300 whitespace-nowrap text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                      SEOOS Admin
+                    </span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-200 to-blue-200 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300" />
+                  </div>
+                </div>
+                {[
+                  { name: 'Command Center', href: '/dashboard/seoos', icon: Cpu },
+                  { name: 'Website Audit', href: '/dashboard/seoos/website-audit', icon: Globe },
+                  { name: 'AI Assistant', href: '/dashboard/seoos/ai-assistant', icon: Sparkles },
+                  { name: 'GBP Suite', href: '/dashboard/seoos/gbp-suite', icon: MapPin },
+                  { name: 'Keywords', href: '/dashboard/seoos/keywords', icon: TrendingUp },
+                  { name: 'Citations', href: '/dashboard/seoos/citations', icon: Link2 },
+                  { name: 'Tasks', href: '/dashboard/seoos/tasks', icon: ClipboardList },
+                  { name: 'Change Log', href: '/dashboard/seoos/changelog', icon: History },
+                  { name: 'SEO Reports', href: '/dashboard/seoos/reports', icon: BarChart3 },
+                ].map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-300 overflow-hidden text-sm ${isActive(item.href)
+                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                        : 'text-slate-500 hover:bg-indigo-50/50 hover:text-indigo-600'
+                      }`}
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3 transition-all duration-300 whitespace-nowrap">
+                      {item.name}
+                    </span>
+                  </Link>
+                ))}
+              </>
+            )}
           </nav>
 
 
