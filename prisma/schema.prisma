@@ -170,3 +170,141 @@ model GlobalSetting {
 
   @@map("global_settings")
 }
+
+// ─── SEOOS MODELS ────────────────────────────────────────────────────────────
+
+model WebsiteAuditRun {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @unique
+  projectId    String
+  url          String
+  status       String   @default("pending") // pending | running | complete | failed
+  techScore    Int?
+  onPageScore  Int?
+  contentScore Int?
+  perfScore    Int?
+  schemaScore  Int?
+  totalIssues  Int?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([projectId])
+  @@map("website_audit_runs")
+}
+
+model SEOIssue {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @unique
+  auditRunId   String
+  projectId    String
+  type         String   // technical | on-page | content | performance | schema | local
+  severity     String   // critical | warning | info
+  title        String
+  description  String
+  pageUrl      String?
+  recommendation String?
+  status       String   @default("open") // open | in_progress | resolved | ignored
+  effort       String?  // low | medium | high
+  impact       String?  // low | medium | high
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([auditRunId])
+  @@index([projectId])
+  @@map("seo_issues")
+}
+
+model AIRecommendation {
+  oid            String   @id @default(auto()) @map("_id") @db.ObjectId
+  id             String   @unique
+  projectId      String
+  issueId        String?
+  type           String   // title | meta | h1 | faq | description | gbp_post | gbp_description | schema | content
+  pageUrl        String?
+  originalText   String?
+  suggestedText  String
+  reasoning      String?
+  confidenceScore Int?    // 0-100
+  riskScore      Int?     // 0-100
+  status         String   @default("pending") // pending | approved | rejected | edited
+  approvedText   String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("ai_recommendations")
+}
+
+model CitationRecord {
+  oid             String   @id @default(auto()) @map("_id") @db.ObjectId
+  id              String   @unique
+  projectId       String
+  // NAP Data
+  businessName    String
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  country         String   @default("US")
+  phone           String?
+  website         String?
+  // Directory Info
+  directoryName   String
+  directoryUrl    String?
+  category        String?  // general | industry | local
+  // Status
+  status          String   @default("pending") // live | pending | failed | not_submitted
+  listingUrl      String?
+  submittedAt     DateTime?
+  verifiedAt      DateTime?
+  notes           String?
+  loginEmail      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("citation_records")
+}
+
+model SEOTask {
+  oid         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @unique
+  projectId   String
+  issueId     String?
+  aiRecId     String?
+  title       String
+  description String?
+  type        String?  // technical | content | local | citation | gbp
+  status      String   @default("open") // open | in_progress | blocked | done
+  priority    String   @default("medium") // low | medium | high | urgent
+  assignedTo  String?  // userId
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("seo_tasks")
+}
+
+model SEOChangeLog {
+  oid         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @unique
+  projectId   String
+  type        String   // website | gbp | citation | content | ranking | review
+  title       String
+  description String?
+  pageUrl     String?
+  beforeValue String?
+  afterValue  String?
+  recordedBy  String
+  happenedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@map("seo_change_logs")
+}

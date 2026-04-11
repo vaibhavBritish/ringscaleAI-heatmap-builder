@@ -11,6 +11,7 @@
         "devv": "next dev"
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "^0.85.0",
         "@googlemaps/js-api-loader": "^2.0.2",
         "@hookform/resolvers": "^5.2.2",
         "@prisma/client": "^6.19.2",
