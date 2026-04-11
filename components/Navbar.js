@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck } from 'lucide-react'
+import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar } from 'lucide-react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
@@ -88,6 +88,13 @@ export default function Navbar() {
 
             <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition">Pricing</Link>
             <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition">Contact Us</Link>
+            <Link href="https://calendly.com/mediaringscale/30min" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300">
+                <Calendar className="w-4 h-4" />
+                Book a Meeting
+              </Button>
+            </Link>
+
           </div>
 
           <div className="flex items-center gap-4">
@@ -158,6 +165,16 @@ export default function Navbar() {
 
           <Link href="/#pricing" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
+          <Link 
+            href="https://calendly.com/your-meeting-link" 
+            className="flex items-center gap-2 text-blue-600 font-bold py-2" 
+            onClick={() => setMobileMenuOpen(false)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Calendar className="w-4 h-4" /> Book a Meeting
+          </Link>
+
           
           <div className="pt-4 border-t border-slate-50">
             {session ? (

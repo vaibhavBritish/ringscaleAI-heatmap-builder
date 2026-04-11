@@ -12,6 +12,8 @@ export const metadata = {
   }
 }
 
+import WhatsAppButton from '@/components/WhatsAppButton'
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -49,6 +51,7 @@ export default function RootLayout({ children }) {
         <Providers>
           {children}
           <Toaster position="bottom-right" />
+          <WhatsAppButton />
         </Providers>
       </body>
     </html>
