@@ -33,8 +33,8 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
       .then(data => {
-        if (data.country_code === 'IN') {
-          setIsIndia(true)
+        if (data.country_code) {
+          setIsIndia(data.country_code === 'IN')
         }
       })
       .catch(err => console.error('Geo detection failed:', err))
@@ -137,7 +137,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       icon: <Rocket className="w-6 h-6 text-blue-600" />,
       price: "499",
       priceUSD: 499,
-      priceINR: 15000,
+      priceINR: 8000,
       popular: true,
       features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
       color: "bg-blue-50/95",
@@ -370,8 +370,8 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                             'Subscription period has ended'
                           ) : (
                             <>
-                              {planStartedAt ? planStartedAt.toLocaleDateString() : 'Active'} 
-                              <span className="mx-2 text-slate-300">→</span> 
+                              {planStartedAt ? planStartedAt.toLocaleDateString() : 'Active'}
+                              <span className="mx-2 text-slate-300">→</span>
                               {expiryDate.toLocaleDateString()}
                             </>
                           )}
@@ -597,7 +597,25 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
 
         <div className="grid md:grid-cols-2 gap-6">
           {plans.map((plan) => (
-            <div key={plan.id} className={`bg-white rounded-[2rem] p-8 border ${plan.popular ? 'border-blue-600 shadow-xl relative scale-[1.02]' : 'border-slate-200'} flex flex-col`}>
+            <div key={plan.id} className={`bg-white rounded-[2rem] p-8 border ${plan.popular ? 'border-blue-600 shadow-xl relative scale-[1.02]' : 'border-slate-200'} flex flex-col relative overflow-hidden`}>
+              {/* Ribbon */}
+              {plan.ribbon && (
+                <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none z-10">
+                  <div className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest py-1 w-32 text-center absolute top-5 right-[-34px] rotate-45 shadow-sm">
+                    {plan.ribbon}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Badge */}
+              {plan.badge && (
+                <div className="absolute top-6 right-6 z-0">
+                  <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider border border-emerald-100/50">
+                    {plan.badge}
+                  </span>
+                </div>
+              )}
+
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">
                   Most Popular
@@ -609,7 +627,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 <span className="text-4xl font-black text-slate-900">
                   {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.priceUSD}
                 </span>
-                <span className="text-slate-500 font-bold text-sm">/mo</span>
+                <span className="text-slate-500 font-bold text-sm">/ {plan.duration || '7 Days'}</span>
               </div>
 
               <div className="space-y-3 mb-8 flex-1">
@@ -628,8 +646,8 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 isLoading={loading === plan.id}
                 cooldown={5000}
                 className={`w-full h-12 rounded-xl font-bold text-base transition-all ${plan.popular
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
                   }`}
               >
                 <span className="flex items-center justify-center gap-2">

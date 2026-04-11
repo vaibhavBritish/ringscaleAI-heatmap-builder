@@ -31,7 +31,8 @@ export async function POST(request) {
         console.error('Sync: Error retrieving specific session:', e.message)
       }
     } else {
-      const sessions = await stripe.checkout.sessions.list({ limit: 50 })
+      // Increase limit to 100 to find older missing payments
+      const sessions = await stripe.checkout.sessions.list({ limit: 100 })
       userSessions = sessions.data.filter(
         s => s.metadata?.userId === session.user.id && s.payment_status === 'paid'
       )
@@ -43,6 +44,10 @@ export async function POST(request) {
       return NextResponse.json({ message: 'No completed payments found.', synced: false })
     }
 
+    // Sort sessions by creation date (ascending) to process them in order for stacking
+    userSessions.sort((a, b) => a.created - b.created)
+
+    const user = await prisma.user.findUnique({ where: { id: session.user.id } })
     const existingPayments = await prisma.payment.findMany({
       where: { userId: session.user.id }
     })
@@ -58,13 +63,13 @@ export async function POST(request) {
 
     for (const stripeSession of userSessions) {
       const { planId, credits } = stripeSession.metadata || {}
-      
+
       // Calculate expiration for this specific session
       // Base it on the session creation time to be accurate
       const sessionStartedAt = new Date(stripeSession.created * 1000)
       let sessionEndsAt = new Date(stripeSession.created * 1000)
       const id = (planId || 'Trial').toLowerCase()
-      
+
       if (id.includes('lite') || id.includes('advance')) {
         sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
       } else if (id.includes('pro')) {
@@ -88,10 +93,9 @@ export async function POST(request) {
       }
 
       //console.log(`Sync: Processing NEW session ${stripeSession.id}, planId=${planId}, credits=${credits}`)
-      
+
       if (!credits) {
-        console.warn(`Sync: Skipping session ${stripeSession.id} - Missing credits in metadata`)
-        continue
+        console.warn(`Sync: Missing credits in metadata for ${stripeSession.id}`)
       }
 
       let cardDetails = null
@@ -126,10 +130,9 @@ export async function POST(request) {
         console.error('Sync: Error fetching details:', e.message)
       }
 
-      totalNewCredits += Number(credits)
+      if (credits) totalNewCredits += Number(credits)
       latestCustomerId = stripeSession.customer
       if (cardDetails) latestCard = cardDetails
-      anyUpdates = true
 
       await prisma.payment.create({
         data: {
@@ -140,7 +143,7 @@ export async function POST(request) {
           stripePaymentIntentId: stripeSession.payment_intent,
           stripeInvoiceId: stripeSession.invoice,
           planId,
-          credits: Number(credits),
+          credits: Number(credits || 0),
           amountTotal: stripeSession.amount_total,
           currency: stripeSession.currency,
           customerEmail: stripeSession.customer_details?.email,
@@ -158,25 +161,26 @@ export async function POST(request) {
         }
       })
 
-      // Send confirmation email as fallback
+      // Send confirmation email
       try {
         const planNames = {
           'plan_lite': 'Advance',
           'plan_pro': 'Pro',
+          'plan_trial': 'Trial',
           'trial': 'Trial'
         }
 
         await sendSubscriptionEmail(stripeSession.customer_details?.email || session.user.email, {
           planName: planNames[planId] || planId,
-          credits: Number(credits),
+          credits: Number(credits || 0),
           amount: stripeSession.amount_total / 100,
           currency: stripeSession.currency,
-          planEndsAt: sessionEndsAt,
+          planEndsAt: currentPlanEndsAt,
           receiptUrl: receiptUrl,
           invoicePdf: invoicePdf
         })
       } catch (e) {
-        console.error('Sync: Email fallback failed:', e.message)
+        console.error('Sync: Email failed:', e.message)
       }
     }
 
@@ -203,8 +207,8 @@ export async function POST(request) {
       })
 
       return NextResponse.json({
-        message: totalNewCredits > 0 
-          ? `Synced new payments. Added ${totalNewCredits} credits.` 
+        message: totalNewCredits > 0
+          ? `Synced new payments. Added ${totalNewCredits} credits.`
           : `Refreshed plan status. Valid until ${latestPlanEndsAt.toLocaleDateString()}.`,
         synced: true,
         newCredits: totalNewCredits,

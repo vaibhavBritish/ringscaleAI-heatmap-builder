@@ -12,30 +12,30 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
   ? new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
-    })
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
+  })
   : null
 
 // Define plan pricing securely on the server
 const PLANS = {
   'plan_lite': {
     priceUSD: 499,
-    priceINR: 15000, 
+    priceINR: 8000,
     credits: 1200,
     name: 'Advance Plan',
     durationMonths: 1
   },
   'plan_pro': {
     priceUSD: 799,
-    priceINR: 40000, 
+    priceINR: 40000,
     credits: 2400,
     name: 'Pro Plan',
     durationMonths: 3
   },
   'plan_pro_plus': {
     priceUSD: 1299,
-    priceINR: 60000, 
+    priceINR: 60000,
     credits: 5000,
     name: 'Pro Plus',
     durationMonths: 3
