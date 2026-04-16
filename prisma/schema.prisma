@@ -185,6 +185,7 @@ model WebsiteAuditRun {
   perfScore    Int?
   schemaScore  Int?
   totalIssues  Int?
+  suggestedKeywords Json?
   errorMessage String?
   createdAt    DateTime @default(now())
   completedAt  DateTime?
@@ -307,4 +308,39 @@ model SEOChangeLog {
 
   @@index([projectId])
   @@map("seo_change_logs")
+}
+
+
+model KeywordRank {
+  oid        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @unique
+  projectId  String
+  keyword    String
+  rank       Int?
+  bestRank   Int?
+  searchEngine String  @default("google")
+  location    String?
+  device      String   @default("desktop")
+  url         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, keyword])
+  @@map("keyword_ranks")
+}
+
+model SEOPerformance {
+  oid         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @unique
+  projectId   String
+  date        DateTime
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, date])
+  @@map("seo_performance")
 }

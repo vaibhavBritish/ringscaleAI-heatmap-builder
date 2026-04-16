@@ -27,30 +27,12 @@ export default function DashboardLayout({ children }) {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [freshUser, setFreshUser] = useState(null)
 
-  // Fetch fresh user data from DB
+  // Sync with session
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user) return
-
-    const fetchFreshUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const data = await response.json()
-          setFreshUser(data)
-          // If session is stale, update it
-          if (data.credits !== session.user.credits || data.plan !== session.user.plan) {
-            update()
-          }
-        }
-      } catch (err) {
-        console.error('Failed to sync user data:', err)
-      }
+    if (status === 'authenticated' && session?.user) {
+      setFreshUser(session.user)
     }
-
-    fetchFreshUser()
-    const interval = setInterval(fetchFreshUser, 30000)
-    return () => clearInterval(interval)
-  }, [status, session?.user?.id, update])
+  }, [status, session])
 
   useEffect(() => {
     if (status === 'unauthenticated') {

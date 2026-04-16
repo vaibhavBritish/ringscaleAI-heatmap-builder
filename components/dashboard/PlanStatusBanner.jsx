@@ -8,31 +8,12 @@ export default function PlanStatusBanner() {
   const { data: session, update } = useSession()
   const [freshUser, setFreshUser] = useState(null)
   
-  // Fetch fresh data from DB periodically
+  // Sync with session
   useEffect(() => {
-    if (!session?.user) return
-
-    const fetchFreshUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const data = await response.json()
-          setFreshUser(data)
-          
-          // If session is stale, trigger a NextAuth update to sync other components
-          if (data.credits !== session.user.credits) {
-            update()
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch fresh user data:', error)
-      }
+    if (session?.user) {
+      setFreshUser(session.user)
     }
-
-    fetchFreshUser()
-    const interval = setInterval(fetchFreshUser, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [session?.user?.id, update])
+  }, [session])
 
   const user = freshUser || session?.user
   if (!user) return null

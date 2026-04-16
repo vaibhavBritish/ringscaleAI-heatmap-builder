@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Check, X, Edit2, ChevronDown, ChevronRight, Sparkles, AlertTriangle, Info, AlertCircle } from 'lucide-react'
+import { Check, X, Edit2, ChevronDown, ChevronRight, Sparkles, AlertTriangle, Info, AlertCircle, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,10 +19,20 @@ const TYPE_LABELS = {
   schema: 'Schema', performance: 'Performance', local: 'Local',
 }
 
-export function IssueTable({ issues = [], onStatusChange, onGenerateAI, projectId }) {
+export function IssueTable({ issues = [], onStatusChange, onGenerateAI, onCreateTask, projectId }) {
   const [expanded, setExpanded] = useState(null)
   const [filter, setFilter] = useState({ severity: '', type: '', status: '' })
   const [loadingAI, setLoadingAI] = useState(null)
+  const [loadingTask, setLoadingTask] = useState(null)
+
+  const handleCreateTask = async (issue) => {
+    setLoadingTask(issue.id)
+    try {
+      await onCreateTask?.(issue)
+    } finally {
+      setLoadingTask(null)
+    }
+  }
 
   const filtered = issues.filter(i =>
     (!filter.severity || i.severity === filter.severity) &&
@@ -121,7 +131,13 @@ export function IssueTable({ issues = [], onStatusChange, onGenerateAI, projectI
                         <X className="w-3 h-3 mr-1" /> Ignore
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="text-xs h-8 ml-auto border-purple-200 text-purple-700 hover:bg-purple-50"
+                      <Button size="sm" variant="outline" className="text-xs h-8 text-slate-500"
+                        onClick={() => handleCreateTask(issue)}
+                        disabled={loadingTask === issue.id}>
+                        <ClipboardList className="w-3 h-3 mr-1" />
+                        {loadingTask === issue.id ? 'Creating...' : 'Convert to Task'}
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs h-8 ml-auto border-purple-200 text-purple-700 hover:bg-purple-50"
                       onClick={() => handleGenerateAI(issue)}
                       disabled={loadingAI === issue.id}>
                       <Sparkles className="w-3 h-3 mr-1" />

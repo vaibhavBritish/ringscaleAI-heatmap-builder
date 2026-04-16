@@ -4,7 +4,13 @@ import prisma from "@/lib/prisma"
 import Anthropic from '@anthropic-ai/sdk'
 import { v4 as uuidv4 } from 'uuid'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+function getAnthropicClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY is not set in environment variables')
+  }
+  return new Anthropic({ apiKey })
+}
 
 const SYSTEM_PROMPT = `You are an expert SEO consultant. Generate precise, actionable SEO recommendations.
 Always respond with valid JSON only — no markdown, no preamble.
@@ -82,6 +88,24 @@ Location: ${ctx.location || 'not specified'}
 
 Group into clusters: branded, local_service, informational, transactional, question.
 Respond with JSON: {"clusters": [{"name": "...", "intent": "branded|local_service|informational|transactional|question", "keywords": ["..."]}], "reasoning": "..."}`,
+
+  keyword_suggest: (ctx) => `Suggest high-value SEO keywords for this business to rank for.
+Business: ${ctx.businessName}
+Industry/Category: ${ctx.category || 'not specified'}
+Location: ${ctx.location || 'not specified'}
+Services: ${ctx.services || 'not specified'}
+Existing keywords: ${ctx.keywords?.join(', ') || 'none yet'}
+
+Generate 10-15 keyword suggestions that the business should target but is NOT already targeting.
+Include a mix of:
+- High-volume head terms
+- Long-tail keywords with buying intent
+- Local keywords with location modifiers
+- Question-based keywords for FAQ/blog content
+- "Near me" and geo-specific variants
+
+For each keyword, estimate the search intent and difficulty.
+Respond with JSON: {"suggestions": [{"keyword": "...", "intent": "branded|local_service|informational|transactional|question", "difficulty": "low|medium|high", "priority": "high|medium|low", "reason": "..."}], "strategy": "..."}`,
 }
 
 export async function POST(request) {
@@ -100,23 +124,53 @@ export async function POST(request) {
 
   const userPrompt = promptFn(context)
 
-  const message = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }]
-  })
+  let message
+  try {
+    const anthropic = getAnthropicClient()
+    message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      system: SYSTEM_PROMPT + "\nIMPORTANT: LIMIT TO 8 SUGGESTIONS MAX. Your response MUST be valid JSON and MUST NOT be truncated. Keep 'reason' fields extremely short (max 10 words).",
+      messages: [{ role: 'user', content: userPrompt }]
+    })
+  } catch (err) {
+    console.error('Anthropic API error:', err.message)
+    return NextResponse.json(
+      { error: err.message || 'AI service unavailable' },
+      { status: 500 }
+    )
+  }
 
   let parsed
   try {
-    const raw = message.content[0].text.trim()
+    const textBlock = message.content.find(b => b.type === 'text')
+    if (!textBlock) throw new Error('No text content in response')
+    
+    let raw = textBlock.text.trim()
+    console.log('AI Raw Response (First 200 chars):', raw.substring(0, 200))
+
+    // More aggressive JSON extraction: find first { and last }
+    const firstBrace = raw.indexOf('{')
+    const lastBrace = raw.lastIndexOf('}')
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      raw = raw.substring(firstBrace, lastBrace + 1)
+    }
+
     parsed = JSON.parse(raw)
   } catch (e) {
-    return NextResponse.json({ error: 'AI response parse error', raw: message.content[0].text }, { status: 500 })
+    const fullContent = message.content?.map(c => c.text).join('\n') || 'empty'
+    console.error('Parse error:', e.message)
+    console.error('Full response that failed to parse:', fullContent)
+    return NextResponse.json({ 
+      error: 'AI response parse error', 
+      details: e.message,
+      raw: fullContent.substring(0, 1000) // Send snippet to frontend for debugging
+    }, { status: 500 })
   }
 
-  // If it's a keyword cluster, don't save as recommendation
-  if (type === 'keyword_cluster') {
+  // If it's a keyword cluster or suggestion, don't save as recommendation
+  if (type === 'keyword_cluster' || type === 'keyword_suggest') {
     return NextResponse.json({ result: parsed })
   }
 
@@ -182,6 +236,29 @@ export async function PATCH(request) {
       approvedAt: status !== 'pending' ? new Date() : null,
     }
   })
+
+  // If approved and has issueId, mark issue as resolved
+  if (status === 'approved' && updated.issueId) {
+    await prisma.sEOIssue.update({
+      where: { id: updated.issueId },
+      data: { status: 'resolved' }
+    })
+  }
+
+  // Also log to changelog if approved
+  if (status === 'approved') {
+    await prisma.sEOChangeLog.create({
+      data: {
+        id: uuidv4(),
+        projectId: updated.projectId,
+        type: 'content',
+        title: `Applied AI Recommendation: ${updated.type}`,
+        description: `AI suggested ${updated.type} was approved and applied.`,
+        afterValue: approvedText || updated.suggestedText,
+        recordedBy: session.user.id,
+      }
+    })
+  }
 
   return NextResponse.json({ recommendation: updated })
 }
