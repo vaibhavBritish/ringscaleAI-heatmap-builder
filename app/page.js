@@ -8,6 +8,9 @@ import { MapPin, BarChart3, Zap, Target, TrendingUp, Shield, Settings, Rocket, T
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import Image from 'next/image'
+import LeadForm from '@/components/LeadForm'
+import VisualDashboard from '@/components/VisualDashboard'
+import LogoMarquee from '@/components/LogoMarquee'
 
 const updates = [
   {
@@ -127,7 +130,7 @@ export default function HomePage() {
       .then(data => {
         if (data.country === 'IN') setIsIndia(true)
       })
-      .catch(() => {}) // Silently fall back to default (US pricing)
+      .catch(() => { }) // Silently fall back to default (US pricing)
       .finally(() => clearTimeout(timeout))
   }, [])
 
@@ -174,21 +177,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Product Mockup */}
-      <section className="pb-20 px-4">
-        <div className="container mx-auto max-w-5xl">
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border bg-slate-900">
-            <div className="absolute top-0 left-0 right-0 h-8 bg-slate-800 flex items-center px-4 gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <div className="w-3 h-3 rounded-full bg-green-400"></div>
+
+      {/* Product Mockup Section */}
+      <section className="pb-20 px-4 mt-[-40px]">
+        <div className="container mx-auto max-w-6xl">
+          <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-slate-200 bg-white p-2 md:p-4 animate-in slide-in-from-bottom-12 duration-1000 delay-200">
+            {/* Browser Control Mockup */}
+            <div className="absolute top-0 left-0 right-0 h-10 bg-slate-50 border-b border-slate-100 flex items-center px-6 gap-2 z-20">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-400 shadow-inner"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-400 shadow-inner"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400 shadow-inner"></div>
+              </div>
+              <div className="mx-auto bg-white border border-slate-200 flex items-center gap-2 px-6 py-1 rounded-lg">
+                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Live Scan View - Ringscale AI</span>
+              </div>
             </div>
-            <div className="pt-8 p-4">
-              <img
-                src="/Before.png"
-                alt="Dashboard Preview"
-                className="rounded-lg w-full"
-              />
+
+            <div className="pt-10">
+              <VisualDashboard />
             </div>
           </div>
         </div>
@@ -196,193 +204,7 @@ export default function HomePage() {
 
 
       {/* Interactive Updates Marquee */}
-      <section className="py-20 bg-slate-50 overflow-hidden border-y border-slate-100">
-        <div className="container mx-auto px-4 mb-16 text-center animate-in fade-in duration-700">
-          <h2 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4">Latest Insights</h2>
-          <p className="text-2xl font-extrabold text-slate-800">What's happening right now</p>
-        </div>
 
-        <div className="relative group">
-          <div className="flex marquee-container gap-8 hover:pause-on-hover px-4">
-            {/* Display updates twice for seamless loop */}
-            {[...updates, ...updates].map((update, index) => (
-              <div
-                key={index}
-                className="flex-shrink-0 w-[450px] bg-blue-50/40 rounded-[2.5rem] p-10 border border-blue-100 flex flex-col gap-8 shadow-sm hover:shadow-xl transition-all duration-500"
-              >
-                <div className="space-y-4">
-                  <span className="text-blue-500 font-bold text-xs tracking-[0.2em] uppercase">
-                    {update.tag}
-                  </span>
-                  <h3 className="text-4xl font-black text-slate-900 tracking-tight">
-                    {update.title}
-                  </h3>
-                  {update.desc && (
-                    <p className="text-lg text-slate-600 font-semibold leading-snug">
-                      {update.desc}
-                    </p>
-                  )}
-                </div>
-
-                <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white bg-white aspect-[4/3]">
-                  <img
-                    src={update.image}
-                    alt={update.title}
-                    className="w-full h-full object-cover opacity-90"
-                  />
-
-                  {update.user && (
-                    <div className="absolute top-6 right-6 left-6 bg-white/95 backdrop-blur-sm shadow-2xl rounded-2xl p-6 flex gap-4 items-start border border-blue-50 scroll-reveal">
-                      <div className="relative">
-                        <img
-                          src={update.user.avatar}
-                          alt={update.user.name}
-                          className="w-12 h-12 rounded-full border-2 border-blue-100 shadow-sm"
-                        />
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-black text-sm text-slate-800">
-                            {update.user.name} {update.user.date && <span className="mx-1 opacity-20">•</span>} <span className="text-slate-400 font-bold text-xs">{update.user.date}</span>
-                          </span>
-                        </div>
-                        <p className="text-xs leading-relaxed text-slate-600 font-bold italic line-clamp-4">
-                          "{update.user.feedback}"
-                        </p>
-                      </div>
-                      <div className="absolute -bottom-3 right-6 w-6 h-6 bg-white border-r border-b border-blue-50 rotate-45"></div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-auto pt-8 flex items-center justify-between border-t border-blue-100/50">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                      The World's Leading AI-Powered SaaS
-                    </p>
-                    <p className="text-[12px] font-black text-blue-600 uppercase tracking-tight">
-                      Ringscale AI
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end opacity-80">
-                    <span className="font-black text-sm text-blue-600 leading-none tracking-tighter">Ringscale AI</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-24 text-center">
-          <Link href={session ? "/dashboard" : "/register"}>
-            <Button
-              size="lg"
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-16 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6 mx-auto"
-            >
-              {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Horizontal Slider Section */}
-      <section className="py-28 bg-[#001D4A] relative overflow-hidden group/slider">
-        <div className="container mx-auto px-6 max-w-7xl relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-            <div className="max-w-2xl">
-              <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-6 leading-tight tracking-tight">
-                Local SEO Made Easy <br />
-                <span className="text-blue-400 font-bold">In Just One Tool.</span>
-              </h2>
-              <p className="text-lg text-blue-100/70 font-medium leading-relaxed">
-                Everything you need to scan, track, and optimize your Google Business Profiles for maximum visibility and customer conversion.
-              </p>
-            </div>
-
-            <div className="flex gap-4 group-hover/slider:opacity-100 md:opacity-0 transition-opacity translate-y-2">
-              {/* Navigation Arrows */}
-              <button
-                onClick={scrollLeft}
-                className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl text-blue-900 transition-all hover:scale-110 active:scale-95"
-              >
-                <span className="text-3xl">←</span>
-              </button>
-              <button
-                onClick={scrollRight}
-                className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl text-blue-900 transition-all hover:scale-110 active:scale-95"
-              >
-                <span className="text-3xl">→</span>
-              </button>
-            </div>
-          </div>
-
-          <div
-            ref={sliderRef}
-            className="flex gap-6 px-10 pb-12 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
-          >
-            {seoSolutions.map((solution, index) => (
-              <div
-                key={index}
-                className="group relative flex-shrink-0 w-[320px] md:w-[400px] h-[580px] bg-gradient-to-b from-[#E6F0FF] to-white rounded-[2.5rem] flex flex-col snap-center shadow-lg overflow-hidden transition-all duration-700 hover:shadow-2xl"
-              >
-                {/* Default State */}
-                <div className="p-10 flex flex-col h-full bg-inherit transition-all duration-700 group-hover:opacity-0 group-hover:-translate-y-8">
-                  <div className="space-y-6">
-                    <h3 className="text-4xl font-black text-[#002B7F] leading-tight tracking-tight">
-                      {solution.title}
-                    </h3>
-                    <p className="text-xl text-slate-600 font-bold leading-relaxed">
-                      {solution.desc}
-                    </p>
-                  </div>
-
-                  <div className="mt-auto pt-10 flex items-center gap-4 grayscale opacity-70">
-                    <div className="w-10 h-10 rounded-xl bg-[#002B7F] flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1">
-                        <span className="font-black text-xs text-slate-800 leading-none tracking-tighter uppercase">RINGSCALE </span>
-                        <span className="font-black text-xs text-[#002B7F] leading-none tracking-tighter uppercase">AI</span>
-                      </div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Your Agency Growth Partner</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hover State Checklist */}
-                <div className="absolute inset-0 p-10 flex flex-col h-full bg-[#E6F0FF] opacity-0 translate-y-8 transition-all duration-700 group-hover:opacity-100 group-hover:translate-y-0">
-                  <div className="inline-block px-8 py-3 rounded-2xl bg-[#000080] text-white text-xl font-black w-fit mb-10 shadow-lg">
-                    {solution.title}
-                  </div>
-
-                  <div className="space-y-8 mb-auto">
-                    {solution.features.map((feature, i) => (
-                      <div key={i} className="flex gap-5 items-start animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: `${i * 100}ms` }}>
-                        <div className="w-7 h-7 rounded-full bg-[#3b82f6] flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
-                          <Check className="w-4 h-4 text-white stroke-[4px]" />
-                        </div>
-                        <span className="text-xl text-slate-800 font-bold leading-tight tracking-tight">
-                          {feature}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Link href={session ? "/dashboard" : "/register"}>
-                    <Button className="w-full bg-gradient-to-r from-blue-700 to-blue-400 hover:from-blue-800 hover:to-blue-500 text-white rounded-2xl py-10 text-2xl font-black shadow-2xl hover:scale-[1.02] transition-all">
-                      {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="ml-3 text-3xl">→</span>
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* GBP Module Section */}
       <section className="py-24 bg-white overflow-hidden">
@@ -1142,18 +964,47 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-4xl font-bold text-slate-900 mb-6">Ready to Dominate Local Search?</h2>
-          <p className="text-xl text-slate-600 mb-10">Join hundreds of agencies already using Local Rank Heatmap to win more clients.</p>
-          <Link href={session ? "/dashboard" : "/register"}>
-            <Button size="lg" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-lg px-8 py-6">
-              {session ? 'Go to Dashboard' : 'Start Your Free Trial Today'}
-            </Button>
-          </Link>
+      <LogoMarquee />
+      {/* Lead Form Section */}
+      <section id="contact" className="py-24 bg-white relative overflow-hidden">
+        <div className="container mx-auto max-w-6xl px-6 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-bold">
+                <Target className="w-4 h-4" />
+                Trusted by Agencies
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+                Ready to Scale Your <br />
+                <span className="text-blue-600">SEO Agency?</span>
+              </h2>
+              <p className="text-xl text-slate-500 font-medium leading-relaxed">
+                Stop guessing and start dominating. Join hundreds of agencies already using Local Rank Heatmap to win more clients and show undeniable proof of their work.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-6 pt-4">
+                {[
+                  { title: "Precise Tracking", desc: "Geo-grid accuracy" },
+                  { title: "Agency Reports", desc: "White-label ready" },
+                  { title: "Competitor Intel", desc: "Spot every gap" },
+                  { title: "Quick Setup", desc: "Go live in minutes" }
+                ].map((item, i) => (
+                  <div key={i} className="flex flex-col gap-1">
+                    <span className="font-black text-slate-900 flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-500" /> {item.title}
+                    </span>
+                    <span className="text-sm text-slate-500 font-medium ml-6">{item.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <LeadForm />
+          </div>
         </div>
       </section>
+
+
 
       <Footer />
     </div>

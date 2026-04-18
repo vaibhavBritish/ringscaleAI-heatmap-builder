@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Check, ArrowRight, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import LeadForm from '@/components/LeadForm'
 
 const iconMap = {
   Dumbbell,
@@ -156,18 +157,42 @@ export default function ServicePage() {
           </div>
         </section>
 
-        {/* FAQ/CTA section */}
-        <section className="py-24 bg-white text-center px-6">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-8 tracking-tight">Ready to Rank #1?</h2>
-            <p className="text-xl text-slate-500 font-medium mb-12">
-              Join thousands of {service.title} owners who are already dominating their local search results with Ringscale AI.
-            </p>
-            <Link href={session ? "/dashboard" : "/register"}>
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-16 py-10 text-2xl font-black shadow-2xl shadow-blue-200 hover:scale-105 transition-all">
-                Start My Free Trial <ArrowRight className="ml-4 w-8 h-8" />
-              </Button>
-            </Link>
+        {/* Lead Form Section */}
+        <section id="contact" className="py-24 bg-slate-50 relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-hero-grid opacity-50" />
+          <div className="container mx-auto max-w-6xl px-6 relative z-10">
+            <div className="grid lg:grid-cols-2 gap-16 items-center">
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-bold">
+                  <Check className="w-4 h-4" />
+                  Ready to Grow
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+                  Start Dominating Your <br />
+                  <span className="text-blue-600">Local Market Today.</span>
+                </h2>
+                <p className="text-xl text-slate-500 font-medium leading-relaxed">
+                  Join thousands of {service.title} owners who are already outranking their competition. Fill out the form, and our SEO experts will reach out with a custom strategy.
+                </p>
+                
+                <div className="space-y-4 pt-4">
+                  {[
+                    "Custom SEO Audit for your specific coordinates",
+                    "Competitor gap analysis report",
+                    "Actionable local ranking roadmap"
+                  ].map((text, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-semibold text-slate-700">{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <LeadForm defaultService={`Service: ${service.title}`} />
+            </div>
           </div>
         </section>
       </main>

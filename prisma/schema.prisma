@@ -50,6 +50,58 @@ model Project {
   @@map("projects")
 }
 
+model BusinessProfile {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @unique @default(uuid())
+  userId       String   @unique            // one profile per user
+  businessName String
+  address      String
+  city         String
+  state        String
+  country      String   @default("India")
+  phone        String
+  website      String
+  category     String
+  description  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@map("business_profiles")
+}
+
+model CitationDirectory {
+  oid              String   @id @default(auto()) @map("_id") @db.ObjectId
+  id               String   @unique @default(uuid())
+  name             String
+  submissionUrl    String
+  hasApi           Boolean  @default(false)
+  apiConfig        Json?
+  requiresManual   Boolean  @default(true)
+  supportsBacklink Boolean  @default(true)
+  domainAuthority  Int?
+  country          String   @default("global")   // "India" | "global"
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  @@map("citation_directories")
+}
+
+model CitationSubmission {
+  oid           String    @id @default(auto()) @map("_id") @db.ObjectId
+  id            String    @unique @default(uuid())
+  userId        String
+  directoryId   String                             // references CitationDirectory.id
+  status        String    @default("not_started")  // not_started | in_progress | submitted | verified
+  listingUrl    String?
+  backlinkFound Boolean?
+  linkType      String?                            // dofollow | nofollow | null
+  lastCheckedAt DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@unique([userId, directoryId])
+  @@index([userId])
+  @@map("citation_submissions")
+}
+
 model Keyword {
   oid       String   @id @default(auto()) @map("_id") @db.ObjectId
   id        String   @unique
