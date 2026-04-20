@@ -264,7 +264,7 @@ export default function ReviewGeneratorPage() {
                       <Input 
                         id="name" 
                         name="name" 
-                        placeholder="e.g. Murti Jewellers" 
+                        placeholder="Enter your business name" 
                         value={formData.name}
                         onChange={handleInputChange}
                         required
@@ -278,7 +278,7 @@ export default function ReviewGeneratorPage() {
                         <Input 
                           id="slug" 
                           name="slug" 
-                          placeholder="murti-jewellers" 
+                          placeholder="Enter URL slug (e.g. your-business-name)" 
                           value={formData.slug}
                           onChange={handleInputChange}
                           required
@@ -293,7 +293,7 @@ export default function ReviewGeneratorPage() {
                     <Input 
                       id="industry" 
                       name="industry" 
-                      placeholder="e.g. Luxury Retail / Jewellery" 
+                      placeholder="Enter your industry segment" 
                       value={formData.industry}
                       onChange={handleInputChange}
                       required
@@ -306,7 +306,7 @@ export default function ReviewGeneratorPage() {
                     <Textarea 
                       id="description" 
                       name="description" 
-                      placeholder="Briefly describe what makes this business premium..." 
+                      placeholder="Describe your business and what makes it stand out" 
                       className="min-h-[100px] rounded-2xl border-slate-200 focus:ring-amber-500 resize-none"
                       value={formData.description}
                       onChange={handleInputChange}
@@ -382,7 +382,7 @@ export default function ReviewGeneratorPage() {
                     <Input 
                       id="gmb_link" 
                       name="gmb_link" 
-                      placeholder="https://maps.google.com/..." 
+                      placeholder="Enter your Google Business Profile URL" 
                       value={formData.gmb_link}
                       onChange={handleInputChange}
                       required
@@ -396,7 +396,7 @@ export default function ReviewGeneratorPage() {
                       <div className="flex gap-2">
                         <Input 
                           id="hero_url" 
-                          placeholder="Paste image URL (Unsplash, etc.)" 
+                          placeholder="Enter hero image URL" 
                           value={formData.hero_image.startsWith('data:') ? '' : formData.hero_image}
                           onChange={(e) => setFormData(prev => ({ ...prev, hero_image: e.target.value }))}
                           className="h-11 rounded-xl border-slate-200"
