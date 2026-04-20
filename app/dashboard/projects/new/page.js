@@ -259,8 +259,13 @@ export default function NewProjectPage() {
             })
           }
           
-          // Finish only when ALL project scans are done
-          const allDone = allScans.every(s => ['completed', 'failed', 'cancelled'].includes(s.status))
+          // Finish when all scans are terminal OR implicitly done by progress.
+          const allDone = allScans.every((s) => {
+            if (['completed', 'failed', 'cancelled'].includes(s.status)) return true
+            const total = s.totalPoints || 0
+            const processed = s.processedPoints || 0
+            return total > 0 && processed >= total
+          })
           
           if (allDone) {
             setScanning(false)
@@ -517,12 +522,15 @@ export default function NewProjectPage() {
     setSidebarSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
+  const estimatedLabel = scanning ? 'Estimated Time' : 'Estimated Cost'
+  const estimatedValue = scanning ? '~2 min' : `${keywords.length * 100} Credits`
+
   return (
     <div className="flex flex-col flex-1 -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-y-auto lg:overflow-hidden">
       <div className="flex flex-col lg:flex-row flex-1 relative min-h-screen lg:min-h-0">
         
         {/* Map Center Area (70% on desktop, Top on mobile) */}
-        <main className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
+        <main className="w-full lg:flex-1 h-[38vh] sm:h-[42vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
           <GoogleMap 
             markers={[
               ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),
@@ -604,7 +612,7 @@ export default function NewProjectPage() {
         </main>
         
         {/* Left Sidebar (Now below map on mobile, Side on desktop) */}
-        <aside className="w-full lg:w-[30%] min-w-[320px] max-w-[450px] bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
+        <aside className="w-full lg:w-[30%] lg:min-w-[320px] lg:max-w-[450px] min-w-0 max-w-none bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-600" />
@@ -615,6 +623,30 @@ export default function NewProjectPage() {
                 <X className="w-4 h-4" />
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile primary action: keep Run Scan accessible at top */}
+          <div className="lg:hidden sticky top-0 z-20 p-3 bg-white/95 backdrop-blur border-b border-slate-100">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">{estimatedLabel}</div>
+                <div className="text-sm font-bold text-emerald-600 truncate">{estimatedValue}</div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={scanning ? handleCancelScan : handleCreateProject}
+              isLoading={creating}
+              cooldown={2000}
+              disabled={!scanning && (!selectedBusiness || keywords.length === 0)}
+              className={`w-full h-11 rounded-xl font-bold shadow transition-all ${
+                scanning
+                  ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95'
+              }`}
+            >
+              {scanning ? 'Stop Scan' : 'Run Scan'}
+            </Button>
           </div>
 
           <div className="flex-1">
@@ -918,14 +950,14 @@ export default function NewProjectPage() {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3 sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+          <div className="hidden lg:flex p-4 bg-slate-50 border-t border-slate-100 flex-col gap-3 sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="text-[10px] font-bold text-slate-400 uppercase">
-                  {scanning ? 'Estimated Time' : 'Estimated Cost'}
+                  {estimatedLabel}
                 </div>
                 <div className="text-sm font-bold text-emerald-600">
-                  {scanning ? '~2 min' : `${keywords.length * 100} Credits`}
+                  {estimatedValue}
                 </div>
               </div>
               

@@ -20,6 +20,7 @@ export default function CitationsPage() {
   const [directories, setDirectories] = useState([]);
   const [submissions, setSubmissions] = useState({});
   const [loading, setLoading] = useState(true);
+  const [discovering, setDiscovering] = useState(false);
   const [urlInputs, setUrlInputs] = useState({});
   
   const [filterCountry, setFilterCountry] = useState('All');
@@ -160,6 +161,59 @@ export default function CitationsPage() {
     }
   };
 
+  const handleAutoDiscover = async () => {
+    if (!profile?.businessName || !profile?.website) {
+      toast.error('Please complete Business Profile with business name and website first');
+      return;
+    }
+
+    setDiscovering(true);
+    toast.info('Discovering listing URLs using SerpApi...');
+    try {
+      const res = await fetch('/api/citations/discover', {
+        method: 'POST',
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || 'Auto discovery failed');
+      }
+
+      const updated = payload?.data?.updatedSubmissions || [];
+      const possibleMatches = payload?.data?.possibleMatches || 0;
+      if (!updated.length) {
+        toast.warning(
+          possibleMatches > 0
+            ? `Found ${possibleMatches} likely SERP matches, but none were promoted to listing URLs.`
+            : 'No listing URL candidates returned from SerpApi for this business.'
+        );
+        return;
+      }
+
+      setSubmissions((prev) => {
+        const next = { ...prev };
+        updated.forEach((sub) => {
+          next[sub.directoryId] = sub;
+        });
+        return next;
+      });
+      setUrlInputs((prev) => {
+        const next = { ...prev };
+        updated.forEach((sub) => {
+          next[sub.directoryId] = sub.listingUrl || '';
+        });
+        return next;
+      });
+
+      toast.success(
+        `Discovered ${updated.length} listing URL${updated.length > 1 ? 's' : ''} (strict business match)`
+      );
+    } catch (err) {
+      toast.error(err.message || 'Failed to auto-discover listing URLs');
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100';
@@ -279,6 +333,15 @@ export default function CitationsPage() {
         <CardHeader className="py-4 px-6 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
           <CardTitle className="text-lg">Citation Directories</CardTitle>
           <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAutoDiscover}
+              disabled={discovering || !profile}
+            >
+              {discovering ? 'Discovering...' : 'Auto-discover URLs'}
+            </Button>
             <Select value={filterCountry} onValueChange={setFilterCountry}>
               <SelectTrigger className="w-[120px] h-9 text-sm">
                 <SelectValue placeholder="Country" />
@@ -413,8 +476,37 @@ export default function CitationsPage() {
               })}
               {filteredDirectories.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No directories found matching parameters.
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground space-y-3">
+                    {directories.length === 0 ? (
+                      <div className="space-y-2">
+                        <p>No citation directories are loaded.</p>
+                        <p className="text-xs max-w-md mx-auto">
+                          The API only returns directories that are not explicitly inactive. If you edited the database, ensure documents have{' '}
+                          <code className="text-foreground">isActive</code> set to true (or re-run{' '}
+                          <code className="text-foreground">node scripts/seed-directories.js</code>).
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p>No rows match the current country or status filters.</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFilterCountry('All');
+                            setFilterStatus('All');
+                          }}
+                        >
+                          Reset filters to All
+                        </Button>
+                        <p className="text-xs max-w-md mx-auto">
+                          Country on each directory must match the filter exactly (e.g.{' '}
+                          <code className="text-foreground">India</code> or{' '}
+                          <code className="text-foreground">global</code> in lowercase for Global).
+                        </p>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               )}
