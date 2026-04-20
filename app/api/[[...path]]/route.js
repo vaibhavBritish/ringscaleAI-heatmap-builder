@@ -11,6 +11,8 @@ import redis from '@/lib/redis'
 import { rateLimit } from '@/lib/rate-limit'
 import { headers } from 'next/headers'
 
+let legacyProjectIndexCleanupAttempted = false
+
 // Helper function to handle CORS
 function handleCORS(response) {
   response.headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || '*')
@@ -18,6 +20,22 @@ function handleCORS(response) {
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   response.headers.set('Access-Control-Allow-Credentials', 'true')
   return response
+}
+
+async function cleanupLegacyProjectClientSlugIndex() {
+  if (legacyProjectIndexCleanupAttempted) return
+  legacyProjectIndexCleanupAttempted = true
+
+  try {
+    await prisma.$runCommandRaw({
+      dropIndexes: 'projects',
+      index: 'projects_clientSlug_key'
+    })
+    console.info('[projects] Dropped legacy index projects_clientSlug_key')
+  } catch (error) {
+    // If index is already removed or command is not supported in this environment, continue.
+    console.warn('[projects] Legacy index cleanup skipped:', error?.message || error)
+  }
 }
 
 // Get authenticated user
@@ -336,21 +354,48 @@ async function handleRoute(request, props) {
         })
       } else {
         projectId = uuidv4()
-        project = await prisma.project.create({
-          data: {
-            id: projectId,
-            userId: currentUser.id,
-            businessName,
-            placeId,
-            address: address || '',
-            latitude: coordinates?.lat || 0,
-            longitude: coordinates?.lng || 0,
-            primaryType: primaryType || '',
-            gridSettings: gridSettings || null,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }
-        })
+        try {
+          project = await prisma.project.create({
+            data: {
+              id: projectId,
+              userId: currentUser.id,
+              businessName,
+              placeId,
+              address: address || '',
+              latitude: coordinates?.lat || 0,
+              longitude: coordinates?.lng || 0,
+              primaryType: primaryType || '',
+              gridSettings: gridSettings || null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          })
+        } catch (createError) {
+          const isLegacyClientSlugConflict =
+            createError?.code === 'P2002' &&
+            String(createError?.meta?.target || '').includes('projects_clientSlug_key')
+
+          if (!isLegacyClientSlugConflict) throw createError
+
+          await cleanupLegacyProjectClientSlugIndex()
+
+          // Retry once after cleaning up stale DB index.
+          project = await prisma.project.create({
+            data: {
+              id: projectId,
+              userId: currentUser.id,
+              businessName,
+              placeId,
+              address: address || '',
+              latitude: coordinates?.lat || 0,
+              longitude: coordinates?.lng || 0,
+              primaryType: primaryType || '',
+              gridSettings: gridSettings || null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          })
+        }
       }
 
       // Radius validation
@@ -843,10 +888,24 @@ async function handleRoute(request, props) {
       // Get all keywords for this project with their latest scans
       const allKeywords = await prisma.keyword.findMany({ where: { projectId: scanJob.projectId } })
       const projectScans = await Promise.all(allKeywords.map(async (kw) => {
-        const latestJob = await prisma.scanJob.findFirst({
+        let latestJob = await prisma.scanJob.findFirst({
           where: { keywordId: kw.id },
           orderBy: { createdAt: 'desc' }
         })
+
+        // Auto-heal occasional stuck jobs: if all points are processed but status never flipped.
+        if (
+          latestJob &&
+          ['queued', 'processing'].includes(latestJob.status) &&
+          (latestJob.totalPoints || 0) > 0 &&
+          (latestJob.processedPoints || 0) >= (latestJob.totalPoints || 0)
+        ) {
+          latestJob = await prisma.scanJob.update({
+            where: { id: latestJob.id },
+            data: { status: 'completed', completedAt: new Date() }
+          })
+        }
+
         return {
           keyword: kw.keyword,
           keywordId: kw.id,

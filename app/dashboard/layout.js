@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2 } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, ClipboardList, History, Cpu, Building2 } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -128,7 +128,11 @@ export default function DashboardLayout({ children }) {
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className="font-bold text-lg whitespace-nowrap opacity-0 max-w-0 overflow-hidden group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3 transition-all duration-300">Heatmaps</span>
+            <span className={`font-bold text-lg whitespace-nowrap overflow-hidden transition-all duration-300 ${
+              sidebarOpen
+                ? 'opacity-100 max-w-xs ml-3'
+                : 'opacity-0 max-w-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+            }`}>Heatmaps</span>
             <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="w-5 h-5" />
             </button>
@@ -139,7 +143,11 @@ export default function DashboardLayout({ children }) {
             <Link href="/dashboard/projects/new" onClick={handleNewProject}>
               <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 flex items-center justify-center h-10 px-0 lg:group-hover:px-4 transition-all duration-300">
                 <Plus className="w-5 h-5 shrink-0" />
-                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2 transition-all duration-300 whitespace-nowrap">
+                <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                  sidebarOpen
+                    ? 'max-w-xs opacity-100 ml-2'
+                    : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2'
+                }`}>
                   New Project
                 </span>
               </Button>
@@ -158,7 +166,11 @@ export default function DashboardLayout({ children }) {
                   }`}
               >
                 <item.icon className="w-5 h-5 shrink-0" />
-                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3 transition-all duration-300 whitespace-nowrap">
+                <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                  sidebarOpen
+                    ? 'max-w-xs opacity-100 ml-3'
+                    : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+                }`}>
                   {item.name}
                 </span>
               </Link>
@@ -169,11 +181,23 @@ export default function DashboardLayout({ children }) {
               <>
                 <div className="pt-4 pb-1">
                   <div className="flex items-center gap-2 px-3">
-                    <div className="flex-1 h-px bg-gradient-to-r from-blue-200 to-indigo-200 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300" />
-                    <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300 whitespace-nowrap text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                    <div className={`flex-1 h-px bg-gradient-to-r from-blue-200 to-indigo-200 overflow-hidden transition-all duration-300 ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`} />
+                    <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap text-[10px] font-black text-indigo-500 uppercase tracking-widest ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`}>
                       SEOOS Admin
                     </span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-200 to-blue-200 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300" />
+                    <div className={`flex-1 h-px bg-gradient-to-r from-indigo-200 to-blue-200 overflow-hidden transition-all duration-300 ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`} />
                   </div>
                 </div>
                 {[
@@ -182,7 +206,6 @@ export default function DashboardLayout({ children }) {
                   { name: 'AI Assistant', href: '/dashboard/seoos/ai-assistant', icon: Sparkles },
                   { name: 'GBP Suite', href: '/dashboard/seoos/gbp-suite', icon: MapPin },
                   { name: 'Keywords', href: '/dashboard/seoos/keywords', icon: TrendingUp },
-                  { name: 'Citations', href: '/dashboard/seoos/citations', icon: Link2 },
                   { name: 'Tasks', href: '/dashboard/seoos/tasks', icon: ClipboardList },
                   { name: 'Change Log', href: '/dashboard/seoos/changelog', icon: History },
                   { name: 'SEO Reports', href: '/dashboard/seoos/reports', icon: BarChart3 },
@@ -196,7 +219,11 @@ export default function DashboardLayout({ children }) {
                       }`}
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
-                    <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3 transition-all duration-300 whitespace-nowrap">
+                    <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100 ml-3'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+                    }`}>
                       {item.name}
                     </span>
                   </Link>
@@ -216,11 +243,19 @@ export default function DashboardLayout({ children }) {
                       {session.user?.name?.[0] || session.user?.email?.[0] || 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 text-left min-w-0 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3 transition-all duration-300">
+                  <div className={`flex-1 text-left min-w-0 overflow-hidden transition-all duration-300 ${
+                    sidebarOpen
+                      ? 'max-w-xs opacity-100 ml-3'
+                      : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+                  }`}>
                     <p className="text-sm font-semibold text-slate-900 truncate">{session.user?.name || 'User'}</p>
                     <p className="text-xs text-slate-500 truncate">{session.user?.email}</p>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 transition-all duration-300" />
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 overflow-hidden transition-all duration-300 ${
+                    sidebarOpen
+                      ? 'max-w-xs opacity-100'
+                      : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                  }`} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

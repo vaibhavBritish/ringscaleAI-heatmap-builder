@@ -3,8 +3,9 @@ import prisma from '@/lib/prisma';
 
 export async function GET(request) {
   try {
+    // Treat missing isActive as active (common after manual Mongo edits omit the field).
     const directories = await prisma.citationDirectory.findMany({
-      where: { isActive: true },
+      where: { NOT: { isActive: false } },
       orderBy: [
         { domainAuthority: 'desc' },
         { name: 'asc' },

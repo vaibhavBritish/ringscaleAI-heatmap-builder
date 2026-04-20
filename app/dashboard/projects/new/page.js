@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -259,8 +259,13 @@ export default function NewProjectPage() {
             })
           }
           
-          // Finish only when ALL project scans are done
-          const allDone = allScans.every(s => ['completed', 'failed', 'cancelled'].includes(s.status))
+          // Finish when all scans are terminal OR implicitly done by progress.
+          const allDone = allScans.every((s) => {
+            if (['completed', 'failed', 'cancelled'].includes(s.status)) return true
+            const total = s.totalPoints || 0
+            const processed = s.processedPoints || 0
+            return total > 0 && processed >= total
+          })
           
           if (allDone) {
             setScanning(false)
@@ -414,37 +419,84 @@ export default function NewProjectPage() {
     setKeywords(keywords.filter(k => k !== kw))
   }
 
+  const parseCityFromAddress = (address = '') => {
+    const parts = (address || '').split(',').map((p) => p.trim()).filter(Boolean)
+    if (parts.length < 2) return ''
+    return parts[parts.length - 3] || parts[1] || ''
+  }
+
+  const detectBusinessCategory = (business) => {
+    const text = `${business?.name || ''} ${business?.primaryType || ''} ${(business?.types || []).join(' ')}`.toLowerCase()
+
+    if (text.includes('jewel') || text.includes('jeweller') || text.includes('jewelry')) return 'jewelry'
+    if (text.includes('dentist') || text.includes('dental')) return 'dental'
+    if (text.includes('restaurant') || text.includes('cafe') || text.includes('food')) return 'restaurant'
+    if (text.includes('salon') || text.includes('spa') || text.includes('beauty')) return 'beauty'
+
+    return 'generic'
+  }
+
+  const buildServiceKeywords = (business, city) => {
+    const category = detectBusinessCategory(business)
+    const citySuffix = city ? ` in ${city.toLowerCase()}` : ''
+
+    if (category === 'jewelry') {
+      return [
+        'gold jewellery near me',
+        'silver jewellery near me',
+        'diamond jewellery near me',
+        'best gold jewellery near me',
+        'best silver jewellery near me',
+        'best diamond jewellery near me',
+        `gold jewellery store${citySuffix}`,
+        `silver jewellery store${citySuffix}`,
+        `diamond jewellery store${citySuffix}`,
+        `bridal jewellery${citySuffix}`,
+      ]
+    }
+
+    // Generic fallback for non-jewelry businesses.
+    const primaryTypeText = (business?.primaryType || '')
+      .replace(/_/g, ' ')
+      .trim()
+      .toLowerCase()
+    const service = primaryTypeText || 'local business'
+
+    return [
+      `${service} near me`,
+      `best ${service} near me`,
+      `${service}${citySuffix}`,
+      `${service} services${citySuffix}`,
+    ]
+  }
+
+  const pickRandomKeywords = (items, count = 3) => {
+    const pool = [...items]
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = pool[i]
+      pool[i] = pool[j]
+      pool[j] = tmp
+    }
+    return pool.slice(0, Math.min(count, pool.length))
+  }
+
   const handleAutoGenerateKeywords = () => {
     if (!selectedBusiness) {
       toast.error('Please select a business first')
       return
     }
 
-    const name = selectedBusiness.name
-    const city = selectedBusiness.address?.split(',')[1]?.trim() || ''
-    
-    // Core variations
-    const newKws = new Set([
-      name.toLowerCase(),
-      `${name.toLowerCase()} near me`,
-      `best ${name.toLowerCase()}`
-    ])
+    const city = parseCityFromAddress(selectedBusiness.address)
+    const normalizedGenerated = buildServiceKeywords(selectedBusiness, city)
+      .map((kw) => kw.toLowerCase().replace(/\s+/g, ' ').trim())
+      .filter((kw) => kw.length > 2)
+    const existing = new Set(keywords.map((kw) => kw.toLowerCase().trim()))
+    const candidates = normalizedGenerated.filter((kw) => !existing.has(kw))
+    const generated = pickRandomKeywords(candidates.length ? candidates : normalizedGenerated, 3)
 
-    if (city) {
-      newKws.add(`${name.toLowerCase()} ${city.toLowerCase()}`)
-    }
-
-    // Attempt to extract core service if name is long
-    const words = name.split(' ')
-    if (words.length > 2) {
-      const coreService = words.slice(-2).join(' ').toLowerCase()
-      newKws.add(coreService)
-      newKws.add(`${coreService} near me`)
-      if (city) newKws.add(`${coreService} ${city.toLowerCase()}`)
-    }
-
-    // Filter out duplicates and update
-    const combined = Array.from(new Set([...keywords, ...Array.from(newKws)]))
+    // Keep existing keywords and append only unique new ones.
+    const combined = Array.from(new Set([...keywords, ...generated]))
     setKeywords(combined)
     toast.success(`Generated ${combined.length - keywords.length} new keywords`)
   }
@@ -517,19 +569,26 @@ export default function NewProjectPage() {
     setSidebarSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
+  const estimatedLabel = scanning ? 'Estimated Time' : 'Estimated Cost'
+  const estimatedValue = scanning ? '~2 min' : `${keywords.length * 100} Credits`
+  const mapMarkers = useMemo(() => {
+    return [
+      ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),
+      ...heatmapPins
+    ]
+  }, [selectedBusiness, searchResults, heatmapPins])
+
   return (
     <div className="flex flex-col flex-1 -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-y-auto lg:overflow-hidden">
       <div className="flex flex-col lg:flex-row flex-1 relative min-h-screen lg:min-h-0">
         
         {/* Map Center Area (70% on desktop, Top on mobile) */}
-        <main className="w-full lg:flex-1 h-[40vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
+        <main className="w-full lg:flex-1 h-[38vh] sm:h-[42vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
           <GoogleMap 
-            markers={[
-              ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),
-              ...heatmapPins
-            ]}
+            markers={mapMarkers}
             onMarkerClick={handleSelectBusiness}
             mapType={mapType}
+            autoFit={!scanning}
             gridSettings={scanning ? null : {
               shape: gridShape,
               density: gridDensity,
@@ -604,7 +663,7 @@ export default function NewProjectPage() {
         </main>
         
         {/* Left Sidebar (Now below map on mobile, Side on desktop) */}
-        <aside className="w-full lg:w-[30%] min-w-[320px] max-w-[450px] bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
+        <aside className="w-full lg:w-[30%] lg:min-w-[320px] lg:max-w-[450px] min-w-0 max-w-none bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-600" />
@@ -615,6 +674,30 @@ export default function NewProjectPage() {
                 <X className="w-4 h-4" />
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile primary action: keep Run Scan accessible at top */}
+          <div className="lg:hidden sticky top-0 z-20 p-3 bg-white/95 backdrop-blur border-b border-slate-100">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">{estimatedLabel}</div>
+                <div className="text-sm font-bold text-emerald-600 truncate">{estimatedValue}</div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={scanning ? handleCancelScan : handleCreateProject}
+              isLoading={creating}
+              cooldown={2000}
+              disabled={!scanning && (!selectedBusiness || keywords.length === 0)}
+              className={`w-full h-11 rounded-xl font-bold shadow transition-all ${
+                scanning
+                  ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95'
+              }`}
+            >
+              {scanning ? 'Stop Scan' : 'Run Scan'}
+            </Button>
           </div>
 
           <div className="flex-1">
@@ -918,14 +1001,14 @@ export default function NewProjectPage() {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3 sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+          <div className="hidden lg:flex p-4 bg-slate-50 border-t border-slate-100 flex-col gap-3 sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="text-[10px] font-bold text-slate-400 uppercase">
-                  {scanning ? 'Estimated Time' : 'Estimated Cost'}
+                  {estimatedLabel}
                 </div>
                 <div className="text-sm font-bold text-emerald-600">
-                  {scanning ? '~2 min' : `${keywords.length * 100} Credits`}
+                  {estimatedValue}
                 </div>
               </div>
               
