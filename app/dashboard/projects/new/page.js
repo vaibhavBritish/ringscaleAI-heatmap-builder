@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -419,37 +419,84 @@ export default function NewProjectPage() {
     setKeywords(keywords.filter(k => k !== kw))
   }
 
+  const parseCityFromAddress = (address = '') => {
+    const parts = (address || '').split(',').map((p) => p.trim()).filter(Boolean)
+    if (parts.length < 2) return ''
+    return parts[parts.length - 3] || parts[1] || ''
+  }
+
+  const detectBusinessCategory = (business) => {
+    const text = `${business?.name || ''} ${business?.primaryType || ''} ${(business?.types || []).join(' ')}`.toLowerCase()
+
+    if (text.includes('jewel') || text.includes('jeweller') || text.includes('jewelry')) return 'jewelry'
+    if (text.includes('dentist') || text.includes('dental')) return 'dental'
+    if (text.includes('restaurant') || text.includes('cafe') || text.includes('food')) return 'restaurant'
+    if (text.includes('salon') || text.includes('spa') || text.includes('beauty')) return 'beauty'
+
+    return 'generic'
+  }
+
+  const buildServiceKeywords = (business, city) => {
+    const category = detectBusinessCategory(business)
+    const citySuffix = city ? ` in ${city.toLowerCase()}` : ''
+
+    if (category === 'jewelry') {
+      return [
+        'gold jewellery near me',
+        'silver jewellery near me',
+        'diamond jewellery near me',
+        'best gold jewellery near me',
+        'best silver jewellery near me',
+        'best diamond jewellery near me',
+        `gold jewellery store${citySuffix}`,
+        `silver jewellery store${citySuffix}`,
+        `diamond jewellery store${citySuffix}`,
+        `bridal jewellery${citySuffix}`,
+      ]
+    }
+
+    // Generic fallback for non-jewelry businesses.
+    const primaryTypeText = (business?.primaryType || '')
+      .replace(/_/g, ' ')
+      .trim()
+      .toLowerCase()
+    const service = primaryTypeText || 'local business'
+
+    return [
+      `${service} near me`,
+      `best ${service} near me`,
+      `${service}${citySuffix}`,
+      `${service} services${citySuffix}`,
+    ]
+  }
+
+  const pickRandomKeywords = (items, count = 3) => {
+    const pool = [...items]
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = pool[i]
+      pool[i] = pool[j]
+      pool[j] = tmp
+    }
+    return pool.slice(0, Math.min(count, pool.length))
+  }
+
   const handleAutoGenerateKeywords = () => {
     if (!selectedBusiness) {
       toast.error('Please select a business first')
       return
     }
 
-    const name = selectedBusiness.name
-    const city = selectedBusiness.address?.split(',')[1]?.trim() || ''
-    
-    // Core variations
-    const newKws = new Set([
-      name.toLowerCase(),
-      `${name.toLowerCase()} near me`,
-      `best ${name.toLowerCase()}`
-    ])
+    const city = parseCityFromAddress(selectedBusiness.address)
+    const normalizedGenerated = buildServiceKeywords(selectedBusiness, city)
+      .map((kw) => kw.toLowerCase().replace(/\s+/g, ' ').trim())
+      .filter((kw) => kw.length > 2)
+    const existing = new Set(keywords.map((kw) => kw.toLowerCase().trim()))
+    const candidates = normalizedGenerated.filter((kw) => !existing.has(kw))
+    const generated = pickRandomKeywords(candidates.length ? candidates : normalizedGenerated, 3)
 
-    if (city) {
-      newKws.add(`${name.toLowerCase()} ${city.toLowerCase()}`)
-    }
-
-    // Attempt to extract core service if name is long
-    const words = name.split(' ')
-    if (words.length > 2) {
-      const coreService = words.slice(-2).join(' ').toLowerCase()
-      newKws.add(coreService)
-      newKws.add(`${coreService} near me`)
-      if (city) newKws.add(`${coreService} ${city.toLowerCase()}`)
-    }
-
-    // Filter out duplicates and update
-    const combined = Array.from(new Set([...keywords, ...Array.from(newKws)]))
+    // Keep existing keywords and append only unique new ones.
+    const combined = Array.from(new Set([...keywords, ...generated]))
     setKeywords(combined)
     toast.success(`Generated ${combined.length - keywords.length} new keywords`)
   }
@@ -524,6 +571,12 @@ export default function NewProjectPage() {
 
   const estimatedLabel = scanning ? 'Estimated Time' : 'Estimated Cost'
   const estimatedValue = scanning ? '~2 min' : `${keywords.length * 100} Credits`
+  const mapMarkers = useMemo(() => {
+    return [
+      ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),
+      ...heatmapPins
+    ]
+  }, [selectedBusiness, searchResults, heatmapPins])
 
   return (
     <div className="flex flex-col flex-1 -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-y-auto lg:overflow-hidden">
@@ -532,12 +585,10 @@ export default function NewProjectPage() {
         {/* Map Center Area (70% on desktop, Top on mobile) */}
         <main className="w-full lg:flex-1 h-[38vh] sm:h-[42vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
           <GoogleMap 
-            markers={[
-              ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),
-              ...heatmapPins
-            ]}
+            markers={mapMarkers}
             onMarkerClick={handleSelectBusiness}
             mapType={mapType}
+            autoFit={!scanning}
             gridSettings={scanning ? null : {
               shape: gridShape,
               density: gridDensity,

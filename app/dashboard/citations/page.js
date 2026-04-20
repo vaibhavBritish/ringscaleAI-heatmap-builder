@@ -240,11 +240,11 @@ export default function CitationsPage() {
   });
 
   return (
-    <div className="flex-1 space-y-6 p-6 md:p-8 pt-6">
+    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Citation Builder</h2>
-          <p className="text-muted-foreground">Distribute your business across {totalDirs} directories</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Citation Builder</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">Distribute your business across {totalDirs} directories</p>
         </div>
       </div>
 
@@ -294,7 +294,7 @@ export default function CitationsPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Directories</CardTitle>
@@ -330,20 +330,21 @@ export default function CitationsPage() {
       </div>
 
       <Card>
-        <CardHeader className="py-4 px-6 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+        <CardHeader className="py-4 px-4 sm:px-6 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:space-y-0">
           <CardTitle className="text-lg">Citation Directories</CardTitle>
-          <div className="flex gap-3">
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleAutoDiscover}
               disabled={discovering || !profile}
+              className="w-full sm:w-auto"
             >
               {discovering ? 'Discovering...' : 'Auto-discover URLs'}
             </Button>
             <Select value={filterCountry} onValueChange={setFilterCountry}>
-              <SelectTrigger className="w-[120px] h-9 text-sm">
+              <SelectTrigger className="w-full sm:w-[140px] h-9 text-sm">
                 <SelectValue placeholder="Country" />
               </SelectTrigger>
               <SelectContent>
@@ -353,7 +354,7 @@ export default function CitationsPage() {
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[140px] h-9 text-sm">
+              <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -366,7 +367,7 @@ export default function CitationsPage() {
             </Select>
           </div>
         </CardHeader>
-        <div className="p-0 overflow-x-auto">
+        <div className="p-0 overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -512,6 +513,135 @@ export default function CitationsPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="md:hidden p-3 space-y-3">
+          {filteredDirectories.map((dir) => {
+            const sub = submissions[dir.id];
+            const status = sub?.status || 'not_started';
+
+            return (
+              <Card key={dir.id} className="border border-slate-200 shadow-sm">
+                <CardContent className="p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{dir.name}</p>
+                      {dir.requiresManual && (
+                        <p className="text-xs text-muted-foreground mt-0.5">Manual submission</p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] shrink-0">DA {dir.domainAuthority}</Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="capitalize text-[10px]">{dir.country}</Badge>
+                    <Select value={status} onValueChange={(val) => handleStatusChange(dir.id, val)}>
+                      <SelectTrigger className={`h-8 text-xs font-semibold rounded border-0 ${getStatusColor(status)}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="not_started">Not Started</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="verified">Verified</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="url"
+                        className="h-8 text-xs px-2 shadow-sm"
+                        placeholder="e.g., directory.com/biz..."
+                        value={urlInputs[dir.id] ?? ''}
+                        onChange={(e) => setUrlInputs(prev => ({ ...prev, [dir.id]: e.target.value }))}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground shrink-0 border shadow-sm"
+                        onClick={() => handleUrlSave(dir.id)}
+                        disabled={(urlInputs[dir.id] || '') === (sub?.listingUrl || '')}
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {sub?.backlinkFound === true && (
+                      <div className="flex items-center text-xs text-green-600 font-medium">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Backlink: {sub.linkType?.toUpperCase() || 'FOUND'}
+                      </div>
+                    )}
+                    {sub?.backlinkFound === false && (
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        No backlink detected
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-9 shadow-sm"
+                      onClick={() => {
+                        if (!profile) {
+                          toast.error('Please complete your Business Profile first!');
+                          return;
+                        }
+                        setSelectedDirectory(dir);
+                        setDrawerOpen(true);
+                      }}
+                    >
+                      Submit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 shadow-sm"
+                      onClick={() => handleCheckBacklink(dir.id)}
+                    >
+                      Check Backlink
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {filteredDirectories.length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8 text-muted-foreground space-y-3">
+                {directories.length === 0 ? (
+                  <div className="space-y-2">
+                    <p>No citation directories are loaded.</p>
+                    <p className="text-xs max-w-md mx-auto">
+                      The API only returns directories that are not explicitly inactive. If you edited the database, ensure documents have{' '}
+                      <code className="text-foreground">isActive</code> set to true (or re-run{' '}
+                      <code className="text-foreground">node scripts/seed-directories.js</code>).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p>No rows match the current country or status filters.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilterCountry('All');
+                        setFilterStatus('All');
+                      }}
+                    >
+                      Reset filters to All
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </Card>
 

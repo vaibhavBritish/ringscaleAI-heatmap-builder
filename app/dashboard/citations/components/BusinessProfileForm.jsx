@@ -18,6 +18,7 @@ const CATEGORIES = [
 export default function BusinessProfileForm({ profile, onSave }) {
   const [projects, setProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [autofilling, setAutofilling] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -104,19 +105,50 @@ export default function BusinessProfileForm({ profile, onSave }) {
     return { city, state };
   };
 
-  const handleProjectAutofill = (projectId) => {
+  const handleProjectAutofill = async (projectId) => {
     setSelectedProjectId(projectId);
     const project = projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    const parsedAddress = parseCityStateFromAddress(project.address || '');
-    setFormData(prev => ({
-      ...prev,
-      businessName: project.businessName || prev.businessName,
-      address: project.address || prev.address,
-      city: parsedAddress.city || prev.city,
-      state: parsedAddress.state || prev.state
-    }));
+    setAutofilling(true);
+    try {
+      // Fetch the selected project record (contains placeId) so we can refresh all fields.
+      const projectRes = await fetch(`/api/projects/${projectId}`);
+      if (!projectRes.ok) throw new Error('Failed to load selected project details');
+      const projectPayload = await projectRes.json();
+      const fullProject = projectPayload?.project || project;
+
+      let placeDetails = null;
+      if (fullProject?.placeId) {
+        const placeRes = await fetch('/api/google/place-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placeId: fullProject.placeId }),
+        });
+        if (placeRes.ok) {
+          placeDetails = await placeRes.json();
+        }
+      }
+
+      const sourceAddress = fullProject.address || placeDetails?.address || '';
+      const parsedAddress = parseCityStateFromAddress(sourceAddress);
+
+      setFormData({
+        businessName: fullProject.businessName || placeDetails?.name || '',
+        address: sourceAddress,
+        city: parsedAddress.city || '',
+        state: parsedAddress.state || '',
+        country: profile?.country || 'India',
+        phone: placeDetails?.phone || '',
+        website: placeDetails?.website || '',
+        category: profile?.category || '',
+        description: placeDetails?.summary || '',
+      });
+    } catch (err) {
+      toast.error(err.message || 'Failed to autofill selected project');
+    } finally {
+      setAutofilling(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -145,7 +177,7 @@ export default function BusinessProfileForm({ profile, onSave }) {
         <Label htmlFor="projectAutofill">Project (Autofill)</Label>
         <Select value={selectedProjectId} onValueChange={handleProjectAutofill}>
           <SelectTrigger id="projectAutofill">
-            <SelectValue placeholder={loadingProjects ? 'Loading projects...' : 'Select project to autofill profile'} />
+            <SelectValue placeholder={loadingProjects ? 'Loading projects...' : autofilling ? 'Autofilling profile...' : 'Select project to autofill profile'} />
           </SelectTrigger>
           <SelectContent>
             {projects.map(project => (
