@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2 } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2, Zap, QrCode } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -178,6 +178,10 @@ export default function DashboardLayout({ children }) {
                 </div>
                 {[
                   { name: 'Command Center', href: '/dashboard/seoos', icon: Cpu },
+                  { name: 'AI Asset Studio', href: '/dashboard/seoos/ai-builder', icon: Zap },
+                  { name: 'Review Generator', href: '/dashboard/seoos/review-generator', icon: Sparkles },
+                  { name: 'Review History', href: '/dashboard/seoos/review-generator/history', icon: History },
+                  { name: 'QR Generator', href: '/dashboard/seoos/qr-generator', icon: QrCode },
                   { name: 'Website Audit', href: '/dashboard/seoos/website-audit', icon: Globe },
                   { name: 'AI Assistant', href: '/dashboard/seoos/ai-assistant', icon: Sparkles },
                   { name: 'GBP Suite', href: '/dashboard/seoos/gbp-suite', icon: MapPin },

@@ -43,11 +43,40 @@ model Project {
   longitude    Float
   primaryType  String?
   gridSettings Json?
+  
+  // Internal AI Marketing Assets
+  clientSlug    String?   @unique
+  description   String?
+  industry      String?
+  keyFeatures   String[]
+  gmbLink       String?
+  brandColor    String    @default("#1E3A8A")
+  accentColor   String    @default("#EFF6FF")
+  heroImage     String?
+  scanCount     Int       @default(0)
+  reviewPageUrl String?
+  qrCodeUrl     String?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([userId])
   @@map("projects")
+}
+
+model Lead {
+  oid           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id            String   @unique @default(uuid())
+  projectId     String
+  name          String
+  email         String
+  phone         String?
+  message       String?
+  source        String?  // e.g., "qr_scan" | "review_page"
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
+  @@map("leads")
 }
 
 model BusinessProfile {
@@ -395,4 +424,21 @@ model SEOPerformance {
 
   @@unique([projectId, date])
   @@map("seo_performance")
+}
+
+model ReviewAsset {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug         String   @unique
+  name         String
+  description  String?
+  industry     String?
+  keyFeatures  String[]
+  gmbLink      String?
+  brandColor   String    @default("#1E3A8A")
+  accentColor  String    @default("#EFF6FF")
+  heroImage    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("review_assets")
 }

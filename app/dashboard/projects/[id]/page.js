@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users, ShieldCheck
+  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users, ShieldCheck, QrCode, MessageSquare, Sparkles, Zap
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
@@ -51,6 +51,7 @@ export default function ProjectDetailPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [competitors, setCompetitors] = useState([])
   const [loadingCompetitors, setLoadingCompetitors] = useState(false)
+  const [generatingAssets, setGeneratingAssets] = useState(false)
   const { data: session } = useSession()
 
   useEffect(() => {
@@ -225,6 +226,26 @@ export default function ProjectDetailPage() {
       }
     }, 3000)
   }
+  
+  const handleGenerateAssets = async () => {
+    setGeneratingAssets(true)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/setup-assets`, {
+        method: 'POST'
+      })
+      
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to generate assets')
+      
+      toast.success('AI Marketing Assets generated successfully!')
+      fetchProjectData() // Refresh UI
+    } catch (error) {
+      console.error('Asset generation error:', error)
+      toast.error(error.message || 'Failed to generate assets. Please ensure all services are online.')
+    } finally {
+      setGeneratingAssets(false)
+    }
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -387,6 +408,82 @@ export default function ProjectDetailPage() {
           </DialogContent>
         </Dialog>
       </div>
+      
+      {/* AI Marketing Assets - Automated from Review Generator and ConnectIt */}
+      {(project.reviewPageUrl || project.qrCodeUrl) && (
+        <Card className="border-none shadow-xl bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 text-white overflow-hidden relative group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 rounded-full blur-[80px] -mr-32 -mt-32 group-hover:bg-blue-600/30 transition-all duration-1000" />
+          <CardContent className="p-6 relative z-10">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <Sparkles className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black italic tracking-tight">AI Powered Marketing Assets</h3>
+                  <p className="text-slate-400 text-sm font-medium">Automated review collection and trackable QR assets</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                {project.reviewPageUrl && (
+                  <Link href={project.reviewPageUrl} target="_blank">
+                    <Button variant="outline" className="h-12 px-6 rounded-xl border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold transition-all border-none">
+                      <MessageSquare className="w-4 h-4 mr-2 text-blue-400" />
+                      View Review Page
+                    </Button>
+                  </Link>
+                )}
+                {project.qrCodeUrl && (
+                  <Link href={project.qrCodeUrl} target="_blank">
+                    <Button className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95">
+                      <QrCode className="w-4 h-4 mr-2" />
+                      Download AI QR
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Manual Automation Trigger (Show only if assets are NOT generated) */}
+      {!project.reviewPageUrl && !project.qrCodeUrl && (
+        <Card className="border border-dashed border-blue-200 bg-blue-50/30 rounded-[2rem] overflow-hidden group hover:bg-blue-50/50 transition-all duration-500">
+           <CardContent className="p-8">
+             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                   <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-blue-100 group-hover:scale-110 transition-transform duration-500">
+                      <Sparkles className="w-8 h-8 text-blue-600 animate-pulse" />
+                   </div>
+                   <div>
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">Boost Your Marketing with AI</h3>
+                      <p className="text-slate-500 font-medium max-w-md">Generate a custom AI Review Page and trackable QR code for this business in one click.</p>
+                   </div>
+                </div>
+                
+                <Button 
+                   onClick={handleGenerateAssets}
+                   disabled={generatingAssets}
+                   className="h-14 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl shadow-blue-500/20 active:scale-95 transition-all text-lg min-w-[200px]"
+                >
+                   {generatingAssets ? (
+                      <span className="flex items-center gap-3">
+                         <Loader2 className="w-5 h-5 animate-spin" />
+                         Syncing Tools...
+                      </span>
+                   ) : (
+                      <span className="flex items-center gap-2">
+                         <Zap className="w-5 h-5" />
+                         Build AI Assets
+                      </span>
+                   )}
+                </Button>
+             </div>
+           </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="keywords" onValueChange={(value) => {
         if (value === 'competitors') fetchCompetitors()
