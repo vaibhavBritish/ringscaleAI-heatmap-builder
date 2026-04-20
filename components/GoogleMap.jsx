@@ -10,13 +10,15 @@ const GoogleMap = memo(function GoogleMap({
   onMarkerClick = () => {},
   onMapClick = () => {},
   mapType = 'roadmap',
-  showControls = false
+  showControls = false,
+  autoFit = true
 }) {
   const mapContainerRef = useRef(null)
   const [map, setMap] = useState(null)
   const [googleRefs, setGoogleRefs] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const markersRef = useRef([])
+  const boundsSignatureRef = useRef('')
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
@@ -179,11 +181,27 @@ const GoogleMap = memo(function GoogleMap({
       })
 
       if (marker) {
-        // Update existing marker
-        marker.setPosition({ lat: markerData.latitude, lng: markerData.longitude })
-        marker.setIcon(icon)
-        marker.setLabel(label)
-        marker.setZIndex(markerData.selected ? 9999 : (hasRank ? 10 : 1))
+        // Update existing marker only when something truly changed.
+        const nextMeta = JSON.stringify({
+          lat: markerData.latitude,
+          lng: markerData.longitude,
+          rank: markerData.rank ?? null,
+          found: markerData.found ?? null,
+          selected: Boolean(markerData.selected),
+          title: hasRank ? `Rank: ${markerData.rank}` : (markerData.name || ''),
+          pinColor,
+          labelText: label?.text || '',
+          zIndex: markerData.selected ? 9999 : (hasRank ? 10 : 1),
+        })
+
+        if (marker.__meta !== nextMeta) {
+          marker.setPosition({ lat: markerData.latitude, lng: markerData.longitude })
+          marker.setIcon(icon)
+          marker.setLabel(label)
+          marker.setTitle(hasRank ? `Rank: ${markerData.rank}` : (markerData.name || ''))
+          marker.setZIndex(markerData.selected ? 9999 : (hasRank ? 10 : 1))
+          marker.__meta = nextMeta
+        }
       } else {
         // Create new marker
         marker = new Marker({
@@ -195,6 +213,17 @@ const GoogleMap = memo(function GoogleMap({
           label,
           icon
         })
+        marker.__meta = JSON.stringify({
+          lat: markerData.latitude,
+          lng: markerData.longitude,
+          rank: markerData.rank ?? null,
+          found: markerData.found ?? null,
+          selected: Boolean(markerData.selected),
+          title: hasRank ? `Rank: ${markerData.rank}` : (markerData.name || ''),
+          pinColor,
+          labelText: label?.text || '',
+          zIndex: markerData.selected ? 9999 : (hasRank ? 10 : 1),
+        })
 
         if (!isPin) {
           marker.addListener('click', () => onMarkerClick(markerData))
@@ -204,8 +233,15 @@ const GoogleMap = memo(function GoogleMap({
       }
     })
 
-    // Bounds handling
-    if (validMarkers.length > 1) {
+    // Bounds handling:
+    // only auto-fit when enabled and coordinates actually change.
+    const coordsSignature = validMarkers
+      .map((m) => `${m.latitude.toFixed(5)},${m.longitude.toFixed(5)}`)
+      .sort()
+      .join('|')
+
+    if (autoFit && validMarkers.length > 1 && coordsSignature !== boundsSignatureRef.current) {
+      boundsSignatureRef.current = coordsSignature
       const bounds = new LatLngBounds()
       validMarkers.forEach(m => bounds.extend({ lat: m.latitude, lng: m.longitude }))
       map.fitBounds(bounds)
@@ -215,11 +251,12 @@ const GoogleMap = memo(function GoogleMap({
         if (map.getZoom() > 18) map.setZoom(18); 
         window.google.maps.event.removeListener(listener); 
       });
-    } else if (validMarkers.length === 1) {
+    } else if (autoFit && validMarkers.length === 1 && coordsSignature !== boundsSignatureRef.current) {
+      boundsSignatureRef.current = coordsSignature
       map.panTo({ lat: validMarkers[0].latitude, lng: validMarkers[0].longitude })
       map.setZoom(16)
     }
-  }, [map, markers, googleRefs])
+  }, [map, markers, googleRefs, autoFit])
 
   useEffect(() => {
     if (map) {
