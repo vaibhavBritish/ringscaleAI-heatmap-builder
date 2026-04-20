@@ -44,6 +44,75 @@ async function getAuthUser(request) {
   return session?.user || null
 }
 
+// ─── AUTOMATION HELPERS ──────────────────────────────────────────────────────
+
+async function triggerExternalSetup(project, user) {
+  const logPath = "/Users/vaibhav/Documents/seo-heatman copy/Seo-heatmap-builder/debug-automation.log"
+  let currentStep = "Initialization"
+  
+  try {
+    console.log(`[Automation] 🚀 Starting Internal Monolith for: ${project?.businessName}`)
+    
+    if (!project?.businessName) {
+      throw new Error("Missing business name")
+    }
+
+    currentStep = "Slug & Content Generation"
+    const slug = project.businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    const uniqueSlug = `${slug}-${Math.random().toString(36).substring(2, 6)}`
+    
+    // Fetch deep data from Google
+    let place = null
+    if (project.placeId) {
+      try {
+        place = await getPlaceDetails(project.placeId)
+        console.log("[Automation] ✅ Fetched Google data locally.")
+      } catch (e) {
+        console.warn("[Automation] ⚠️ Google fetch failed:", e.message)
+      }
+    }
+
+    const industry = place?.primaryType || project.primaryType || "Global Business"
+    const description = place?.summary || `Experience quality ${industry} services at ${project.businessName}.`
+    const website = place?.website || ""
+    const gmbLink = project.placeId ? `https://www.google.com/maps/place/?q=place_id:${project.placeId}` : ""
+
+    currentStep = "Database Entry"
+    await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        clientSlug: uniqueSlug,
+        industry: industry,
+        description: description,
+        gmbLink: gmbLink,
+        heroImage: place?.heroImage || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80",
+        reviewPageUrl: `/review/${uniqueSlug}`,
+        qrCodeUrl: `/q/${uniqueSlug}`,
+        keyFeatures: ["Verified Reviews", "Mobile Optimized", "AI Enhanced Feedback"]
+      }
+    })
+
+    console.log("[Automation] 🎉 MONOLITH SETUP COMPLETE.")
+    return { 
+      success: true, 
+      reviewUrl: `/review/${uniqueSlug}`, 
+      qrUrl: `/q/${uniqueSlug}` 
+    }
+
+  } catch (err) {
+    const errorMsg = `[Monolith Error] ${currentStep}: ${err.message}`
+    console.error(errorMsg)
+    
+    try {
+      require('fs').appendFileSync(logPath, `\n[${new Date().toISOString()}] ${errorMsg}\n`)
+    } catch(e) {}
+
+    return { success: false, error: err.message, step: currentStep }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // OPTIONS handler for CORS
 export async function OPTIONS() {
   return handleCORS(new NextResponse(null, { status: 200 }))
@@ -474,6 +543,9 @@ async function handleRoute(request, props) {
 
       const updatedUser = await prisma.user.findUnique({ where: { id: currentUser.id } })
 
+      // TRIGGER AUTOMATION IN BACKGROUND
+      triggerExternalSetup(project, updatedUser).catch(err => console.error('Automation trigger error:', err))
+
       // Invalidate dashboard stats
       if (redis) {
         try { 
@@ -524,6 +596,27 @@ async function handleRoute(request, props) {
       }
 
       return handleCORS(NextResponse.json({ success: true }))
+    }
+
+    // SETUP ASSETS (Review Page + QR) - MANUAL TRIGGER
+    const setupAssetsMatch = route.match(/^\/projects\/([^/]+)\/setup-assets$/)
+    if (setupAssetsMatch && method === 'POST') {
+      const projectId = setupAssetsMatch[1]
+      const project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
+
+      if (!project) {
+        return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
+      }
+
+      const result = await triggerExternalSetup(project, currentUser)
+      if (!result || result.success === false) {
+        return handleCORS(NextResponse.json({ 
+          error: result?.error || 'Failed to generate assets. Unknown error occurred.',
+          details: result?.step ? `Failed at step: ${result.step}` : 'Ensure services are online.' 
+        }, { status: 500 }))
+      }
+
+      return handleCORS(NextResponse.json(result))
     }
 
     // ==================== KEYWORD ROUTES ====================

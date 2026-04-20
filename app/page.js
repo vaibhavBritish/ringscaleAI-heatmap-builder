@@ -119,8 +119,10 @@ export default function HomePage() {
   const [activeEdgeFeature, setActiveEdgeFeature] = useState(3)
   const [isAnnual, setIsAnnual] = useState(false)
   const [isIndia, setIsIndia] = useState(false)
+  const [hasMounted, setHasMounted] = useState(false)
 
   useEffect(() => {
+    setHasMounted(true)
     // Detect country via server-side headers (works on Vercel/Cloudflare, safe on localhost)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3000)
@@ -142,7 +144,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" suppressHydrationWarning={true}>
       {/* Navigation */}
       <Navbar />
 
@@ -800,7 +802,7 @@ export default function HomePage() {
       <section id="pricing" className="py-24 bg-[#050B1B] relative overflow-hidden">
         {/* Starry Background Effect */}
         <div className="absolute inset-0 z-0 opacity-40">
-          {Array.from({ length: 50 }).map((_, i) => (
+          {hasMounted && Array.from({ length: 50 }).map((_, i) => (
             <div
               key={i}
               className="absolute bg-white rounded-full animate-pulse"

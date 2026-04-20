@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar } from 'lucide-react'
+import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar, QrCode } from 'lucide-react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
@@ -87,6 +87,10 @@ export default function Navbar() {
             </div>
 
             <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition">Pricing</Link>
+            <Link href="/ai-qr-code" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+              AI QR Code
+              <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter">New</span>
+            </Link>
             <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition">Contact Us</Link>
             <Link href="https://calendly.com/mediaringscale/30min" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300">
@@ -164,6 +168,10 @@ export default function Navbar() {
           </div>
 
           <Link href="/#pricing" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
+          <Link href="/ai-qr-code" className="flex items-center justify-between text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>
+            AI QR Code
+            <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">New</span>
+          </Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
           <Link 
             href="https://calendly.com/your-meeting-link" 

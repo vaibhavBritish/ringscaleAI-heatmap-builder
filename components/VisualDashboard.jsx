@@ -29,8 +29,11 @@ const VisualDashboard = () => {
     const dist = Math.sqrt(Math.pow(row - 6, 2) + Math.pow(col - 6, 2));
     
     if (view === 'after') {
-      // Mostly green (1-2) with a few 5-7 on edges
-      if (dist < 8) return (Math.random() > 0.9 ? (Math.floor(Math.random() * 2) + 5).toString() : (Math.floor(Math.random() * 2) + 1).toString());
+      // Deterministic "randomness" based on position to avoid hydration errors
+      const hash = Math.sin(row * 12.9898 + col * 78.233) * 43758.5453;
+      const pseudoRandom = hash - Math.floor(hash);
+      
+      if (dist < 8) return (pseudoRandom > 0.9 ? (Math.floor(pseudoRandom * 2) + 5).toString() : (Math.floor(pseudoRandom * 2) + 1).toString());
       return '2';
     } else {
       // Mostly orange/red
@@ -64,7 +67,10 @@ const VisualDashboard = () => {
   };
 
   return (
-    <div className="w-full flex flex-col lg:flex-row bg-[#f8fafc] rounded-3xl overflow-hidden shadow-2xl border border-slate-200 min-h-[600px] animate-in fade-in zoom-in duration-700 relative">
+    <div 
+      className="w-full flex flex-col lg:flex-row bg-[#f8fafc] rounded-3xl overflow-hidden shadow-2xl border border-slate-200 min-h-[600px] animate-in fade-in zoom-in duration-700 relative"
+      suppressHydrationWarning={true}
+    >
       
       {/* Before/After Toggle Floating UI */}
       <div className="absolute top-14 left-1/2 -translate-x-1/2 lg:left-[calc(320px+50%)] lg:-translate-x-1/2 z-30 flex p-1 bg-white/90 backdrop-blur-md rounded-full border border-slate-200 shadow-xl transition-all">

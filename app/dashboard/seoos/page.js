@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertCircle, CheckCircle2, Sparkles, ClipboardList, TrendingUp, BarChart3, Link2, FileSearch } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Sparkles, ClipboardList, TrendingUp, BarChart3, Link2, FileSearch, QrCode } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -46,6 +46,9 @@ export default function SEOOSHomePage() {
 
   const modules = [
     { icon: FileSearch, label: 'Website Audit', desc: 'Crawl & score any URL', href: '/dashboard/seoos/website-audit', color: 'text-blue-600' },
+    { icon: Sparkles, label: 'AI Builder', desc: 'AI Asset Studio', href: '/dashboard/seoos/ai-builder', color: 'text-indigo-600' },
+    { icon: Sparkles, label: 'Review Generator', desc: 'Generate AI Review Pages', href: '/dashboard/seoos/review-generator', color: 'text-amber-600' },
+    { icon: QrCode, label: 'QR Generator', desc: 'Trackable Dynamic QRs', href: '/dashboard/seoos/qr-generator', color: 'text-indigo-600' },
     { icon: Sparkles, label: 'AI Assistant', desc: `${o?.pendingRecs || 0} pending approvals`, href: '/dashboard/seoos/ai-assistant', color: 'text-purple-600' },
     { icon: BarChart3, label: 'GBP Suite', desc: 'Google Business optimization', href: '/dashboard/seoos/gbp-suite', color: 'text-emerald-600' },
     { icon: TrendingUp, label: 'Keywords', desc: 'AI-powered clustering', href: '/dashboard/seoos/keywords', color: 'text-sky-600' },
