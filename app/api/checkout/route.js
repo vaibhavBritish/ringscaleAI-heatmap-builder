@@ -145,8 +145,8 @@ export async function POST(request) {
         ],
         mode: 'payment',
         allow_promotion_codes: true,
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}&userId=${session.user.id}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin')}/dashboard/billing?canceled=true`,
+        success_url: `${process.env.APP_URL || request.headers.get('origin')}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}&userId=${session.user.id}`,
+        cancel_url: `${process.env.APP_URL || request.headers.get('origin')}/dashboard/billing?canceled=true`,
       }
 
       let checkoutSession
