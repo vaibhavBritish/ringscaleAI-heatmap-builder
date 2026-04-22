@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getSecret } from "@/lib/secrets"
 
 async function checkAdmin() {
     const session = await getServerSession(authOptions)
@@ -33,10 +34,10 @@ const DEFAULT_SETTINGS = [
     {
         key: "api_status",
         value: {
-            googleMaps: !!process.env.GOOGLE_MAPS_API_KEY,
-            stripe: !!process.env.STRIPE_SECRET_KEY,
-            openai: !!process.env.OPENAI_API_KEY,
-            mail: !!process.env.EMAIL_SERVER_PASSWORD
+            googleMaps: !!getSecret('GOOGLE_API_KEY'),
+            stripe: !!getSecret('STRIPE_SECRET_KEY'),
+            openai: !!getSecret('OPENAI_API_KEY'),
+            mail: !!getSecret('EMAIL_SERVER_PASSWORD')
         }
     }
 ]
