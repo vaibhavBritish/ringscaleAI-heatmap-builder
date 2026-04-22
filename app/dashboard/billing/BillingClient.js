@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useConfig } from '@/hooks/use-config'
 import { useSession } from 'next-auth/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const [billingData, setBillingData] = useState(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [isIndia, setIsIndia] = useState(isIndiaProp)
+  const { config } = useConfig()
 
   // Fetch billing details on mount and periodically
   useEffect(() => {
@@ -267,7 +269,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
           return
         }
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          key: config?.razorpayKeyId,
           amount: data.amount,
           currency: data.currency,
           name: 'Local Rank Heatmap',

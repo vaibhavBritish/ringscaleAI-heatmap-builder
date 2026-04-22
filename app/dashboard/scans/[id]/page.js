@@ -14,6 +14,7 @@ import GoogleMap from '@/components/GoogleMap'
 import { calculateAnalytics } from '@/lib/grid-utils'
 import jsPDF from 'jspdf'
 import { getPixelCoordinate } from '@/lib/mercator-projection'
+import { useConfig } from '@/hooks/use-config'
 
 export default function ScanResultsPage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function ScanResultsPage() {
 
   const [viewMode, setViewMode] = useState('single') // 'single' or 'overall'
   const [projectId, setProjectId] = useState(null)
+  const { config } = useConfig()
 
   useEffect(() => {
     fetchScanResults()
@@ -224,7 +226,7 @@ export default function ScanResultsPage() {
       const mapW = pageWidth - mapX - 15
       const mapH = pageHeight - 30
 
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+      const apiKey = config?.googleMapsApiKey
       if (apiKey && selectedBusiness) {
         try {
           const mapWidth = 1200
@@ -235,16 +237,25 @@ export default function ScanResultsPage() {
           const center = `${selectedBusiness.latitude},${selectedBusiness.longitude}`
           const mapTypeParam = mapType === 'roadmap' ? 'roadmap' : 'satellite'
           
-          // Inject custom dashboard styles into Static Map for "Premium" look
-          const styles = [
+          // Build query for secure server-side proxy
+          const queryParams = new URLSearchParams({
+            center,
+            zoom: String(zoom),
+            size: '600x420',
+            scale: '2',
+            maptype: mapTypeParam,
+            format: 'png8'
+          })
+          
+          // Inject custom dashboard styles
+          const rawStyles = [
             'feature:all|element:labels.text.fill|color:0x0c4bb0',
             'feature:water|element:geometry|color:0xa2daf2',
             'feature:landscape|element:geometry|color:0xe9f1f4'
-          ].map(s => `&style=${s}`).join('')
+          ]
+          rawStyles.forEach(s => queryParams.append('style', s))
 
-          // Use scale=2 for High-DPI "Retina" clarity
-          const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=600x420&scale=2&maptype=${mapTypeParam}${styles}&format=png8&key=${apiKey}`
-          const proxyUrl = `/api/proxy/image?url=${encodeURIComponent(staticMapUrl)}`
+          const proxyUrl = `/api/google/static-map?${queryParams.toString()}`
           
           const response = await fetch(proxyUrl)
           const blob = await response.blob()

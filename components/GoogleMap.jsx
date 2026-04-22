@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, memo } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import { useConfig } from '@/hooks/use-config'
 
 const GoogleMap = memo(function GoogleMap({ 
   center = { lat: 39.8283, lng: -98.5795 }, // USA Center
@@ -17,15 +18,18 @@ const GoogleMap = memo(function GoogleMap({
   const [map, setMap] = useState(null)
   const [googleRefs, setGoogleRefs] = useState(null)
   const [loadError, setLoadError] = useState(null)
+  const { config, loading: configLoading } = useConfig()
   const markersRef = useRef([])
   const boundsSignatureRef = useRef('')
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
-    if (!apiKey) {
-      setLoadError("Google Maps API Key missing")
+    if (configLoading) return
+    if (!config || !config.googleMapsApiKey) {
+      setLoadError("Google Maps configuration missing")
       return
     }
+
+    const apiKey = config.googleMapsApiKey
 
     setOptions({
       key:apiKey,

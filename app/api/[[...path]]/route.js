@@ -212,7 +212,7 @@ async function handleRoute(request, props) {
 
       try {
         const headers = new Headers()
-        const referer = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get('referer') || ''
+        const referer = process.env.BASE_URL || request.headers.get('referer') || ''
         if (referer) headers.set('Referer', referer)
 
         const response = await fetch(imageUrl, { headers })
@@ -234,6 +234,46 @@ async function handleRoute(request, props) {
       } catch (error) {
         console.error('Proxy error:', error)
         return handleCORS(NextResponse.json({ error: 'Proxy error: ' + error.message }, { status: 500 }))
+      }
+    }
+
+    // Secure Google Static Map Proxy (Constructs URL on server to hide API Key)
+    if (route === '/google/static-map' && method === 'GET') {
+      const { searchParams } = new URL(request.url)
+      
+      const apiKey = process.env.GOOGLE_API_KEY
+      if (!apiKey) {
+        return handleCORS(NextResponse.json({ error: 'Server API key missing' }, { status: 500 }))
+      }
+
+      // Build parameters string excluding the key
+      const params = new URLSearchParams()
+      searchParams.forEach((value, key) => {
+        if (key !== 'key') {
+          params.append(key, value)
+        }
+      })
+      
+      // Add the private key on the server
+      params.append('key', apiKey)
+
+      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
+
+      try {
+        const response = await fetch(staticMapUrl)
+        if (!response.ok) {
+          const text = await response.text().catch(() => 'Error')
+          return handleCORS(NextResponse.json({ error: `Google Map Error: ${text}` }, { status: response.status }))
+        }
+
+        const blob = await response.blob()
+        const headers = new Headers()
+        headers.set('Content-Type', 'image/png')
+        headers.set('Cache-Control', 'public, max-age=86400')
+
+        return handleCORS(new NextResponse(blob, { status: 200, headers }))
+      } catch (error) {
+        return handleCORS(NextResponse.json({ error: 'Backend Map Error: ' + error.message }, { status: 500 }))
       }
     }
 

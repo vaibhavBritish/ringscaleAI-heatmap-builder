@@ -15,10 +15,20 @@ export async function GET(req, props) {
     }
 
     const { id: projectId } = params
+
+    // 1. Get project info and verify ownership immediately
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, userId: session.user.id }
+    })
+
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
     const { searchParams } = req.nextUrl
     let forceRefresh = searchParams.get('refresh') === 'true'
 
-    // 1. Check Redis Cache First (Fastest)
+    // 2. Check Redis Cache First (Only after ownership is verified)
     const cacheKey = `audit:project:${projectId}`
     if (!forceRefresh && redis) {
       try {
@@ -30,17 +40,15 @@ export async function GET(req, props) {
                                    cachedData.businessInfo?.status && 
                                    cachedData.competitors
           if (hasRequiredFields) {
-            // //console.log(`[Audit] [Cache Hit] Serving from Redis for project ${projectId}`)
             return NextResponse.json(cachedData)
           }
-          // //console.log(`[Audit] [Cache Stale] Redis data missing fields, checking DB...`)
         }
       } catch (e) {
         console.warn('[Audit] [Redis Error] Get failed:', e.message)
       }
     }
 
-    // 2. Check Database for recent audit (Freshness: 24 hours)
+    // 3. Check Database for recent audit (Freshness: 24 hours)
     if (!forceRefresh) {
       const recentAudit = await prisma.businessAudit.findUnique({
         where: { id: projectId }
@@ -50,35 +58,21 @@ export async function GET(req, props) {
         const auditData = JSON.parse(recentAudit.auditDataJson)
         const isFresh = new Date(recentAudit.updatedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
         
-        // Defensive check: if DB record is missing reviews, status or competitors, it's "stale" regardless of date
         const hasRequiredFields = auditData.businessInfo?.reviews && 
                                  auditData.businessInfo?.status && 
                                  auditData.competitors
         
         if (isFresh && hasRequiredFields) {
-          // //console.log(`[Audit] [DB Hit] Serving from Database for project ${projectId}`)
-          
           // Populate Redis cache for next time
           if (redis) {
             try { 
               await redis.set(cacheKey, JSON.stringify(auditData), 'EX', 3600) 
-              // //console.log(`[Audit] [Cache Update] Repopulated Redis for ${projectId}`)
             } catch (e) {}
           }
           
           return NextResponse.json(auditData)
         }
-        // //console.log(`[Audit] [DB Stale] Record found but stale or missing fields for ${projectId}`)
       }
-    }
-
-    // 3. Get project info
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: session.user.id }
-    })
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
     // 4. Fetch fresh details from Google
@@ -180,8 +174,7 @@ export async function GET(req, props) {
           name: p.name,
           width: p.widthPx,
           height: p.heightPx
-        })),
-        googleApiKey: process.env.GOOGLE_API_KEY // For direct loading in frontend if needed
+        }))
       },
       competitors: (competitors || []).map(c => ({
         name: c.name || 'Unknown Competitor',
