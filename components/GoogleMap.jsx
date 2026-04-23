@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, memo } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import { useConfig } from '@/hooks/use-config'
 
+let isGoogleMapsInitialized = false
+
 const GoogleMap = memo(function GoogleMap({ 
   center = { lat: 39.8283, lng: -98.5795 }, // USA Center
   zoom = 4, 
@@ -23,24 +25,35 @@ const GoogleMap = memo(function GoogleMap({
   const boundsSignatureRef = useRef('')
 
   useEffect(() => {
-    if (configLoading) return
-    if (!config || !config.googleMapsApiKey) {
+    // If we have a public key, we can start loading immediately
+    const publicKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+    const apiKey = publicKey || config?.googleMapsApiKey
+
+    if (!apiKey) {
+      if (configLoading) return
       setLoadError("Google Maps configuration missing")
       return
     }
 
-    const apiKey = config.googleMapsApiKey
-
-    setOptions({
-      key:apiKey,
-      version: 'weekly',
-    })
+    if (!isGoogleMapsInitialized) {
+      setOptions({
+        key: apiKey,
+        version: 'weekly',
+      })
+      isGoogleMapsInitialized = true
+    }
 
     const loadLibraries = async () => {
       try {
-        const { Map } = await importLibrary('maps')
-        const { Marker, Animation } = await importLibrary('marker')
-        const { LatLngBounds, SymbolPath } = await importLibrary('core')
+        const [
+          { Map },
+          { Marker, Animation },
+          { LatLngBounds, SymbolPath }
+        ] = await Promise.all([
+          importLibrary('maps'),
+          importLibrary('marker'),
+          importLibrary('core')
+        ])
         
         if (!mapContainerRef.current) return
 
@@ -90,9 +103,11 @@ const GoogleMap = memo(function GoogleMap({
     loadLibraries()
 
     return () => {
-      markersRef.current.forEach(m => m.setMap(null))
+      if (markersRef.current instanceof Map) {
+        markersRef.current.forEach(m => m.setMap(null))
+      }
     }
-  }, [])
+  }, [config, configLoading])
 
   useEffect(() => {
     if (!map || !googleRefs) return
