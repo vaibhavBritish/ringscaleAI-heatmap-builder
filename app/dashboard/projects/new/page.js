@@ -10,18 +10,21 @@ import { Badge } from '@/components/ui/badge'
 import { 
   Search, Loader2, MapPin, Check, Building2, Info, 
   Settings, ChevronDown, ChevronUp, Plus, X, 
-  Target, Zap, CreditCard, RefreshCw, Layers, ChevronRight
+  Target, Zap, CreditCard, RefreshCw, Layers, ChevronRight, Phone
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import GoogleMap from '@/components/GoogleMap'
 import { generateHeatmapGrid } from '@/lib/heatmap-utils'
 import { calculateAnalytics } from '@/lib/grid-utils'
+import { useCountry } from '@/hooks/use-country'
 
 export default function NewProjectPage() {
   const { data: session } = useSession()
   const userPlan = session?.user?.plan || 'trial'
+  const { isIndia } = useCountry()
   
   const router = useRouter()
   const [searching, setSearching] = useState(false)
@@ -115,6 +118,7 @@ export default function NewProjectPage() {
       
       setSelectedBusiness({
         placeId: proj.placeId,
+        name: proj.businessName,
         businessName: proj.businessName,
         address: proj.address,
         latitude: proj.latitude,
@@ -516,8 +520,8 @@ export default function NewProjectPage() {
           // Send all possible variations to ensure backend catches them
           placeId: selectedBusiness.placeId,
           businessId: selectedBusiness.placeId,
-          name: selectedBusiness.name,
-          businessName: selectedBusiness.name,
+          name: selectedBusiness.name || selectedBusiness.businessName,
+          businessName: selectedBusiness.name || selectedBusiness.businessName,
           address: selectedBusiness.address,
           coordinates: {
             lat: selectedBusiness.latitude,
@@ -669,11 +673,19 @@ export default function NewProjectPage() {
               <Layers className="w-5 h-5 text-emerald-600" />
               Heatmap Builder
             </h2>
-            <Link href="/dashboard/projects">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <X className="w-4 h-4" />
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <a href={`tel:${isIndia ? '7827494533' : '4372913091'}`} className="flex items-center">
+                <Button type="button" variant="outline" size="sm" className={`h-8 px-2 sm:px-3 text-[10px] sm:text-xs font-bold shadow-sm flex items-center gap-1.5 transition-colors ${isIndia ? 'border-blue-200 text-blue-700 hover:bg-blue-50' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}>
+                  <Phone className="w-3 h-3" />
+                  <span className="hidden sm:inline">{isIndia ? 'IN:' : 'US:'}</span> {isIndia ? '7827494533' : '437 291 3091'}
+                </Button>
+              </a>
+              <Link href="/dashboard/projects">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <X className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Mobile primary action: keep Run Scan accessible at top */}

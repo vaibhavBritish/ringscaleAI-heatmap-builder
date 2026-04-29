@@ -13,12 +13,10 @@ export async function GET(request, { params }) {
       { returnDocument: 'after' }
     );
 
-    const qrCode = qrResult.value || qrResult;
+    const qrCode = qrResult;
     
-    // Check if qrCode is actually a valid document (MongoDB driver version dependent)
-    if (qrCode && (qrCode.targetUrl || (qrCode.value && qrCode.value.targetUrl))) {
-      const target = qrCode.targetUrl || qrCode.value.targetUrl;
-      return NextResponse.redirect(new URL(target));
+    if (qrCode && qrCode.targetUrl) {
+      return NextResponse.redirect(new URL(qrCode.targetUrl));
     }
 
     // 2. Check LEGACY Project Review Slugs
@@ -28,11 +26,10 @@ export async function GET(request, { params }) {
       { returnDocument: 'after' }
     );
 
-    const project = projectResult.value || projectResult;
+    const project = projectResult;
 
-    if (project && (project.clientSlug || (project.value && project.value.clientSlug))) {
-      const slug = project.clientSlug || project.value.clientSlug;
-      return NextResponse.redirect(new URL(`/review/${slug}`, request.url));
+    if (project && project.clientSlug) {
+      return NextResponse.redirect(new URL(`/review/${project.clientSlug}`, request.url));
     }
 
     // 3. Fallback: Not Found

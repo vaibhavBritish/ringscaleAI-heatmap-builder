@@ -28,7 +28,8 @@ import {
   Tag,
   Phone,
   ExternalLink,
-  Globe
+  Globe,
+  Layers
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -43,9 +44,12 @@ import OptimizationScore from '@/components/dashboard/OptimizationScore'
 import AuditResultsCards from '@/components/dashboard/AuditResultsCards'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
+import GoogleMap from '@/components/GoogleMap'
 import jsPDF from 'jspdf'
 import { toPng } from 'html-to-image'
 import { Download } from 'lucide-react'
+import { useConfig } from '@/hooks/use-config'
+import { getPixelCoordinate } from '@/lib/mercator-projection'
 
 
 export default function BusinessAuditPage() {
@@ -56,6 +60,7 @@ export default function BusinessAuditPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const { config } = useConfig()
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -181,6 +186,84 @@ export default function BusinessAuditPage() {
 
       // 3. Competitor Directory Table
       await captureAndAdd('pdf-source-competitor-directory', margin, currentY, pageWidth - (margin * 2))
+
+      // --- PAGE 3: LOCAL SEARCH HEATMAP (If available) ---
+      if (data.scanResults && data.scanResults.length > 0) {
+        doc.addPage()
+        drawFullHeader('Local Ranking Heatmap')
+        
+        const mapX = margin + 5
+        const mapY = 40
+        const mapW = pageWidth - (margin * 2) - 10
+        const mapH = 140
+
+        const apiKey = config?.googleMapsApiKey
+        if (apiKey && businessInfo) {
+          try {
+            const mapWidth = 1200
+            const mapHeight = 840
+            const zoom = 13 // Default zoom for audit
+
+            const center = `${businessInfo.latitude || data.scanResults[0].latitude},${businessInfo.longitude || data.scanResults[0].longitude}`
+            
+            const queryParams = new URLSearchParams({
+              center,
+              zoom: String(zoom),
+              size: '600x420',
+              scale: '2',
+              maptype: 'roadmap',
+              format: 'png8'
+            })
+            
+            const rawStyles = [
+              'feature:all|element:labels.text.fill|color:0x0c4bb0',
+              'feature:water|element:geometry|color:0xa2daf2',
+              'feature:landscape|element:geometry|color:0xe9f1f4'
+            ]
+            rawStyles.forEach(s => queryParams.append('style', s))
+
+            const proxyUrl = `/api/google/static-map?${queryParams.toString()}`
+            
+            const response = await fetch(proxyUrl)
+            if (response.ok) {
+              const blob = await response.blob()
+              const reader = new FileReader()
+              const base64Data = await new Promise((res) => {
+                reader.onloadend = () => res(reader.result)
+                reader.readAsDataURL(blob)
+              })
+              
+              doc.setDrawColor(226, 232, 240)
+              doc.setLineWidth(0.5)
+              doc.roundedRect(mapX - 2, mapY - 2, mapW + 4, mapH + 4, 3, 3, 'D')
+              doc.addImage(base64Data, 'PNG', mapX, mapY, mapW, mapH)
+              
+              // Draw heatmap pins
+              data.scanResults.forEach(p => {
+                const px = getPixelCoordinate(p.latitude, p.longitude, parseFloat(center.split(',')[0]), parseFloat(center.split(',')[1]), zoom, mapWidth, mapHeight)
+                if (px.x < 0 || px.x > mapWidth || px.y < 0 || px.y > mapHeight) return
+                
+                const mmX = mapX + (px.x * mapW / mapWidth)
+                const mmY = mapY + (px.y * mapH / mapHeight)
+                
+                let color = [148, 163, 184]
+                let textColor = [255, 255, 255]
+                if (p.rank && p.rank <= 3) color = [34, 197, 94]
+                else if (p.rank && p.rank <= 10) { color = [234, 179, 8]; textColor = [0, 0, 0] }
+                else if (p.rank && p.rank <= 20) color = [249, 115, 22]
+                
+                doc.setFillColor(...color)
+                doc.circle(mmX, mmY, 2, 'F')
+                doc.setTextColor(...textColor)
+                doc.setFontSize(4)
+                doc.text(p.rank ? String(p.rank) : 'X', mmX, mmY + 0.3, { align: 'center' })
+              })
+            }
+          } catch (e) {
+            console.error('Audit Map Error:', e)
+          }
+        }
+      }
 
       // Finalize PDF
       drawFooter()
@@ -384,6 +467,27 @@ export default function BusinessAuditPage() {
                 <AuditResultsCards auditResults={data.auditResults} />
               </div>
               
+              {/* Heatmap Section */}
+              {data.scanResults && data.scanResults.length > 0 && (
+                <div className="space-y-6 pt-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                      <Layers className="w-8 h-8 text-blue-600" />
+                      Visibility Heatmap
+                    </h2>
+                  </div>
+                  <Card className="border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-xl bg-white h-[450px]">
+                    <GoogleMap 
+                      markers={[
+                        { name: businessInfo.name, latitude: businessInfo.latitude, longitude: businessInfo.longitude, selected: true },
+                        ...data.scanResults
+                      ]}
+                      mapType="roadmap"
+                    />
+                  </Card>
+                </div>
+              )}
+              
               {/* Radial Scan CTA */}
               {metrics.optimizationScore < 95 && (
                 <div 
@@ -418,7 +522,7 @@ export default function BusinessAuditPage() {
 
         <TabsContent value="profile" className="mt-0 ring-offset-0 focus-visible:ring-0">
            <div id="pdf-profile">
-              <ProfileTab businessInfo={businessInfo} />
+              <ProfileTab businessInfo={{ ...businessInfo, googleApiKey: config?.googleMapsApiKey }} />
            </div>
         </TabsContent>
 
@@ -506,23 +610,25 @@ function PDFSourceContainer({ data, mounted }) {
         <Card className="border-2 border-slate-100 rounded-[2rem] p-8 bg-white">
           <div className="h-[300px]">
             {mounted && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
+              <BarChart 
+                width={700} 
+                height={300}
+                data={[
                   { name: 'You', rating: myBusiness.rating, isMe: true },
                   ...(competitors || []).map(c => ({ name: c.name.substring(0, 10), rating: c.rating, isMe: false }))
-                ]}>
-                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 5]} hide />
-                  <Bar dataKey="rating" radius={[8, 8, 8, 8]} barSize={40}>
-                    {[
-                      { name: 'You', rating: myBusiness.rating, isMe: true },
-                      ...(competitors || []).map(c => ({ name: c.name, rating: c.rating, isMe: false }))
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.isMe ? '#2563eb' : '#f1f5f9'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                ]}
+              >
+                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 5]} hide />
+                <Bar dataKey="rating" radius={[8, 8, 8, 8]} barSize={40}>
+                  {[
+                    { name: 'You', rating: myBusiness.rating, isMe: true },
+                    ...(competitors || []).map(c => ({ name: c.name, rating: c.rating, isMe: false }))
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.isMe ? '#2563eb' : '#f1f5f9'} />
+                  ))}
+                </Bar>
+              </BarChart>
             )}
           </div>
         </Card>
@@ -547,23 +653,27 @@ function PDFSourceContainer({ data, mounted }) {
         <Card className="border-2 border-slate-100 rounded-[2rem] bg-white overflow-hidden">
           <div className="p-8 border-b border-slate-50 font-black text-xl">Local Competitor Directory</div>
           <table className="w-full text-left">
-            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
-              <th className="px-8 py-4">Business Detail</th>
-              <th className="px-8 py-4 text-center">Trust Metrics</th>
-              <th className="px-8 py-4 text-right">Status</th>
-            </tr>
-            <tr className="bg-blue-50/50">
-              <td className="px-8 py-6 font-black">{myBusiness.name} (YOU)</td>
-              <td className="px-8 py-6 text-center font-black">{myBusiness.rating} ★</td>
-              <td className="px-8 py-6 text-right text-blue-600 font-black">BENCHMARK</td>
-            </tr>
-            {competitors?.map((comp, idx) => (
-              <tr key={idx} className="border-t border-slate-50">
-                <td className="px-8 py-6 font-bold">{comp.name}</td>
-                <td className="px-8 py-6 text-center font-bold">{comp.rating} ★</td>
-                <td className="px-8 py-6 text-right font-bold text-slate-400">COMPETITOR</td>
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                <th className="px-8 py-4">Business Detail</th>
+                <th className="px-8 py-4 text-center">Trust Metrics</th>
+                <th className="px-8 py-4 text-right">Status</th>
               </tr>
-            ))}
+            </thead>
+            <tbody>
+              <tr className="bg-blue-50/50">
+                <td className="px-8 py-6 font-black">{myBusiness.name} (YOU)</td>
+                <td className="px-8 py-6 text-center font-black">{myBusiness.rating} ★</td>
+                <td className="px-8 py-6 text-right text-blue-600 font-black">BENCHMARK</td>
+              </tr>
+              {competitors?.map((comp, idx) => (
+                <tr key={idx} className="border-t border-slate-50">
+                  <td className="px-8 py-6 font-bold">{comp.name}</td>
+                  <td className="px-8 py-6 text-center font-bold">{comp.rating} ★</td>
+                  <td className="px-8 py-6 text-right font-bold text-slate-400">COMPETITOR</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </Card>
       </div>
