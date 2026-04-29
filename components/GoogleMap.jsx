@@ -265,11 +265,20 @@ const GoogleMap = memo(function GoogleMap({
       validMarkers.forEach(m => bounds.extend({ lat: m.latitude, lng: m.longitude }))
       map.fitBounds(bounds)
       
-      // Ensure we don't zoom in *too* closely if pins are very tight
+      const targetMarker = validMarkers.find(m => m.selected)
+      
       const listener = window.google.maps.event.addListener(map, "idle", () => { 
-        if (map.getZoom() > 18) map.setZoom(18); 
-        window.google.maps.event.removeListener(listener); 
-      });
+        const currentZoom = map.getZoom()
+        // Zoom in 1 level more than fitBounds (capped at 18)
+        map.setZoom(Math.min(18, currentZoom + 1))
+        
+        // Align map to target business
+        if (targetMarker) {
+          map.panTo({ lat: targetMarker.latitude, lng: targetMarker.longitude })
+        }
+        
+        window.google.maps.event.removeListener(listener)
+      })
     } else if (autoFit && validMarkers.length === 1 && coordsSignature !== boundsSignatureRef.current) {
       boundsSignatureRef.current = coordsSignature
       map.panTo({ lat: validMarkers[0].latitude, lng: validMarkers[0].longitude })

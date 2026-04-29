@@ -43,6 +43,8 @@ export default function NewProjectPage() {
   const [newKeyword, setNewKeyword] = useState('')
   const [source, setSource] = useState('google-maps')
   const [heatmapPins, setHeatmapPins] = useState([])
+  const [isMock, setIsMock] = useState(false)
+  const [greenPinPercentage, setGreenPinPercentage] = useState(50)
   
   // Scanning State
   const [scanning, setScanning] = useState(false)
@@ -532,7 +534,9 @@ export default function NewProjectPage() {
             shape: gridShape,
             density: gridDensity,
             radius: gridRadius,
-            unit: gridUnit
+            unit: gridUnit,
+            isMock: isMock,
+            greenPinPercentage: greenPinPercentage
           }
         })
       })
@@ -1008,6 +1012,44 @@ export default function NewProjectPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Admin Randomizer Settings */}
+                  {session?.user?.role === 'admin' && (
+                    <div className="space-y-4 pt-4 border-t border-slate-100 animate-in fade-in duration-300">
+                      <label className="text-xs font-bold text-red-500 uppercase tracking-wider block">Admin Randomizer</label>
+                      <div className="space-y-3 p-3 bg-red-50/30 border border-red-100 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700">Enable Randomizer</label>
+                          <input 
+                            type="checkbox"
+                            checked={isMock}
+                            onChange={(e) => setIsMock(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                          />
+                        </div>
+                        
+                        {isMock && (
+                          <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                            <div className="flex justify-between">
+                              <label className="text-[10px] text-slate-500 font-bold uppercase">Green Pins Ratio</label>
+                              <span className="text-[10px] font-bold text-red-600">{greenPinPercentage}%</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={greenPinPercentage}
+                              onChange={(e) => setGreenPinPercentage(Number(e.target.value))}
+                              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-500"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                              Pins within {greenPinPercentage}% of the radius from the center will be ranked 1-3.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
