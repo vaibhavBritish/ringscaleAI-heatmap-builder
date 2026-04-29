@@ -122,6 +122,7 @@ export async function GET(req, props) {
       averageRank: 0,
       top3Coverage: 0
     }
+    let latestScanResults = []
 
     if (latestScanJob) {
       const results = await prisma.scanResult.findMany({
@@ -129,6 +130,12 @@ export async function GET(req, props) {
       })
 
       if (results.length > 0) {
+        latestScanResults = results.map(r => ({
+          latitude: r.latitude,
+          longitude: r.longitude,
+          rank: r.rank,
+          found: r.found
+        }))
         const rankedResults = results.filter(r => r.found && r.rank > 0)
         const totalPoints = results.length
         const top3Points = results.filter(r => r.found && r.rank <= 3).length
@@ -218,6 +225,7 @@ export async function GET(req, props) {
           description: (visibilityMetrics.top3Coverage || 0) >= 50 ? 'Good visibility across your service area.' : 'You have low visibility in key areas.'
         }
       ],
+      scanResults: latestScanResults,
       lastUpdated: new Date().toISOString()
     }
 

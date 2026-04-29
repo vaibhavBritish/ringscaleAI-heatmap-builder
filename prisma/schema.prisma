@@ -32,6 +32,7 @@ model User {
   @@map("users")
 }
 
+
 model Project {
   oid          String   @id @default(auto()) @map("_id") @db.ObjectId
   id           String   @unique
@@ -45,7 +46,7 @@ model Project {
   gridSettings Json?
   
   // Internal AI Marketing Assets
-  clientSlug    String?   @unique
+  clientSlug    String?
   description   String?
   industry      String?
   keyFeatures   String[]

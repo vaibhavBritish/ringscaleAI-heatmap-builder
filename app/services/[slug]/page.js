@@ -26,9 +26,9 @@ const iconMap = {
 export default function ServicePage() {
   const { slug } = useParams()
   const { data: session } = useSession()
-  
+
   const service = services.find(s => s.slug === slug)
-  
+
   if (!service) {
     notFound()
   }
@@ -44,7 +44,7 @@ export default function ServicePage() {
         <section className="pt-40 pb-20 px-6 bg-white relative overflow-hidden">
           {/* Background Decoration */}
           <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-3xl pointer-events-none"></div>
-          
+
           <div className="container mx-auto max-w-6xl relative z-10">
             <div className="flex flex-col lg:flex-row items-center gap-16">
               <div className="flex-1 text-center lg:text-left">
@@ -68,7 +68,7 @@ export default function ServicePage() {
                       {session ? 'Go to Dashboard' : 'Start Free Trial'} <ArrowRight className="w-5 h-5" />
                     </Button>
                   </Link>
-                  <p className="text-slate-400 font-bold px-4">No credit card required</p>
+                  {/* <p className="text-slate-400 font-bold px-4">No credit card required</p> */}
                 </div>
               </div>
 
@@ -83,7 +83,7 @@ export default function ServicePage() {
                     {/* <p className="text-slate-400 font-black uppercase tracking-widest text-sm">Service Image Placeholder</p> */}
                     {/* <p className="text-slate-300 text-xs mt-2 font-bold">(I'll add the image here later)</p> */}
                   </div>
-                  
+
                   {/* Decorative UI elements to make it look "pro" */}
                   <div className="absolute bottom-6 left-6 right-6 bg-white/90 backdrop-blur shadow-xl rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-bottom-4 duration-1000">
                     <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export default function ServicePage() {
         <section className="py-24 bg-white">
           <div className="container mx-auto max-w-6xl px-6">
             <div className="bg-[#001D4A] rounded-[3rem] p-12 md:p-20 relative overflow-hidden">
-               <div className="max-w-2xl relative z-10">
+              <div className="max-w-2xl relative z-10">
                 <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-8 leading-tight">
                   Visualize Your Growth with <br />
                   <span className="text-blue-400">Geo-Grid Heatmaps.</span>
@@ -144,7 +144,7 @@ export default function ServicePage() {
                   </Button>
                 </Link>
               </div>
-              
+
               {/* Abstract Heatmap Placeholder Decoration */}
               <div className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:flex items-center justify-center opacity-20">
                 <div className="grid grid-cols-5 gap-4">
@@ -174,7 +174,7 @@ export default function ServicePage() {
                 <p className="text-xl text-slate-500 font-medium leading-relaxed">
                   Join thousands of {service.title} owners who are already outranking their competition. Fill out the form, and our SEO experts will reach out with a custom strategy.
                 </p>
-                
+
                 <div className="space-y-4 pt-4">
                   {[
                     "Custom SEO Audit for your specific coordinates",

@@ -11,6 +11,7 @@ import Image from 'next/image'
 import LeadForm from '@/components/LeadForm'
 import VisualDashboard from '@/components/VisualDashboard'
 import LogoMarquee from '@/components/LogoMarquee'
+import FAQ from '@/components/FAQ'
 
 const updates = [
   {
@@ -156,25 +157,25 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
               AI-Powered SaaS Platform
             </div>
-            <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-8 leading-[1.1] tracking-tight">
-              The #1 <span className="text-blue-600">AI-Powered</span> <br />
+            <h1 className="text-5xl md:text-5xl font-extrabold text-slate-900 mb-8 leading-[1.1] tracking-tight">
+              Secure A Top <span className="text-blue-600">3 Position on Google Maps</span> <br />
               <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
-                SaaS Platform
-              </span> for Local SEO.
+                Guranteed in
+              </span> 90 Days.
             </h1>
             <p className="text-lg md:text-xl text-slate-500 font-medium mb-12 max-w-2xl mx-auto leading-relaxed">
-              Visualize, track, and optimize your local presence with the world's most advanced AI-driven geo-grid heatmap system.
+              As trusted Google partners, our focus is simple — earning your confidence. Start with a completely free trial, where we help you rank first and you only pay once you’re satisfied. It may sound unconventional… but bold approaches are what drive real change. #BeOpenMinded
             </p>
 
             <Link href={session ? "/dashboard" : "/register"}>
               <Button size="lg" className="bg-gradient-to-r from-blue-700 to-blue-400 hover:from-blue-800 hover:to-blue-500 text-white rounded-full text-2xl font-black px-12 py-10 shadow-2xl hover:scale-105 transition-all flex items-center gap-4 mx-auto">
-                {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
+                {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl">→</span>
               </Button>
             </Link>
 
-            <p className="text-slate-500 mt-10 text-lg font-bold">
+            {/* <p className="text-slate-500 mt-10 text-lg font-bold">
               *7-day free trial, no credit card required
-            </p>
+            </p> */}
           </div>
         </div>
       </section>
@@ -207,6 +208,14 @@ export default function HomePage() {
 
       {/* Interactive Updates Marquee */}
 
+      <section className="py-24 ">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-5xl font-semibold text-center text-black leading-tight max-w-4xl mx-auto">
+            Trusted by Franchise Brands, Agencies, and Local Businesses Nationwide
+          </h2>
+          <LogoMarquee />
+        </div>
+      </section>
 
       {/* GBP Module Section */}
       <section className="py-24 bg-white overflow-hidden">
@@ -335,7 +344,7 @@ export default function HomePage() {
               <div className="pt-10">
                 <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6">
-                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl">→</span>
+                    {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl">→</span>
                   </Button>
                 </Link>
               </div>
@@ -386,7 +395,7 @@ export default function HomePage() {
               <div className="pt-8">
                 <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all">
-                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
+                    {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl ml-2">→</span>
                   </Button>
                 </Link>
               </div>
@@ -584,7 +593,7 @@ export default function HomePage() {
               <div className="pt-10">
                 <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6">
-                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
+                    {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl ml-2">→</span>
                   </Button>
                 </Link>
               </div>
@@ -705,7 +714,7 @@ export default function HomePage() {
               <div className="pt-10">
                 <Link href={session ? "/dashboard" : "/register"}>
                   <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all">
-                    {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-4">→</span>
+                    {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl ml-4">→</span>
                   </Button>
                 </Link>
               </div>
@@ -792,7 +801,7 @@ export default function HomePage() {
         <div className="text-center mt-20">
           <Link href={session ? "/dashboard" : "/register"}>
             <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-2xl font-black px-12 py-10 shadow-2xl shadow-blue-200 hover:scale-105 transition-all flex items-center gap-6 mx-auto">
-              {session ? 'Go to Dashboard' : 'Start Free Trial*'} <span className="text-3xl ml-2">→</span>
+              {session ? 'Go to Dashboard' : 'Get Ranked Free'} <span className="text-3xl ml-2">→</span>
             </Button>
           </Link>
         </div>
@@ -826,9 +835,9 @@ export default function HomePage() {
             <p className="text-lg text-slate-400 font-bold mb-8 opacity-70">
               Built for agencies who need answers, not dashboards.
             </p>
-            <p className="text-xs text-slate-500 font-black uppercase tracking-[0.2em] mb-12">
+            {/* <p className="text-xs text-slate-500 font-black uppercase tracking-[0.2em] mb-12">
               **7-day free trial, no credit card required
-            </p>
+            </p> */}
 
             {/* Toggle Switch */}
             <div className="flex items-center justify-center gap-6 mb-16">
@@ -966,7 +975,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <LogoMarquee />
+
+      <FAQ />
+
+
       {/* Lead Form Section */}
       <section id="contact" className="py-24 bg-white relative overflow-hidden">
         <div className="container mx-auto max-w-6xl px-6 relative z-10">

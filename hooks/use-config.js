@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 
-let cachedConfig = null
+let cachedConfig = process.env.NEXT_PUBLIC_GOOGLE_API_KEY ? {
+  googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+} : null
 
 export function useConfig() {
   const [config, setConfig] = useState(cachedConfig)
-  const [loading, setLoading] = useState(!cachedConfig)
+  const [loading, setLoading] = useState(!cachedConfig && !process.env.NEXT_PUBLIC_GOOGLE_API_KEY)
   const [error, setError] = useState(null)
 
   useEffect(() => {

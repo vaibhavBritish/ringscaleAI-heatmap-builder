@@ -8,7 +8,9 @@ export async function proxy(request) {
     pathname.startsWith('/_next') || 
     pathname.startsWith('/api') ||
     pathname.match(/\.(.*)$/) ||
-    pathname.includes('/maintenance')
+    pathname.includes('/maintenance') ||
+    pathname.includes('/reset-password') ||
+    pathname.includes('/forgot-password')
   ) {
     return NextResponse.next()
   }
