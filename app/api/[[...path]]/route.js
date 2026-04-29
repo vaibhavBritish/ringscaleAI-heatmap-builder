@@ -10,6 +10,7 @@ import prisma from '@/lib/prisma'
 import redis from '@/lib/redis'
 import { rateLimit } from '@/lib/rate-limit'
 import { headers } from 'next/headers'
+import { getSecret } from '@/lib/secrets'
 
 let legacyProjectIndexCleanupAttempted = false
 
@@ -241,7 +242,7 @@ async function handleRoute(request, props) {
     if (route === '/google/static-map' && method === 'GET') {
       const { searchParams } = new URL(request.url)
       
-      const apiKey = process.env.GOOGLE_API_KEY
+      const apiKey = getSecret('GOOGLE_API_KEY')
       if (!apiKey) {
         return handleCORS(NextResponse.json({ error: 'Server API key missing' }, { status: 500 }))
       }
