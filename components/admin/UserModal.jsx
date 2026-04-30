@@ -29,7 +29,7 @@ export function UserModal({ isOpen, onClose, user, onRefresh }) {
     email: "",
     password: "",
     role: "user",
-    plan: "Trial",
+    plan: "trial",
     credits: 300
   })
 
@@ -61,7 +61,7 @@ export function UserModal({ isOpen, onClose, user, onRefresh }) {
         credits: user.credits || 0
       })
     } else {
-      const defaultPlan = "Trial"
+      const defaultPlan = "trial"
       const defaultCredits = planSettings?.[defaultPlan]?.credits || 300
       setFormData({
         name: "",
@@ -183,7 +183,7 @@ export function UserModal({ isOpen, onClose, user, onRefresh }) {
                     <SelectValue placeholder="Select plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Trial">Trial</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
                     <SelectItem value="advance">Advance</SelectItem>
                     <SelectItem value="pro">Pro</SelectItem>
                     <SelectItem value="pro_plus">Pro Plus</SelectItem>

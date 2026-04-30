@@ -60,7 +60,7 @@ export async function PATCH(request, props) {
         }
 
         // ALWAYS reset plan dates on every save for a "fresh reset"
-        const activePlan = (plan || currentUser.plan || 'Trial').toLowerCase().replace('plan_', '')
+        const activePlan = (plan || currentUser.plan || 'trial').toLowerCase().replace('plan_', '')
         const now = new Date()
         
         updateData.planStartedAt = now
@@ -90,7 +90,7 @@ export async function PATCH(request, props) {
             updateData.planEndsAt = date
         }
 
-        if (plan) updateData.plan = plan
+        if (plan) updateData.plan = plan.toLowerCase()
 
         if (credits !== undefined && parseInt(credits) !== currentUser.credits) {
             const newCredits = parseInt(credits)

@@ -94,12 +94,12 @@ export async function GET(request) {
         const usersWithKeywords = users.map(user => {
             const userProjectIdsForFilter = [user.id, user.oid].filter(Boolean)
             const userProjectList = projects.filter(p => userProjectIdsForFilter.includes(p.userId))
-            
+
             // Build a descriptive summary: "Business Name: kw1 (5), kw2 (10)..."
             const userKeywordsData = userProjectList.map(p => {
                 const pIds = [p.id, p.oid].filter(Boolean)
                 const pKeywords = keywords.filter(k => pIds.includes(k.projectId))
-                
+
                 const kwList = pKeywords.map(k => {
                     const count = scanCounts.find(s => s.keywordId === k.id)?._count._all || 0
                     return { text: k.keyword, count }
@@ -123,7 +123,7 @@ export async function GET(request) {
                     const p = projects.find(proj => proj.id === k.projectId || proj.oid === k.projectId)
                     return p && userProjectIdsForFilter.includes(p.userId)
                 }).length,
-                keywordSummary: businessSummaries.length > 0 
+                keywordSummary: businessSummaries.length > 0
                     ? businessSummaries.join(' | ')
                     : 'No keywords',
                 fullKeywords: userKeywordsData
@@ -172,15 +172,15 @@ export async function POST(request) {
         const planSettings = await prisma.globalSetting.findUnique({
             where: { key: "plans" }
         })
-        
+
         const config = planSettings?.value || {
-            Trial: { credits: 300 },
+            trial: { credits: 300 },
             advance: { credits: 1200 },
             pro: { credits: 2400 },
             pro_plus: { credits: 5000 }
         }
 
-        const selectedPlan = plan || 'Trial'
+        const selectedPlan = (plan || 'trial').toLowerCase()
         const initialCredits = credits !== undefined ? parseInt(credits) : (config[selectedPlan]?.credits || 0)
 
         const user = await prisma.user.create({
@@ -195,6 +195,11 @@ export async function POST(request) {
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
+        })
+
+        const { sendWelcomeEmail } = await import('@/lib/mail')
+        sendWelcomeEmail(email, name, selectedPlan, initialCredits).catch(err => {
+            console.error('Error sending welcome email:', err)
         })
 
         return NextResponse.json({
