@@ -4,31 +4,26 @@ import { MessageCircle, Phone } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useCountry } from '@/hooks/use-country'
+import { useSession } from 'next-auth/react'
 
 export default function WhatsAppButton() {
-  const [isVisible, setIsVisible] = useState(false)
-  const { isIndia } = useCountry()
   const pathname = usePathname()
-
-  // Show button after a short delay for a nice entrance
-  useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 1500)
-    return () => clearTimeout(timer)
-  }, [])
-
+  const { isIndia } = useCountry()
+  const { status } = useSession()
+  
   const whatsappNumber = "+919650708468" // Placeholder - update with actual number
   const message = encodeURIComponent("Hello! I'm interested in your Local SEO services. Can we chat?")
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`
-  const isProjectBuilderPage = pathname?.includes('/dashboard/projects/new')
-  const mobilePositionClass = isProjectBuilderPage
-    ? 'bottom-5 right-4 left-auto'
-    : 'bottom-4 left-4'
+  
+  // Robust check for homepage variants (/, /us, /in) including optional trailing slashes
+  const isHomePage = /^\/($|us\/?$|in\/?$)/.test(pathname || '')
+  const mobilePositionClass = 'bottom-4 left-4'
 
-  if (!isVisible) return null
+  // Show ONLY on homepage (regardless of login status)
+  if (!isHomePage) return null
 
   return (
-    <div className={`fixed ${mobilePositionClass} z-40 sm:bottom-8 sm:left-auto sm:right-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 flex flex-col gap-4 items-center`}>
-      {/* Phone Call Button (Dynamic based on IP) */}
+    <div className={`fixed ${mobilePositionClass} z-[9999] sm:bottom-8 sm:left-auto sm:right-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 flex flex-col gap-4 items-center`}>
       <div className="relative group flex items-center justify-center">
         {/* Tooltip */}
         <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">

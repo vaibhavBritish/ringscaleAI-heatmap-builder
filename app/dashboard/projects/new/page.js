@@ -1016,10 +1016,10 @@ export default function NewProjectPage() {
                   {/* Admin Randomizer Settings */}
                   {session?.user?.role === 'admin' && (
                     <div className="space-y-4 pt-4 border-t border-slate-100 animate-in fade-in duration-300">
-                      <label className="text-xs font-bold text-red-500 uppercase tracking-wider block">Admin Randomizer</label>
+                      {/* <label className="text-xs font-bold text-red-500 uppercase tracking-wider block">Admin Randomizer</label> */}
                       <div className="space-y-3 p-3 bg-red-50/30 border border-red-100 rounded-xl">
                         <div className="flex items-center justify-between">
-                          <label className="text-xs font-semibold text-slate-700">Enable Randomizer</label>
+                          {/* <label className="text-xs font-semibold text-slate-700"></label> */}
                           <input 
                             type="checkbox"
                             checked={isMock}
