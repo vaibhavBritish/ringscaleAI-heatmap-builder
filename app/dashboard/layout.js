@@ -202,6 +202,7 @@ export default function DashboardLayout({ children }) {
                 </div>
                 {[
                   { name: 'Command Center', href: '/dashboard/seoos', icon: Cpu },
+                  { name: 'Randomizer', href: '/dashboard/seoos/randomizer', icon: Sparkles },
                   { name: 'AI Asset Studio', href: '/dashboard/seoos/ai-builder', icon: Zap },
                   { name: 'Review Generator', href: '/dashboard/seoos/review-generator', icon: Sparkles },
                   { name: 'Review History', href: '/dashboard/seoos/review-generator/history', icon: History },

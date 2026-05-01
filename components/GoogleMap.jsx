@@ -192,7 +192,7 @@ const GoogleMap = memo(function GoogleMap({
         scale: 18
       } : {
         path: SymbolPath.CIRCLE,
-        fillColor: '#3b82f6', // Blue 500
+        fillColor: pinColor, // Dynamic rank-based color
         fillOpacity: 0.9,
         strokeColor: '#ffffff',
         strokeWeight: 2,

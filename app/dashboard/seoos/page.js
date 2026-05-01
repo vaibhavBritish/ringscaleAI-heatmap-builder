@@ -45,6 +45,7 @@ export default function SEOOSHomePage() {
   const o = data?.overview
 
   const modules = [
+    { icon: Sparkles, label: 'Randomizer', desc: 'Mock rank report generator', href: '/dashboard/seoos/randomizer', color: 'text-rose-600' },
     { icon: FileSearch, label: 'Website Audit', desc: 'Crawl & score any URL', href: '/dashboard/seoos/website-audit', color: 'text-blue-600' },
     { icon: Sparkles, label: 'AI Builder', desc: 'AI Asset Studio', href: '/dashboard/seoos/ai-builder', color: 'text-indigo-600' },
     { icon: Sparkles, label: 'Review Generator', desc: 'Generate AI Review Pages', href: '/dashboard/seoos/review-generator', color: 'text-amber-600' },
