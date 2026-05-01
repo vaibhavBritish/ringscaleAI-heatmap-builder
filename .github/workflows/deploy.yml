@@ -1,0 +1,39 @@
+name: Deploy to VM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_PASSWORD }}
+          port: ${{ secrets.VM_PORT || 22 }}
+          script: |
+            set -e
+
+            cd ${{ secrets.APP_DIR }}
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Building and starting containers..."
+            docker compose down --remove-orphans
+            docker compose build --no-cache
+            docker compose up -d
+
+            echo "Connecting app to nginx-proxy network (if not already connected)..."
+            docker network connect nginx-proxy seo-heatmap-app 2>/dev/null || echo "Already connected to nginx-proxy"
+
+            echo "Cleaning up unused images..."
+            docker image prune -f
+
+            echo "Deploy complete."
