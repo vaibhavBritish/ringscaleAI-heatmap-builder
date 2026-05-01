@@ -7,6 +7,7 @@ import {
   LayoutDashboard, 
   Settings, 
   LogOut,
+  Building
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
@@ -22,6 +23,11 @@ const adminNavItems = [
     title: "User Management",
     href: "/admin/users",
     icon: Users,
+  },
+  {
+    title: "Partner Companies",
+    href: "/admin/companies",
+    icon: Building,
   },
 ]
 
@@ -119,7 +125,7 @@ export function AdminSidebar() {
       {/* Footer / Sign Out */}
       <div className="p-4 border-t border-slate-800/60">
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => signOut({ callbackUrl: window.location.origin })}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-all duration-200 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/20"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" />

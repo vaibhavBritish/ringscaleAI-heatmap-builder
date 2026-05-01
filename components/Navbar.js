@@ -51,8 +51,9 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           <div className="flex items-center gap-8">
             <Link href="#" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
-              Platform <span className="text-[10px] opacity-50">▼</span>
+              Platform 
             </Link>
+           
 
             {/* Services Dropdown */}
             <div className="relative group/services">
@@ -89,7 +90,9 @@ export default function Navbar() {
             <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition">Pricing</Link>
             <Link href="/ai-qr-code" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
               AI QR Code
-              <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter">New</span>
+            </Link>
+             <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+              Partners 
             </Link>
             <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition">Contact Us</Link>
             <Link href="https://calendly.com/mediaringscale/30min" target="_blank" rel="noopener noreferrer">
@@ -98,6 +101,7 @@ export default function Navbar() {
                 Book a Meeting
               </Button>
             </Link>
+            
 
           </div>
 
@@ -170,8 +174,11 @@ export default function Navbar() {
           <Link href="/#pricing" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
           <Link href="/ai-qr-code" className="flex items-center justify-between text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>
             AI QR Code
-            <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">New</span>
+          
           </Link>
+           <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+              Partners 
+            </Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
           <Link 
             href="https://calendly.com/your-meeting-link" 

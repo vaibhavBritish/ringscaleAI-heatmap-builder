@@ -27,6 +27,7 @@ const countryCodes = [
 export default function RegisterPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [companyBranding, setCompanyBranding] = useState(null)
   const [step, setStep] = useState('details') // 'details' or 'otp'
   const [otpValue, setOtpValue] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
@@ -39,6 +40,28 @@ export default function RegisterPage() {
     confirmPassword: '',
     smsConsent: false
   })
+
+  // Fetch branding if on a subdomain
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const searchParams = new URLSearchParams(window.location.search)
+        const testSubdomain = searchParams.get('test_subdomain')
+        const apiUrl = testSubdomain 
+          ? `/api/company/branding?test_subdomain=${testSubdomain}`
+          : '/api/company/branding'
+
+        const res = await fetch(apiUrl)
+        if (res.ok) {
+          const data = await res.json()
+          setCompanyBranding(data)
+        }
+      } catch (e) {
+        // Silently fail
+      }
+    }
+    fetchBranding()
+  }, [])
 
   // Handle Resend Timer
   useEffect(() => {
@@ -201,13 +224,33 @@ export default function RegisterPage() {
         <div className="max-w-xl w-full space-y-12">
           {/* Header & Headlines */}
           <div className="space-y-6 text-center lg:text-left pt-8">
-
+            {companyBranding?.logo && (
+              <div className="flex justify-center lg:justify-start mb-10">
+                <div className="h-28 w-full max-w-[280px] flex items-center justify-center p-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-slate-100/50 shadow-sm transition-all hover:shadow-md group">
+                  <Image
+                    src={companyBranding.logo}
+                    alt={companyBranding.name}
+                    width={300}
+                    height={100}
+                    className="h-full w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+                    priority
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
-                Our <span className="text-blue-600">AI-Powered</span> SaaS Platform Gets You in the Top 3
+                {companyBranding ? (
+                  <>Access the <span style={{ color: companyBranding.branding?.colors?.accent || '#2563eb' }}>{companyBranding.name}</span> AI Platform</>
+                ) : (
+                  <>Our <span className="text-blue-600">AI-Powered</span> SaaS Platform Gets You in the Top 3</>
+                )}
               </h2>
               <p className="text-lg text-slate-500 font-medium">
-                We'll analyze your location and show how our AI-driven insights can move your business toward Top 3 visibility
+                {companyBranding 
+                  ? `Join ${companyBranding.name} and get AI-driven insights to grow your business visibility.`
+                  : "We'll analyze your location and show how our AI-driven insights can move your business toward Top 3 visibility"
+                }
               </p>
             </div>
           </div>
@@ -333,7 +376,11 @@ export default function RegisterPage() {
                 <div className="pt-4 space-y-4">
                   <Button
                     type="submit"
-                    className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-black text-lg rounded-xl shadow-xl shadow-blue-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 group"
+                    className={`w-full h-14 ${!companyBranding?.branding?.colors?.accent ? 'bg-blue-600 hover:bg-blue-700' : ''} text-white font-black text-lg rounded-xl shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 group`}
+                    style={companyBranding?.branding?.colors?.accent ? { 
+                      backgroundColor: companyBranding.branding.colors.accent,
+                      boxShadow: `0 10px 25px -5px ${companyBranding.branding.colors.accent}40`
+                    } : {}}
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
@@ -394,7 +441,11 @@ export default function RegisterPage() {
                 <div className="space-y-4 pt-4">
                   <Button
                     type="submit"
-                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-xl shadow-xl shadow-emerald-500/25 transition-all transform active:scale-95"
+                    className={`w-full h-14 ${!companyBranding?.branding?.colors?.accent ? 'bg-emerald-600 hover:bg-emerald-700' : ''} text-white font-black text-lg rounded-xl shadow-xl transition-all transform active:scale-95`}
+                    style={companyBranding?.branding?.colors?.accent ? { 
+                      backgroundColor: companyBranding.branding.colors.accent,
+                      boxShadow: `0 10px 25px -5px ${companyBranding.branding.colors.accent}40`
+                    } : {}}
                     disabled={isLoading || otpValue.length !== 6}
                   >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Create Account'}

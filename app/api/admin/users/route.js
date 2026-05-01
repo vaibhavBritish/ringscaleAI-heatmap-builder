@@ -31,13 +31,14 @@ export async function GET(request) {
         const where = search ? {
             OR: [
                 { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } }
+                { email: { contains: search, mode: 'insensitive' } },
+                { company: { name: { contains: search, mode: 'insensitive' } } }
             ]
         } : {}
 
         const [users, total] = await Promise.all([
             prisma.user.findMany({
-                where,
+                where: where,
                 select: {
                     id: true,
                     name: true,
@@ -49,12 +50,19 @@ export async function GET(request) {
                     trialEndsAt: true,
                     planEndsAt: true,
                     createdAt: true,
+                    company: {
+                        select: {
+                            name: true
+                        }
+                    }
                 },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
+                orderBy: {
+                    createdAt: 'desc'
+                },
+                skip: skip,
+                take: limit
             }),
-            prisma.user.count({ where })
+            prisma.user.count({ where: where })
         ])
 
         // Fetch projects and keywords for these users to show aggregate info
