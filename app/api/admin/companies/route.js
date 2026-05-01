@@ -127,24 +127,32 @@ export async function POST(request) {
             })
 
             return { company, user, tempPassword }
+        }, {
+            timeout: 10000 // 10 seconds timeout for slower production DBs
         })
 
-        // Send Welcome email with credentials
-        try {
-            const { sendWelcomeEmail } = await import('@/lib/mail')
-            await sendWelcomeEmail(email, `${name} Admin`, 'Partner', 5000)
-        } catch (err) {
-            console.error('Error sending welcome email:', err)
-        }
+        // Send Welcome email with credentials (non-blocking to prevent timeouts)
+        import('@/lib/mail').then(({ sendWelcomeEmail }) => {
+            sendWelcomeEmail(email, `${name} Admin`, 'Partner', 5000).catch(err => {
+                console.error('Error sending welcome email:', err)
+            })
+        }).catch(err => {
+            console.error('Error importing mail lib:', err)
+        })
+
+        const { logo: _, ...companyWithoutLogo } = result.company
 
         return NextResponse.json({
             message: "Company and Admin created successfully",
-            company: result.company,
+            company: companyWithoutLogo,
             adminEmail: email,
             tempPassword: result.tempPassword
         })
     } catch (error) {
         console.error('Error creating company:', error)
-        return NextResponse.json({ error: 'Failed to create company' }, { status: 500 })
+        return NextResponse.json({ 
+            error: 'Failed to create company', 
+            details: error.message 
+        }, { status: 500 })
     }
 }

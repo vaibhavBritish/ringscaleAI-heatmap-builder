@@ -120,7 +120,9 @@ export async function DELETE(request, { params }) {
             prisma.company.delete({
                 where: { id }
             })
-        ])
+        ], {
+            timeout: 10000 // 10 seconds
+        })
 
         return NextResponse.json({ message: "Company deleted successfully" })
     } catch (error) {
