@@ -22,8 +22,7 @@ jobs:
 
             cd ${{ secrets.APP_DIR }}
 
-            echo "Pulling latest code..."
-            git pull origin main
+            echo "Code exists through sftp for now -- later we can use git pull origin main here"
 
             echo "Building and starting containers..."
             docker compose down --remove-orphans
