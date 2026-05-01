@@ -174,7 +174,8 @@ export default function UsersPage() {
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
               <TableRow>
-                <TableHead className="w-[300px] px-6">User</TableHead>
+                <TableHead className="w-[250px] px-6">User</TableHead>
+                <TableHead>Company</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Keywords</TableHead>
@@ -187,14 +188,14 @@ export default function UsersPage() {
               {loading ? (
                 Array(5).fill(0).map((_, i) => (
                   <TableRow key={i} className="animate-pulse">
-                    <TableCell colSpan={7} className="h-16 px-6">
+                    <TableCell colSpan={8} className="h-16 px-6">
                       <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-64 text-center">
+                  <TableCell colSpan={8} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                       <User size={48} className="opacity-20" />
                       <p className="font-medium">No users found</p>
@@ -215,6 +216,11 @@ export default function UsersPage() {
                           <span className="text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        {user.company?.name || "—"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {user.role === "admin" ? (

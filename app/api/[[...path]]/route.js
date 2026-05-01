@@ -469,6 +469,7 @@ async function handleRoute(request, props) {
             data: {
               id: projectId,
               userId: currentUser.id,
+              companyId: currentUser.companyId,
               businessName,
               placeId,
               address: address || '',
@@ -494,6 +495,7 @@ async function handleRoute(request, props) {
             data: {
               id: projectId,
               userId: currentUser.id,
+              companyId: currentUser.companyId,
               businessName,
               placeId,
               address: address || '',

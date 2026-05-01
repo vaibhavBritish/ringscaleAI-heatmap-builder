@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2, Zap, QrCode } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2, Zap, QrCode, Users } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -26,6 +26,32 @@ export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [freshUser, setFreshUser] = useState(null)
+  const [companyBranding, setCompanyBranding] = useState(null)
+
+  // Fetch company branding if associated with a company
+  useEffect(() => {
+    const fetchBranding = async () => {
+      const searchParams = new URLSearchParams(window.location.search)
+      const testSubdomain = searchParams.get('test_subdomain')
+      
+      if (session?.user?.companyId || testSubdomain) {
+        try {
+          const apiUrl = testSubdomain 
+            ? `/api/company/branding?test_subdomain=${testSubdomain}`
+            : '/api/company/branding'
+
+          const res = await fetch(apiUrl)
+          if (res.ok) {
+            const data = await res.json()
+            setCompanyBranding(data)
+          }
+        } catch (e) {
+          console.error('Failed to fetch company branding')
+        }
+      }
+    }
+    fetchBranding()
+  }, [session?.user?.companyId])
 
   // Sync with session
   useEffect(() => {
@@ -115,33 +141,49 @@ export default function DashboardLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 bg-white border-r transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:w-20 lg:hover:w-64'} group`}>
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 border-r transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:w-20 lg:hover:w-64'} group`}
+        style={{ 
+          backgroundColor: companyBranding?.branding?.colors?.primary || '#FFFFFF',
+          color: companyBranding?.branding?.colors?.primary ? '#FFFFFF' : 'inherit'
+        }}
+      >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Logo */}
           <div className="flex items-center px-4 py-4 border-b shrink-0">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center shrink-0 overflow-hidden">
               <Image
-                src="/logo.png"
-                alt="Ringscale AI"
+                src={companyBranding?.logo || "/logo.png"}
+                alt={companyBranding?.name || "Ringscale AI"}
                 width={40}
                 height={40}
                 className="w-full h-full object-cover"
               />
             </div>
             <span className={`font-bold text-lg whitespace-nowrap overflow-hidden transition-all duration-300 ${
+              companyBranding?.branding?.colors?.primary ? 'text-white' : 'text-slate-900'
+            } ${
               sidebarOpen
                 ? 'opacity-100 max-w-xs ml-3'
                 : 'opacity-0 max-w-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
-            }`}>Heatmaps</span>
+            }`}>{companyBranding?.name || "Heatmaps"}</span>
             <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
-              <X className="w-5 h-5" />
+              <X className={`w-5 h-5 ${companyBranding?.branding?.colors?.primary ? 'text-white' : 'text-slate-500'}`} />
             </button>
           </div>
 
           {/* New Project Button */}
           <div className="px-4 py-4 shrink-0">
             <Link href="/dashboard/projects/new" onClick={handleNewProject}>
-              <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 flex items-center justify-center h-10 px-0 lg:group-hover:px-4 transition-all duration-300">
+              <Button 
+                className={`w-full flex items-center justify-center h-10 px-0 lg:group-hover:px-4 transition-all duration-300 ${
+                  !companyBranding?.branding?.colors?.accent ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800' : ''
+                }`}
+                style={companyBranding?.branding?.colors?.accent ? { 
+                  backgroundColor: companyBranding.branding.colors.accent,
+                  color: '#FFFFFF'
+                } : {}}
+              >
                 <Plus className="w-5 h-5 shrink-0" />
                 <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
                   sidebarOpen
@@ -156,25 +198,100 @@ export default function DashboardLayout({ children }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-300 overflow-hidden ${isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-slate-600 hover:bg-slate-50'
+            {navigation.map((item) => {
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-300 overflow-hidden ${
+                    active
+                      ? companyBranding?.branding?.colors?.accent 
+                        ? 'font-bold' 
+                        : 'bg-blue-50 text-blue-700 font-medium'
+                      : companyBranding?.branding?.colors?.primary
+                        ? 'text-white/70 hover:bg-white/10 hover:text-white'
+                        : 'text-slate-600 hover:bg-slate-50'
                   }`}
-              >
-                <item.icon className="w-5 h-5 shrink-0" />
-                <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
-                  sidebarOpen
-                    ? 'max-w-xs opacity-100 ml-3'
-                    : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
-                }`}>
-                  {item.name}
-                </span>
-              </Link>
-            ))}
+                  style={active && companyBranding?.branding?.colors?.accent ? { 
+                    backgroundColor: companyBranding.branding.colors.accent,
+                    color: '#FFFFFF',
+                    boxShadow: `0 4px 12px ${companyBranding.branding.colors.accent}40`
+                  } : {}}
+                >
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                    sidebarOpen
+                      ? 'max-w-xs opacity-100 ml-3'
+                      : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+                  }`}>
+                    {item.name}
+                  </span>
+                </Link>
+              )
+            })}
+
+            {/* Partner Admin Section */}
+            {session?.user?.role === 'partner' && (
+              <>
+                <div className="pt-4 pb-1">
+                  <div className="flex items-center gap-2 px-3">
+                    <div className={`flex-1 h-px bg-gradient-to-r from-green-200 to-emerald-200 overflow-hidden transition-all duration-300 ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`} />
+                    <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap text-[10px] font-black text-emerald-600 uppercase tracking-widest ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`}>
+                      Partner Admin
+                    </span>
+                    <div className={`flex-1 h-px bg-gradient-to-r from-emerald-200 to-green-200 overflow-hidden transition-all duration-300 ${
+                      sidebarOpen
+                        ? 'max-w-xs opacity-100'
+                        : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
+                    }`} />
+                  </div>
+                </div>
+                {[
+                  { name: 'My Clients', href: '/dashboard/partner/clients', icon: Users },
+                  { name: 'Company Branding', href: '/dashboard/partner/branding', icon: Sparkles },
+                ].map((item) => {
+                  const active = isActive(item.href)
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-300 overflow-hidden text-sm ${
+                        active
+                          ? companyBranding?.branding?.colors?.accent 
+                            ? 'font-bold' 
+                            : 'bg-emerald-50 text-emerald-700 font-semibold'
+                          : companyBranding?.branding?.colors?.primary
+                            ? 'text-white/70 hover:bg-white/10 hover:text-white'
+                            : 'text-slate-500 hover:bg-emerald-50/50 hover:text-emerald-600'
+                      }`}
+                      style={active && companyBranding?.branding?.colors?.accent ? { 
+                        backgroundColor: companyBranding.branding.colors.accent,
+                        color: '#FFFFFF',
+                        boxShadow: `0 4px 12px ${companyBranding.branding.colors.accent}40`
+                      } : {}}
+                    >
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                        sidebarOpen
+                          ? 'max-w-xs opacity-100 ml-3'
+                          : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-3'
+                      }`}>
+                        {item.name}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </>
+            )}
 
             {/* SEOOS Admin Section */}
             {session?.user?.role === 'admin' && (
@@ -268,7 +385,7 @@ export default function DashboardLayout({ children }) {
                   <Link href="/dashboard/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign out
                 </DropdownMenuItem>

@@ -29,6 +29,9 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  companyId        String?   @db.ObjectId
+  company          Company?  @relation(fields: [companyId], references: [oid])
+
   @@map("users")
 }
 
@@ -61,7 +64,11 @@ model Project {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  companyId    String?  @db.ObjectId
+  company      Company? @relation(fields: [companyId], references: [oid])
+
   @@index([userId])
+  @@index([companyId])
   @@map("projects")
 }
 
@@ -442,4 +449,25 @@ model ReviewAsset {
   updatedAt    DateTime  @updatedAt
 
   @@map("review_assets")
+}
+
+model Company {
+  oid          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String   @unique @default(uuid())
+  name         String
+  slug         String   @unique // For URL/White-labeling
+  logo         String?
+  website      String?
+  email        String?
+  phone        String?
+  isActive     Boolean  @default(true)
+  branding     Json?    // Store colors, custom text etc.
+  
+  users        User[]
+  projects     Project[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("companies")
 }
