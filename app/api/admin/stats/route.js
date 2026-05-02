@@ -20,18 +20,32 @@ export async function GET(request) {
     }
 
     try {
+        // Disabled caching for real-time dynamic updates as requested
+        /*
         const cacheKey = 'admin:stats:summary'
         if (redis) {
             const cached = await redis.get(cacheKey)
             if (cached) return NextResponse.json(JSON.parse(cached))
         }
-        const [totalUsers, totalProjects, totalScans, totalCredits] = await Promise.all([
+        */
+
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+        const [totalUsers, totalProjects, totalScans, totalCredits, oldUsersCount] = await Promise.all([
             prisma.user.count(),
             prisma.project.count(),
             prisma.scanJob.count(),
             prisma.user.aggregate({
                 _sum: {
                     credits: true
+                }
+            }),
+            prisma.user.count({
+                where: {
+                    createdAt: {
+                        lt: sevenDaysAgo
+                    }
                 }
             })
         ])
@@ -70,17 +84,9 @@ export async function GET(request) {
             count
         }))
 
-        // Get 7-day user growth
-        const sevenDaysAgo = new Date()
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        
-        const recentUsersCount = await prisma.user.count({
-            where: {
-                createdAt: {
-                    gte: sevenDaysAgo
-                }
-            }
-        })
+        // Calculate actual growth percentage
+        const newUserCount = totalUsers - oldUsersCount
+        const growthPct = oldUsersCount === 0 ? (totalUsers > 0 ? 100 : 0) : Math.round((newUserCount / oldUsersCount) * 100)
 
         // Get Top Keywords by scan count
         const topKeywordStats = await prisma.scanJob.groupBy({
@@ -116,7 +122,7 @@ export async function GET(request) {
 
         const responseData = {
             stats: [
-                { title: "Total Users", value: totalUsers, change: recentUsersCount, period: "last 7 days" },
+                { title: "Total Users", value: totalUsers, change: growthPct, period: "last 7 days" },
                 { title: "Active Projects", value: totalProjects, change: null },
                 { title: "Total Scans", value: totalScans, change: null },
                 { title: "Allocated Credits", value: totalCredits._sum.credits || 0, change: null },
@@ -125,10 +131,12 @@ export async function GET(request) {
             topKeywords
         }
 
+        /*
         if (redis) {
-            // Cache for 15 minutes
-            await redis.set(cacheKey, JSON.stringify(responseData), 'EX', 900)
+            // Cache for 1 minute instead of 15 if enabled
+            await redis.set(cacheKey, JSON.stringify(responseData), 'EX', 60)
         }
+        */
 
         return NextResponse.json(responseData)
     } catch (error) {

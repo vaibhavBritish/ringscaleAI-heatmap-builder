@@ -68,8 +68,8 @@ export default function CompaniesPage() {
     try {
       const res = await fetch(`/api/admin/companies?page=${pagination.currentPage}&limit=${pagination.limit}&search=${search}`)
       const data = await res.json()
-      setCompanies(data.companies)
-      setPagination(data.pagination)
+      if (data.companies) setCompanies(data.companies)
+      if (data.pagination) setPagination(data.pagination)
     } catch (error) {
       console.error("Failed to fetch companies:", error)
       toast.error("Failed to load companies")
@@ -157,7 +157,7 @@ export default function CompaniesPage() {
                     </TableCell>
                   </TableRow>
                 ))
-              ) : companies.length === 0 ? (
+              ) : (companies?.length || 0) === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
@@ -254,26 +254,26 @@ export default function CompaniesPage() {
         </CardContent>
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/10 rounded-b-xl">
           <div className="text-xs font-medium text-slate-500">
-            Showing <span className="text-slate-900 dark:text-slate-100">{companies.length}</span> of <span className="text-slate-900 dark:text-slate-100">{pagination.total}</span> companies
+            Showing <span className="text-slate-900 dark:text-slate-100">{(companies?.length || 0)}</span> of <span className="text-slate-900 dark:text-slate-100">{pagination?.total || 0}</span> companies
           </div>
           <div className="flex items-center gap-2">
             <Button 
                variant="outline" 
                size="sm" 
-               disabled={pagination.currentPage === 1 || loading}
-               onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage - 1 })}
+               disabled={(pagination?.currentPage || 1) === 1 || loading}
+               onClick={() => setPagination({ ...pagination, currentPage: (pagination?.currentPage || 1) - 1 })}
                className="h-8 text-xs font-semibold"
             >
               <ChevronLeft size={16} className="mr-1" /> Previous
             </Button>
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-center px-3 h-8 rounded-md text-xs font-bold text-slate-700 dark:text-slate-300">
-              {pagination.currentPage} / {pagination.pages}
+              {pagination?.currentPage || 1} / {pagination?.pages || 1}
             </div>
             <Button 
                variant="outline" 
                size="sm" 
-               disabled={pagination.currentPage === pagination.pages || loading}
-               onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage + 1 })}
+               disabled={(pagination?.currentPage || 1) === (pagination?.pages || 1) || loading}
+               onClick={() => setPagination({ ...pagination, currentPage: (pagination?.currentPage || 1) + 1 })}
                className="h-8 text-xs font-semibold"
             >
               Next <ChevronRight size={16} className="ml-1" />

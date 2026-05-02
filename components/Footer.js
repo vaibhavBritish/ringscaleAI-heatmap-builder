@@ -1,11 +1,17 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useSettings } from '@/components/providers'
 
 export default function Footer() {
   const { settings } = useSettings()
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const branding = settings?.branding || {
     appName: 'Ringscale AI',
@@ -114,15 +120,15 @@ export default function Footer() {
             <p className="text-[12px] text-slate-500/80 font-medium">
               Address: {
                 (() => {
-                  if (typeof window === 'undefined') return "1470 HurOntario St Mississauga Ontario L5G 3H4";
+                  if (!mounted) return "1470 HurOntario St Mississauga Ontario L5G 3H4";
                   
                   // Priority 1: Check URL Path (Middle-ware driven)
-                  const path = window.location.pathname;
+                  const path = typeof window !== 'undefined' ? window.location.pathname : '';
                   if (path.startsWith('/in/') || path === '/in') return "P-10 Patel Nagar, New Delhi, 110008";
                   if (path.startsWith('/us/') || path === '/us') return "1470 HurOntario St Mississauga Ontario L5G 3H4";
                   
                   // Priority 2: Check Timezone as fallback
-                  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  const userTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
                   const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata');
                   return isIndiaTz 
                     ? "P-10 Patel Nagar, New Delhi, 110008" 

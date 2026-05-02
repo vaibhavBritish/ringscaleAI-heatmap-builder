@@ -89,7 +89,7 @@ export default function LoginPage() {
                 <Image 
                   src={companyBranding.logo} 
                   alt={companyBranding.name}
-                  width={300}
+                  width={200}
                   height={100}
                   className="h-full w-auto object-contain transition-transform duration-500 group-hover:scale-105"
                   priority
@@ -102,9 +102,9 @@ export default function LoginPage() {
                 <Image
                   src="/logo.png"
                   alt="Ringscale AI"
-                  width={360}
-                  height={260}
-                  className="h-48 w-auto object-contain"
+                  width={200}
+                  height={100}
+                  className="h-32  w-auto object-contain"
                 />
               </div>
             </Link>

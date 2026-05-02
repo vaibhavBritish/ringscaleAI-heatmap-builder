@@ -32,7 +32,7 @@ export async function GET(request) {
             OR: [
                 { name: { contains: search, mode: 'insensitive' } },
                 { email: { contains: search, mode: 'insensitive' } },
-                { company: { is: { name: { contains: search, mode: 'insensitive' } } } }
+                { company: { name: { contains: search, mode: 'insensitive' } } }
             ]
         } : {}
 
