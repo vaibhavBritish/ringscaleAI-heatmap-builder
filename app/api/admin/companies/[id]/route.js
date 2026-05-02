@@ -61,7 +61,7 @@ export async function PATCH(request, { params }) {
 
     try {
         const body = await request.json()
-        const { name, slug, email, phone, website, isActive, branding } = body
+        const { name, slug, email, phone, website, logo, isActive, branding } = body
 
         const company = await prisma.company.update({
             where: { id },
@@ -71,6 +71,7 @@ export async function PATCH(request, { params }) {
                 email,
                 phone,
                 website,
+                logo,
                 isActive,
                 branding
             }
