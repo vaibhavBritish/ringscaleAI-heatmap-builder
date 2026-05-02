@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export async function proxy(request) {
+export default async function middleware(request) {
   const { pathname } = request.nextUrl
   const hostname = request.headers.get('host')
 
