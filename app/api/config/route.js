@@ -15,9 +15,10 @@ export async function GET() {
       }, { status: 401 })
     }
 
-    // Fetch secrets using our secure helper
-    const googleMapsApiKey = getSecret('GOOGLE_API_KEY') || getSecret('NEXT_PUBLIC_GOOGLE_API_KEY');
-    const razorpayKeyId = getSecret('RAZORPAY_KEY_ID') || getSecret('NEXT_PUBLIC_RAZORPAY_KEY_ID');
+    // ONLY return public keys to the browser. 
+    // The secret backend key (GOOGLE_API_KEY) must NEVER be returned here.
+    const googleMapsApiKey = getSecret('NEXT_PUBLIC_GOOGLE_API_KEY');
+    const razorpayKeyId = getSecret('NEXT_PUBLIC_RAZORPAY_KEY_ID');
 
     // IMPORTANT: Google Maps API Keys are technically "public" for interactive maps to work.
     // To secure this key, you MUST set "HTTP Referrer Restrictions" in your Google Cloud Console 
