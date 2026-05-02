@@ -22,7 +22,7 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
-      VIRTUAL_HOST: ringscale.ai
+      VIRTUAL_HOST: ringscale.ai,*.ringscale.ai
       VIRTUAL_PORT: 3000
 
     depends_on:
