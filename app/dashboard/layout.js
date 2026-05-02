@@ -385,7 +385,7 @@ export default function DashboardLayout({ children }) {
                   <Link href="/dashboard/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })}>
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin, redirect: true })}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign out
                 </DropdownMenuItem>

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [companyBranding, setCompanyBranding] = useState(null)
+  const [isBrandingLoading, setIsBrandingLoading] = useState(true)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -38,6 +39,8 @@ export default function LoginPage() {
         }
       } catch (e) {
         // Silently fail, fallback to default
+      } finally {
+        setIsBrandingLoading(false)
       }
     }
     fetchBranding()
@@ -76,7 +79,11 @@ export default function LoginPage() {
     >
       <Card className="w-full max-w-md shadow-xl border-none ring-1 ring-slate-200">
         <CardHeader className="text-center">
-          {companyBranding?.logo ? (
+          {isBrandingLoading ? (
+            <div className="flex justify-center mb-10">
+              <div className="h-28 w-full max-w-[280px] rounded-2xl bg-slate-200 animate-pulse" />
+            </div>
+          ) : companyBranding?.logo ? (
             <div className="flex justify-center mb-10">
               <div className="h-28 w-full max-w-[280px] flex items-center justify-center p-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-slate-100/50 shadow-sm transition-all hover:shadow-md group">
                 <Image 
@@ -102,13 +109,28 @@ export default function LoginPage() {
               </div>
             </Link>
           )}
+          
           <CardTitle className="text-2xl font-black text-slate-900">
-            {companyBranding ? `${companyBranding.name} Portal` : 'Welcome Back'}
+            {isBrandingLoading ? (
+              <div className="h-8 w-48 bg-slate-200 animate-pulse mx-auto rounded" />
+            ) : companyBranding ? (
+              `${companyBranding.name} Portal`
+            ) : (
+              'Welcome Back'
+            )}
           </CardTitle>
-          <CardDescription>
-            {companyBranding ? `Sign in to access your dashboard` : 'Sign in to your Local Rank Heatmap account'}
+          
+          <CardDescription className="mt-2">
+            {isBrandingLoading ? (
+              <div className="h-4 w-64 bg-slate-100 animate-pulse mx-auto rounded mt-2" />
+            ) : companyBranding ? (
+              `Sign in to access your dashboard`
+            ) : (
+              'Sign in to your Local Rank Heatmap account'
+            )}
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">

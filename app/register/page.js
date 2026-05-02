@@ -28,6 +28,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [companyBranding, setCompanyBranding] = useState(null)
+  const [isBrandingLoading, setIsBrandingLoading] = useState(true)
   const [step, setStep] = useState('details') // 'details' or 'otp'
   const [otpValue, setOtpValue] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
@@ -56,8 +57,8 @@ export default function RegisterPage() {
           const data = await res.json()
           setCompanyBranding(data)
         }
-      } catch (e) {
-        // Silently fail
+      } finally {
+        setIsBrandingLoading(false)
       }
     }
     fetchBranding()
@@ -224,7 +225,11 @@ export default function RegisterPage() {
         <div className="max-w-xl w-full space-y-12">
           {/* Header & Headlines */}
           <div className="space-y-6 text-center lg:text-left pt-8">
-            {companyBranding?.logo && (
+            {isBrandingLoading ? (
+              <div className="flex justify-center lg:justify-start mb-10">
+                <div className="h-28 w-full max-w-[280px] rounded-2xl bg-slate-200 animate-pulse" />
+              </div>
+            ) : companyBranding?.logo && (
               <div className="flex justify-center lg:justify-start mb-10">
                 <div className="h-28 w-full max-w-[280px] flex items-center justify-center p-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-slate-100/50 shadow-sm transition-all hover:shadow-md group">
                   <Image
@@ -240,17 +245,22 @@ export default function RegisterPage() {
             )}
             <div className="space-y-4">
               <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight">
-                {companyBranding ? (
+                {isBrandingLoading ? (
+                  <div className="h-12 w-3/4 bg-slate-200 animate-pulse rounded mb-4 mx-auto lg:mx-0" />
+                ) : companyBranding ? (
                   <>Access the <span style={{ color: companyBranding.branding?.colors?.accent || '#2563eb' }}>{companyBranding.name}</span> AI Platform</>
                 ) : (
                   <>Our <span className="text-blue-600">AI-Powered</span> SaaS Platform Gets You in the Top 3</>
                 )}
               </h2>
               <p className="text-lg text-slate-500 font-medium">
-                {companyBranding 
-                  ? `Join ${companyBranding.name} and get AI-driven insights to grow your business visibility.`
-                  : "We'll analyze your location and show how our AI-driven insights can move your business toward Top 3 visibility"
-                }
+                {isBrandingLoading ? (
+                  <div className="h-4 w-full bg-slate-100 animate-pulse rounded mx-auto lg:mx-0" />
+                ) : companyBranding ? (
+                  `Join ${companyBranding.name} and get AI-driven insights to grow your business visibility.`
+                ) : (
+                  "We'll analyze your location and show how our AI-driven insights can move your business toward Top 3 visibility"
+                )}
               </p>
             </div>
           </div>
