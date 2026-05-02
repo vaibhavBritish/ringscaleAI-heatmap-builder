@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
 import { useSettings } from '@/components/providers'
+import { useCountry } from '@/hooks/use-country'
 
 const iconMap = {
   Dumbbell,
@@ -27,11 +28,16 @@ export default function Navbar() {
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false)
   const { data: session, status } = useSession()
   const { settings } = useSettings()
+  const { isIndia } = useCountry()
   
   const branding = settings?.branding || {
     appName: 'Ringscale AI',
     logoUrl: '/logo.png'
   }
+
+  const meetingLink = isIndia 
+    ? "https://calendly.com/d/cxz8-97v-6m8/20-mins-product-demo-ringscale-ai?month=2026-05"
+    : "https://calendly.com/ringscalemedia-info/ringscale-strategy-call"
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${mobileMenuOpen ? 'bg-white' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
@@ -95,7 +101,7 @@ export default function Navbar() {
               Partners 
             </Link>
             <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition">Contact Us</Link>
-            <Link href="https://calendly.com/mediaringscale/30min" target="_blank" rel="noopener noreferrer">
+            <Link href={meetingLink} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300">
                 <Calendar className="w-4 h-4" />
                 Book a Meeting
@@ -181,7 +187,7 @@ export default function Navbar() {
             </Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
           <Link 
-            href="https://calendly.com/your-meeting-link" 
+            href={meetingLink} 
             className="flex items-center gap-2 text-blue-600 font-bold py-2" 
             onClick={() => setMobileMenuOpen(false)}
             target="_blank"

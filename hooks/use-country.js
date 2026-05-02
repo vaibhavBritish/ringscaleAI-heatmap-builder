@@ -22,6 +22,17 @@ export function useCountry() {
     // 2. Fallback to IP Geolocation
     async function fetchCountry() {
       try {
+        // Try local geo API first (works on Vercel/Cloudflare edge)
+        const localRes = await fetch('/api/geo')
+        const localData = await localRes.json()
+        
+        if (localData.country) {
+          setCountry(localData.country)
+          setLoading(false)
+          return
+        }
+
+        // Fallback to external API
         const res = await fetch('https://api.country.is')
         const data = await res.json()
         if (data.country) {
