@@ -14,11 +14,14 @@ import {
   Award,
   Layers,
   ArrowRight,
-  Handshake
+  Handshake,
+  Sparkles,
+  Database
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Footer from '@/components/Footer'
 import { useState } from 'react'
+import AgenticPlatformContent from '@/components/marketing/AgenticPlatformContent'
 
 const logos = [
   '/marquee/dynamicsecurity.png',
@@ -34,6 +37,7 @@ const PartnersPage = () => {
 
   const tabs = [
     { name: 'Overview', icon: <Handshake className="w-5 h-5" /> },
+    { name: 'Agentic Platform', icon: <Sparkles className="w-5 h-5" />, badge: 'New' },
     { name: 'Resellers', icon: <Users className="w-5 h-5" /> },
     { name: 'Strategic Alliances', icon: <Award className="w-5 h-5" /> },
     { name: 'Integrators', icon: <Zap className="w-5 h-5" /> },
@@ -42,6 +46,12 @@ const PartnersPage = () => {
 
   const renderContent = () => {
     switch(activeTab) {
+      case 'Agentic Platform':
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <AgenticPlatformContent />
+          </div>
+        )
       case 'Resellers':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-24 pb-24">
@@ -778,6 +788,11 @@ const scan = await fetch('/api/v1/scans', {
                 className={`text-sm font-black transition-all relative h-full flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === tab.name ? 'text-slate-900' : 'text-slate-400 hover:text-slate-900'}`}
               >
                 {tab.name}
+                {tab.badge && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-[10px] text-white font-black uppercase tracking-widest animate-pulse">
+                    {tab.badge}
+                  </span>
+                )}
                 {activeTab === tab.name && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-full" />
                 )}
