@@ -164,6 +164,7 @@ export default function ProjectDetailPage() {
           projectId,
           keywordIds: scanConfig.keywordIds,
           gridSize: parseInt(scanConfig.gridSize),
+          density: scanConfig.density,
           spacingMeters: parseInt(scanConfig.spacingMeters),
           searchRadiusMeters: parseInt(scanConfig.searchRadiusMeters)
         })
@@ -413,14 +414,20 @@ export default function ProjectDetailPage() {
               </div>
               <div className="space-y-2">
                 <Label>Grid Size</Label>
-                <Select value={scanConfig.gridSize} onValueChange={(v) => setScanConfig({...scanConfig, gridSize: v})}>
+                <Select value={scanConfig.gridSize} onValueChange={(v) => {
+                  const d = v === '7' ? 49 : v === '9' ? 81 : v === '15' ? 225 : v === '11' ? 133 : parseInt(v) * parseInt(v)
+                  setScanConfig({...scanConfig, gridSize: v, density: d})
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="3">3x3 (9 points)</SelectItem>
-                    <SelectItem value="5">5x5 (25 points)</SelectItem>
                     <SelectItem value="7">7x7 (49 points)</SelectItem>
+                    <SelectItem value="9">9x9 (81 points)</SelectItem>
+                    <SelectItem value="11">133 Pins [Recommended]</SelectItem>
+                    {session?.user?.role === 'admin' && (
+                      <SelectItem value="15">15x15 (225 points)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

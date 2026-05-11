@@ -308,7 +308,7 @@ async function handleRoute(request, props) {
       const results = await searchBusinessByText(query)
 
       if (redis && results?.length > 0) {
-        try { await redis.set(cacheKey, JSON.stringify(results), 'EX', 3600) } catch (e) {}
+        try { await redis.set(cacheKey, JSON.stringify(results), 'EX', 86400) } catch (e) {}
       }
 
       return handleCORS(NextResponse.json({ results }))
@@ -334,7 +334,7 @@ async function handleRoute(request, props) {
       const details = await getPlaceDetails(placeId)
 
       if (redis && details) {
-        try { await redis.set(cacheKey, JSON.stringify(details), 'EX', 86400) } catch (e) {}
+        try { await redis.set(cacheKey, JSON.stringify(details), 'EX', 604800) } catch (e) {}
       }
 
       return handleCORS(NextResponse.json(details))
@@ -773,6 +773,7 @@ async function handleRoute(request, props) {
         keywordId, 
         keywordIds, 
         gridSize = 3, 
+        density,
         spacingMeters = 1000, 
         searchRadiusMeters: bodyRadiusMeters,
         radius,
@@ -822,11 +823,11 @@ async function handleRoute(request, props) {
             projectId,
             keywordId: id,
             status: 'queued',
-            gridSize,
+            gridSize: parseInt(gridSize),
             spacingMeters,
             searchRadiusMeters,
             processedPoints: 0,
-            totalPoints: gridSize * gridSize,
+            totalPoints: density || (parseInt(gridSize) * parseInt(gridSize)),
             createdAt: new Date()
           }
         })

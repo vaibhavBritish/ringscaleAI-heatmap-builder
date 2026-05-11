@@ -45,6 +45,11 @@ export default function NewProjectPage() {
   const [heatmapPins, setHeatmapPins] = useState([])
   const [isMock, setIsMock] = useState(false)
   const [greenPinPercentage, setGreenPinPercentage] = useState(50)
+
+  useEffect(() => {
+    // Admins can see 225, but everyone gets 133 as default
+    setGridDensity(133)
+  }, [session?.user?.role])
   
   // Scanning State
   const [scanning, setScanning] = useState(false)
@@ -975,7 +980,9 @@ export default function NewProjectPage() {
                           <option value={49}>49 Pins | 7x7</option>
                           <option value={81}>81 Pins | 9x9</option>
                           <option value={133}>133 Pins [Recommended]</option>
-                          <option value={225}>225 Pins | 15x15</option>
+                          {session?.user?.role === 'admin' && (
+                            <option value={225}>225 Pins | 15x15</option>
+                          )}
                         </select>
                       </div>
                       <div className="space-y-1.5">
