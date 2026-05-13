@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import * as cheerio from 'cheerio';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getSecret } from '@/lib/secrets';
 import { searchGoogleResults } from '@/lib/serp';
 
 async function getSession() {
@@ -169,7 +170,7 @@ export async function POST() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    if (!process.env.SERPAPI_API_KEY) {
+    if (!getSecret('SERPAPI_API_KEY')) {
       return NextResponse.json({ error: 'SERPAPI_API_KEY is missing' }, { status: 400 });
     }
 

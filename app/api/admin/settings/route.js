@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getSecret } from "@/lib/secrets"
+import redis from "@/lib/redis"
 
 async function checkAdmin() {
     const session = await getServerSession(authOptions)
@@ -38,6 +39,12 @@ const DEFAULT_SETTINGS = [
             stripe: !!getSecret('STRIPE_SECRET_KEY'),
             openai: !!getSecret('OPENAI_API_KEY'),
             mail: !!getSecret('EMAIL_SERVER_PASSWORD')
+        }
+    },
+    {
+        key: "google_quota",
+        value: {
+            dailyLimit: parseInt(process.env.DAILY_GOOGLE_API_LIMIT || '250')
         }
     }
 ]
@@ -112,6 +119,15 @@ export async function PATCH(request) {
             update: { value },
             create: { key, value }
         })
+
+        // Clear cache for quota if that's what was updated
+        if (key === 'google_quota' && redis) {
+            try {
+                await redis.del('config:google:dailyLimit')
+            } catch (e) {
+                console.error('Failed to clear quota cache:', e)
+            }
+        }
 
         return NextResponse.json({ message: "Setting updated successfully", setting })
     } catch (error) {

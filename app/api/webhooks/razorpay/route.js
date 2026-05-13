@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import prisma from '@/lib/prisma'
+import { getSecret } from '@/lib/secrets'
 import { sendSubscriptionEmail } from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req) {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET
+  const secret = getSecret('RAZORPAY_WEBHOOK_SECRET')
   if (!secret) {
     return NextResponse.json({ error: 'Razorpay webhook secret not configured' }, { status: 500 })
   }

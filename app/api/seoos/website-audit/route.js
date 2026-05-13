@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/seoos-auth'
 import prisma from "@/lib/prisma"
 import { v4 as uuidv4 } from 'uuid'
+import { getSecret } from '@/lib/secrets'
 import * as cheerio from 'cheerio'
 import axios from 'axios'
 import { fetchSerpRankings } from '@/lib/serp'
@@ -374,7 +375,7 @@ export async function POST(request) {
     // ─── Automated Keyword Discovery ──────────────────────────────────────────
     
     // Background tracking for each keyword (don't wait for all if too many)
-    if (!process.env.SERPAPI_API_KEY) {
+    if (!getSecret('SERPAPI_API_KEY')) {
       console.log('Skipping auto-ranking track: SERPAPI_API_KEY is missing.');
     } else {
       for (const kw of discoveredKeywords) {

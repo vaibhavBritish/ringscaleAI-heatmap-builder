@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
+import { getSecret } from '@/lib/secrets'
 import prisma from '@/lib/prisma'
 import { sendSubscriptionEmail } from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req) {
-  const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const stripeKey = getSecret('STRIPE_SECRET_KEY')
+  const stripe = stripeKey ? new Stripe(stripeKey) : null
+  const endpointSecret = getSecret('STRIPE_WEBHOOK_SECRET')
 
   if (!stripe || !endpointSecret) {
     console.error('Stripe webhook: Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET')

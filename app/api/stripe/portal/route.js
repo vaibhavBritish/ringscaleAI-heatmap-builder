@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Stripe from 'stripe'
+import { getSecret } from '@/lib/secrets'
 import prisma from '@/lib/prisma'
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = getSecret('STRIPE_SECRET_KEY')
+  ? new Stripe(getSecret('STRIPE_SECRET_KEY'))
   : null
 
 export async function POST(req) {

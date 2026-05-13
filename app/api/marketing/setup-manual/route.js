@@ -3,12 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
+import { getSecret } from '@/lib/secrets'
 
 // Helper to login to external Review-Gen API
 async function loginExternal() {
   const url = process.env.EXTERNAL_REVIEW_GEN_URL
   const email = process.env.EXTERNAL_REVIEW_GEN_EMAIL
-  const password = process.env.EXTERNAL_REVIEW_GEN_PASSWORD
+  const password = getSecret('EXTERNAL_REVIEW_GEN_PASSWORD')
 
   const response = await fetch(`${url}/api/login`, {
     method: 'POST',

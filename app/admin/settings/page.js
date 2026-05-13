@@ -284,6 +284,50 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Quota Management Section */}
+              <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Quota Management</h3>
+                    <p className="text-sm text-slate-500">Configure safety limits for external API requests.</p>
+                  </div>
+                </div>
+
+                <div className="max-w-md p-6 rounded-xl border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/10 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="google-quota" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Google API Daily Safety Limit
+                    </Label>
+                    <div className="flex gap-3">
+                      <Input 
+                        id="google-quota"
+                        type="number"
+                        placeholder="250"
+                        value={settings.google_quota?.dailyLimit || 250}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          google_quota: { dailyLimit: parseInt(e.target.value) || 0 }
+                        })}
+                      />
+                      <Button 
+                        onClick={() => handleUpdate("google_quota", settings.google_quota)}
+                        disabled={saving}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Limit"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 italic mt-2">
+                      This limit prevents the application from making more calls to Google once reached for the day. Default is 250.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-6 p-4 rounded-lg bg-slate-100 dark:bg-slate-900 border-l-4 border-slate-300 text-slate-600 dark:text-slate-400 text-sm">
                 <p><strong>Note:</strong> API keys are managed via environment variables for security. The indicators above show if the system can currently detect those keys.</p>
               </div>

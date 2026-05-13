@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import Stripe from 'stripe'
+import { getSecret } from '@/lib/secrets'
 import { sendSubscriptionEmail } from '@/lib/mail'
 
 export async function POST(request) {
@@ -12,7 +13,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const stripe = new Stripe(getSecret('STRIPE_SECRET_KEY'))
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('session_id')
 

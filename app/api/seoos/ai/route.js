@@ -3,9 +3,10 @@ import { getAdminSession } from '@/lib/seoos-auth'
 import prisma from "@/lib/prisma"
 import Anthropic from '@anthropic-ai/sdk'
 import { v4 as uuidv4 } from 'uuid'
+import { getSecret } from '@/lib/secrets'
 
 function getAnthropicClient() {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = getSecret('ANTHROPIC_API_KEY')
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not set in environment variables')
   }

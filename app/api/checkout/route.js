@@ -4,10 +4,11 @@ import { authOptions } from '@/lib/auth'
 import Stripe from 'stripe'
 import Razorpay from 'razorpay'
 import prisma from '@/lib/prisma'
+import { getSecret } from '@/lib/secrets'
 
 // Initialize SDKs only if keys are present to avoid startup crashes
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = getSecret('STRIPE_SECRET_KEY')
+  ? new Stripe(getSecret('STRIPE_SECRET_KEY'))
   : null
 
 const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
