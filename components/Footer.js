@@ -55,7 +55,7 @@ export default function Footer() {
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
               <li><Link href="#" className="hover:text-blue-600 transition-colors">Help Center</Link></li>
               <li><Link href="#" className="hover:text-blue-600 transition-colors">Customer Support</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Blog</Link></li>
+              <li><Link href="/blogs" className="hover:text-blue-600 transition-colors">Blog</Link></li>
               <li><Link href="#" className="hover:text-blue-600 transition-colors">SEO News</Link></li>
               <li><Link href="#" className="hover:text-blue-600 transition-colors">Case Studies</Link></li>
               <li><Link href="#" className="hover:text-blue-600 transition-colors">Credit Estimator</Link></li>
