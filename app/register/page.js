@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import VisualDashboard from '@/components/VisualDashboard'
 
 const countryCodes = [
   { code: '+91', country: 'IN', label: '🇮🇳 +91', id: '+91-IN' },
@@ -204,14 +205,9 @@ export default function RegisterPage() {
           </h1>
 
           <div className="relative mt-12 transform hover:scale-105 transition-transform duration-500 drop-shadow-2xl">
-            <Image
-              src="/image.png"
-              alt="Google Maps Top 3 Mockup"
-              width={500}
-              height={500}
-              className="w-full h-auto object-contain rounded-3xl"
-              priority
-            />
+            <div className="scale-75 origin-top w-[130%] -ml-[15%]">
+              <VisualDashboard />
+            </div>
           </div>
         </div>
 

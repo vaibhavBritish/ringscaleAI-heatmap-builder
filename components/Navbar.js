@@ -29,13 +29,13 @@ export default function Navbar() {
   const { data: session, status } = useSession()
   const { settings } = useSettings()
   const { isIndia } = useCountry()
-  
+
   const branding = settings?.branding || {
     appName: 'Ringscale AI',
     logoUrl: '/logo.png'
   }
 
-  const meetingLink = isIndia 
+  const meetingLink = isIndia
     ? "https://calendly.com/d/cxz8-97v-6m8/20-mins-product-demo-ringscale-ai?month=2026-05"
     : "https://calendly.com/ringscalemedia-info/ringscale-strategy-call"
 
@@ -54,26 +54,26 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <div className="hidden md:flex items-center gap-8">
-          <div className="flex items-center gap-8">
-            <Link href="#" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
-              Platform 
+        <div className="hidden xl:flex items-center gap-4 2xl:gap-8">
+          <div className="flex items-center gap-4 2xl:gap-8">
+            <Link href="#" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+              Platform
             </Link>
-           
+
 
             {/* Services Dropdown */}
             <div className="relative group/services">
-              <button className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+              <button className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
                 Services <ChevronDown className="w-3 h-3 transition-transform group-hover/services:rotate-180" />
               </button>
-              
+
               <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 transform group-hover/services:translate-y-0 translate-y-2 z-[60]">
                 <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-2xl rounded-3xl p-6 w-[600px] grid grid-cols-2 gap-2">
                   {services.map((service) => {
                     const Icon = iconMap[service.icon] || HeartPulse
                     return (
-                      <Link 
-                        key={service.slug} 
+                      <Link
+                        key={service.slug}
                         href={`/services/${service.slug}`}
                         className="flex items-start gap-4 p-4 rounded-2xl hover:bg-blue-50/50 transition-all group/item"
                       >
@@ -93,21 +93,27 @@ export default function Navbar() {
               </div>
             </div>
 
-            <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition">Pricing</Link>
-            <Link href="/ai-qr-code" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+            <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition whitespace-nowrap">Pricing</Link>
+            <Link href="/ai-qr-code" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
               AI QR Code
             </Link>
-             <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
-              Partners 
+            <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+              Partners
             </Link>
-            <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition">Contact Us</Link>
+            {/* <Link href="/testimonials" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+              Testimonials
+            </Link> */}
+            <Link href="/success-stories" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+              Success Story
+            </Link>
+            <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition whitespace-nowrap">Contact Us</Link>
             <Link href={meetingLink} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300">
+              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300 whitespace-nowrap">
                 <Calendar className="w-4 h-4" />
                 Book a Meeting
               </Button>
             </Link>
-            
+
 
           </div>
 
@@ -117,7 +123,7 @@ export default function Navbar() {
                 {session.user?.role === 'admin' && (
                   <Link href="/admin">
                     <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 px-6 font-bold flex items-center gap-2">
-                       <ShieldCheck className="w-4 h-4" /> Admin Panel
+                      <ShieldCheck className="w-4 h-4" /> Admin Panel
                     </Button>
                   </Link>
                 )}
@@ -153,9 +159,9 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden mt-4 pb-8 px-6 space-y-4 bg-white border-t border-slate-100 overflow-y-auto max-h-[80vh]">
           <Link href="#" className="block text-slate-600 font-medium pt-4">Platform</Link>
-          
+
           <div>
-            <button 
+            <button
               onClick={() => setMobileServicesOpen(!mobileServicesOpen)}
               className="flex items-center justify-between w-full text-slate-600 font-medium"
             >
@@ -164,8 +170,8 @@ export default function Navbar() {
             {mobileServicesOpen && (
               <div className="mt-4 grid grid-cols-1 gap-2 pl-4 border-l-2 border-slate-50">
                 {services.map((service) => (
-                  <Link 
-                    key={service.slug} 
+                  <Link
+                    key={service.slug}
                     href={`/services/${service.slug}`}
                     className="block py-2 text-sm text-slate-500 font-bold hover:text-blue-600"
                     onClick={() => setMobileMenuOpen(false)}
@@ -180,15 +186,17 @@ export default function Navbar() {
           <Link href="/#pricing" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
           <Link href="/ai-qr-code" className="flex items-center justify-between text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>
             AI QR Code
-          
+
           </Link>
-           <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
-              Partners 
-            </Link>
+          <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+            Partners
+          </Link>
+          {/* <Link href="/testimonials" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Testimonials</Link> */}
+          <Link href="/success-stories" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Success Story</Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
-          <Link 
-            href={meetingLink} 
-            className="flex items-center gap-2 text-blue-600 font-bold py-2" 
+          <Link
+            href={meetingLink}
+            className="flex items-center gap-2 text-blue-600 font-bold py-2"
             onClick={() => setMobileMenuOpen(false)}
             target="_blank"
             rel="noopener noreferrer"
@@ -196,7 +204,7 @@ export default function Navbar() {
             <Calendar className="w-4 h-4" /> Book a Meeting
           </Link>
 
-          
+
           <div className="pt-4 border-t border-slate-50">
             {session ? (
               <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>

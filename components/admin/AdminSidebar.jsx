@@ -7,7 +7,8 @@ import {
   LayoutDashboard, 
   Settings, 
   LogOut,
-  Building
+  Building,
+  FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
@@ -28,6 +29,11 @@ const adminNavItems = [
     title: "Partner Companies",
     href: "/admin/companies",
     icon: Building,
+  },
+  {
+    title: "Blogs",
+    href: "/admin/blogs",
+    icon: FileText,
   },
 ]
 
