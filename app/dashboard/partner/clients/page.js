@@ -41,6 +41,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ClientModal } from "@/components/dashboard/ClientModal"
 import { TransferModal } from "@/components/dashboard/TransferModal"
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -53,6 +63,8 @@ export default function PartnerClientsPage() {
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
   const [partnerCredits, setPartnerCredits] = useState(0)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [clientToDelete, setClientToDelete] = useState(null)
 
   const fetchPartnerCredits = useCallback(async () => {
     try {
@@ -88,6 +100,22 @@ export default function PartnerClientsPage() {
 
     return () => clearTimeout(delayDebounceFn)
   }, [fetchClients])
+
+  const handleDelete = async () => {
+    if (!clientToDelete) return
+    try {
+      const res = await fetch(`/api/partner/clients/${clientToDelete.id}`, { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete client")
+      toast.success("Client deleted successfully")
+      fetchClients()
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setIsDeleteOpen(false)
+      setClientToDelete(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,11 +232,14 @@ export default function PartnerClientsPage() {
                           <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => { setSelectedClient(client); setIsTransferOpen(true); }}>
                              <ArrowUpRight size={14} /> Add Credits
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer gap-2">
+                          <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => toast.info("Impersonation feature coming soon")}>
                              <ExternalLink size={14} /> View as Client
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="cursor-pointer gap-2 text-red-600">
+                          <DropdownMenuItem 
+                            className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                            onClick={() => { setClientToDelete(client); setIsDeleteOpen(true); }}
+                          >
                             <Trash2 size={14} /> Delete Client
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -235,6 +266,28 @@ export default function PartnerClientsPage() {
         client={selectedClient}
         onRefresh={fetchClients}
       />
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 text-red-600 mb-2">
+               <div className="p-2 rounded-full bg-red-50">
+                 <Trash2 size={24} />
+               </div>
+               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-slate-600">
+              This will permanently delete the client <span className="font-bold text-slate-900">{clientToDelete?.name}</span> and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
+              Delete Client
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -97,6 +97,10 @@ export async function POST(request) {
             return NextResponse.json({ error: "A user with this email already exists" }, { status: 400 })
         }
 
+        // Generate password and hash outside of the transaction to reduce transaction duration
+        const tempPassword = Math.random().toString(36).slice(-10)
+        const hashedPassword = await bcrypt.hash(tempPassword, 10)
+
         // Create Company and Admin User in a transaction
         const result = await prisma.$transaction(async (tx) => {
             const company = await tx.company.create({
@@ -109,9 +113,6 @@ export async function POST(request) {
                     website,
                 }
             })
-
-            const tempPassword = Math.random().toString(36).slice(-10)
-            const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
             const user = await tx.user.create({
                 data: {
@@ -128,7 +129,7 @@ export async function POST(request) {
 
             return { company, user, tempPassword }
         }, {
-            timeout: 10000 // 10 seconds timeout for slower production DBs
+            timeout: 15000 // 15 seconds timeout for slower production DBs
         })
 
         // Send Welcome email with credentials (non-blocking to prevent timeouts)

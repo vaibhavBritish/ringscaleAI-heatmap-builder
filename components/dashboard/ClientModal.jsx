@@ -46,8 +46,12 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
     setLoading(true)
 
     try {
-      const res = await fetch("/api/partner/clients", {
-        method: "POST",
+      const isEditing = !!client
+      const url = isEditing ? `/api/partner/clients/${client.id}` : "/api/partner/clients"
+      const method = isEditing ? "PATCH" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
@@ -56,7 +60,7 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
 
       if (!res.ok) throw new Error(data.error || "Something went wrong")
 
-      toast.success("Client created successfully")
+      toast.success(isEditing ? "Client updated successfully" : "Client created successfully")
       onRefresh()
       onClose()
     } catch (error) {
