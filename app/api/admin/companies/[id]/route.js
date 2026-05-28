@@ -85,10 +85,9 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-    console.log("[DELETE] Attempting deletion for company params:", params)
     const resolvedParams = await params
     const id = resolvedParams.id
-    console.log("[DELETE] Resolved ID:", id)
+    console.log("[DELETE] Attempting deletion for company ID:", id)
 
     if (!await checkAdmin()) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
