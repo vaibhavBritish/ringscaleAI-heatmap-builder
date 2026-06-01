@@ -178,9 +178,10 @@ export default function UsersPage() {
                 <TableHead>Company</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Plan</TableHead>
+                <TableHead>Plan Started</TableHead>
+                <TableHead>Plan Ends</TableHead>
                 <TableHead>Keywords</TableHead>
                 <TableHead>Credits</TableHead>
-                <TableHead>Created At</TableHead>
                 <TableHead align="right" className="text-right px-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -238,6 +239,24 @@ export default function UsersPage() {
                         {getPlanName(user.plan)}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-xs text-slate-500 font-medium">
+                      {user.planStartedAt 
+                        ? new Date(user.planStartedAt).toLocaleDateString() 
+                        : new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-xs font-medium">
+                      {user.plan === 'trial' && user.trialEndsAt ? (
+                        <span className={new Date(user.trialEndsAt) < new Date() ? "text-red-500" : "text-amber-500"}>
+                          {new Date(user.trialEndsAt).toLocaleDateString()} (Trial)
+                        </span>
+                      ) : user.planEndsAt ? (
+                        <span className={new Date(user.planEndsAt) < new Date() ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}>
+                          {new Date(user.planEndsAt).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {user.fullKeywords?.length > 0 ? (
                         <div 
@@ -263,9 +282,6 @@ export default function UsersPage() {
                       <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
                         {user.credits}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500 font-medium">
-                      {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right px-6">
                       <DropdownMenu>

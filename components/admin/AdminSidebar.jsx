@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut,
   Building,
-  FileText
+  FileText,
+  CreditCard
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
@@ -29,6 +30,11 @@ const adminNavItems = [
     title: "Partner Companies",
     href: "/admin/companies",
     icon: Building,
+  },
+  {
+    title: "Payments & Renewals",
+    href: "/admin/payments",
+    icon: CreditCard,
   },
   {
     title: "Blogs",

@@ -49,6 +49,7 @@ export async function GET(request) {
                     credits: true,
                     role: true,
                     trialEndsAt: true,
+                    planStartedAt: true,
                     planEndsAt: true,
                     createdAt: true,
                     company: {
