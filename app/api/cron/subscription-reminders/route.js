@@ -1,34 +1,37 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { sendSubscriptionEndingReminderEmail, sendSubscriptionEndingAdminNotification } from '@/lib/mail'
+import { 
+  sendTrialEndingEmail,
+  sendSubscriptionEndingReminderEmail, 
+  sendSubscriptionEndingAdminNotification 
+} from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request) {
-  try {
-    // Check for authorization header if needed, for cron job security
-    // const authHeader = request.headers.get('authorization')
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
+  // Validate cron secret to prevent unauthorised calls
+  const authHeader = request.headers.get('authorization')
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-    // We want to find users whose plan ends between 6 and 7 days from now
+  try {
+    // Find users whose plan or trial ends between 6 and 7 days from now
     const now = new Date()
-    const sixDaysFromNow = new Date()
-    sixDaysFromNow.setDate(now.getDate() + 6)
-    
-    const sevenDaysFromNow = new Date()
-    sevenDaysFromNow.setDate(now.getDate() + 7)
+    const sixDaysFromNow = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000)
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
     const rawExpiringUsers = await prisma.user.findMany({
       where: {
         OR: [
+          // Paid plans expiring in 6-7 days
           {
             planEndsAt: {
               gte: sixDaysFromNow,
               lt: sevenDaysFromNow
             }
           },
+          // Trial accounts expiring in 6-7 days
           {
             plan: 'trial',
             trialEndsAt: {
@@ -40,16 +43,10 @@ export async function GET(request) {
       }
     })
 
-    // Map planEndsAt so the email receives the correct date
-    const expiringUsers = rawExpiringUsers.map(u => ({
-      ...u,
-      planEndsAt: u.planEndsAt || u.trialEndsAt
-    }))
-
     const adminEmail = process.env.ADMIN_EMAIL || 'sales@ringscale.ai'
 
     const results = {
-      attempted: expiringUsers.length,
+      attempted: rawExpiringUsers.length,
       successes: 0,
       failures: 0
     }
@@ -57,25 +54,38 @@ export async function GET(request) {
     const planNames = {
       'plan_lite': 'Advance',
       'plan_pro': 'Pro',
+      'advance': 'Advance',
+      'pro': 'Pro',
+      'pro_plus': 'Pro Plus',
       'trial': 'Trial'
     }
 
-    for (const user of expiringUsers) {
+    for (const user of rawExpiringUsers) {
       try {
         const planName = planNames[user.plan] || user.plan
+        const isTrial = user.plan === 'trial'
 
-        // Send to user
-        await sendSubscriptionEndingReminderEmail(
-          user.email,
-          user.name,
-          planName,
-          user.planEndsAt
-        )
+        if (isTrial) {
+          // Send trial-specific expiry email
+          await sendTrialEndingEmail(
+            user.email,
+            user.name,
+            user.trialEndsAt
+          )
+        } else {
+          // Send generic subscription-ending reminder for paid plans
+          await sendSubscriptionEndingReminderEmail(
+            user.email,
+            user.name,
+            planName,
+            user.planEndsAt
+          )
+        }
 
-        // Send to admin
+        // Always notify admin regardless of plan type
         await sendSubscriptionEndingAdminNotification(
           adminEmail,
-          user,
+          { ...user, planEndsAt: user.planEndsAt || user.trialEndsAt },
           planName
         )
 

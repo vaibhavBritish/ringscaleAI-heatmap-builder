@@ -197,14 +197,17 @@ export default function BusinessAuditPage() {
         const mapW = pageWidth - (margin * 2) - 10
         const mapH = 140
 
-        const apiKey = config?.googleMapsApiKey
-        if (apiKey && businessInfo) {
+        // NOTE: No client-side API key needed — the /api/google/static-map proxy
+        // injects the key server-side. We just need businessInfo coordinates.
+        if (businessInfo) {
           try {
             const mapWidth = 1200
             const mapHeight = 840
             const zoom = 13 // Default zoom for audit
 
-            const center = `${businessInfo.latitude || data.scanResults[0].latitude},${businessInfo.longitude || data.scanResults[0].longitude}`
+            const centerLat = businessInfo.latitude || data.scanResults[0]?.latitude || 0
+            const centerLng = businessInfo.longitude || data.scanResults[0]?.longitude || 0
+            const center = `${centerLat},${centerLng}`
             
             const queryParams = new URLSearchParams({
               center,
@@ -233,34 +236,72 @@ export default function BusinessAuditPage() {
                 reader.readAsDataURL(blob)
               })
               
+              // Map border
               doc.setDrawColor(226, 232, 240)
               doc.setLineWidth(0.5)
               doc.roundedRect(mapX - 2, mapY - 2, mapW + 4, mapH + 4, 3, 3, 'D')
               doc.addImage(base64Data, 'PNG', mapX, mapY, mapW, mapH)
               
-              // Draw heatmap pins
+              // Draw heatmap rank pins on top of the map
               data.scanResults.forEach(p => {
-                const px = getPixelCoordinate(p.latitude, p.longitude, parseFloat(center.split(',')[0]), parseFloat(center.split(',')[1]), zoom, mapWidth, mapHeight)
+                const px = getPixelCoordinate(
+                  p.latitude, p.longitude,
+                  centerLat, centerLng,
+                  zoom, mapWidth, mapHeight
+                )
                 if (px.x < 0 || px.x > mapWidth || px.y < 0 || px.y > mapHeight) return
                 
                 const mmX = mapX + (px.x * mapW / mapWidth)
                 const mmY = mapY + (px.y * mapH / mapHeight)
                 
-                let color = [148, 163, 184]
+                let color = [148, 163, 184]    // grey  = no rank
                 let textColor = [255, 255, 255]
-                if (p.rank && p.rank <= 3) color = [34, 197, 94]
-                else if (p.rank && p.rank <= 10) { color = [234, 179, 8]; textColor = [0, 0, 0] }
-                else if (p.rank && p.rank <= 20) color = [249, 115, 22]
+                if (p.rank && p.rank <= 3)       { color = [34, 197, 94] }           // green
+                else if (p.rank && p.rank <= 10) { color = [234, 179, 8]; textColor = [0, 0, 0] }  // yellow
+                else if (p.rank && p.rank <= 20) { color = [249, 115, 22] }          // orange
                 
                 doc.setFillColor(...color)
-                doc.circle(mmX, mmY, 2, 'F')
+                doc.circle(mmX, mmY, 2.2, 'F')
                 doc.setTextColor(...textColor)
                 doc.setFontSize(4)
-                doc.text(p.rank ? String(p.rank) : 'X', mmX, mmY + 0.3, { align: 'center' })
+                doc.text(p.rank ? String(p.rank) : 'X', mmX, mmY + 0.4, { align: 'center' })
               })
+
+              // Legend
+              const legendY = mapY + mapH + 8
+              doc.setFontSize(7)
+              const legendItems = [
+                { color: [34, 197, 94],  label: 'Rank 1-3' },
+                { color: [234, 179, 8],  label: 'Rank 4-10' },
+                { color: [249, 115, 22], label: 'Rank 11-20' },
+                { color: [148, 163, 184], label: 'Not ranked' }
+              ]
+              let lx = mapX
+              legendItems.forEach(({ color, label }) => {
+                doc.setFillColor(...color)
+                doc.circle(lx + 2, legendY + 1.5, 2, 'F')
+                doc.setTextColor(71, 85, 105)
+                doc.text(label, lx + 5.5, legendY + 2)
+                lx += 28
+              })
+            } else {
+              // Map fetch failed — log the real error for debugging
+              const errText = await response.text().catch(() => 'unknown')
+              console.error('[PDF Map] Proxy returned', response.status, errText)
+              doc.setFillColor(248, 250, 252)
+              doc.rect(mapX, mapY, mapW, mapH, 'F')
+              doc.setTextColor(148, 163, 184)
+              doc.setFontSize(10)
+              doc.text(`Map load failed (${response.status}) – check server logs`, mapX + mapW / 2, mapY + mapH / 2, { align: 'center' })
             }
           } catch (e) {
-            console.error('Audit Map Error:', e)
+            console.error('Audit Map PDF Error:', e)
+            // Show error placeholder so the page is not blank
+            doc.setFillColor(254, 242, 242)
+            doc.rect(mapX, mapY, mapW, mapH, 'F')
+            doc.setTextColor(185, 28, 28)
+            doc.setFontSize(9)
+            doc.text('Map could not be rendered: ' + e.message, mapX + 4, mapY + 10)
           }
         }
       }

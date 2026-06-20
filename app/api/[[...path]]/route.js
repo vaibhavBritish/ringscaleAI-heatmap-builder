@@ -261,19 +261,24 @@ async function handleRoute(request, props) {
       const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
 
       try {
+        // No referrer header needed — server-side requests to Google Static Maps API
+        // work with just the API key. Referrer restrictions should be removed from the
+        // key in Google Cloud Console for server-side usage.
         const response = await fetch(staticMapUrl)
         if (!response.ok) {
           const text = await response.text().catch(() => 'Error')
+          console.error('[StaticMap] Google API error:', response.status, text.substring(0, 300))
           return handleCORS(NextResponse.json({ error: `Google Map Error: ${text}` }, { status: response.status }))
         }
 
         const blob = await response.blob()
-        const headers = new Headers()
-        headers.set('Content-Type', 'image/png')
-        headers.set('Cache-Control', 'public, max-age=86400')
+        const mapHeaders = new Headers()
+        mapHeaders.set('Content-Type', 'image/png')
+        mapHeaders.set('Cache-Control', 'public, max-age=86400')
 
-        return handleCORS(new NextResponse(blob, { status: 200, headers }))
+        return handleCORS(new NextResponse(blob, { status: 200, headers: mapHeaders }))
       } catch (error) {
+        console.error('[StaticMap] Fetch error:', error.message)
         return handleCORS(NextResponse.json({ error: 'Backend Map Error: ' + error.message }, { status: 500 }))
       }
     }
