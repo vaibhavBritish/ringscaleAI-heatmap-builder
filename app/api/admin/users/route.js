@@ -193,6 +193,9 @@ export async function POST(request) {
         const selectedPlan = (plan || 'trial').toLowerCase()
         const initialCredits = credits !== undefined ? parseInt(credits) : (config[selectedPlan]?.credits || 0)
 
+        // Set trial expiry date (7 days from now) for trial accounts
+        const trialEndsAt = selectedPlan === 'trial' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null
+
         const user = await prisma.user.create({
             data: {
                 id: uuidv4(),
@@ -202,6 +205,7 @@ export async function POST(request) {
                 role: role || 'user',
                 plan: selectedPlan,
                 credits: initialCredits,
+                ...(trialEndsAt && { trialEndsAt }),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
