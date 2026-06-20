@@ -203,7 +203,7 @@ export default function BusinessAuditPage() {
           try {
             const mapWidth = 1200
             const mapHeight = 840
-            const zoom = 13 // Default zoom for audit
+            const zoom = 14 // Zoomed in closer to spread pins apart
 
             const centerLat = businessInfo.latitude || data.scanResults[0]?.latitude || 0
             const centerLng = businessInfo.longitude || data.scanResults[0]?.longitude || 0
@@ -260,10 +260,14 @@ export default function BusinessAuditPage() {
                 else if (p.rank && p.rank <= 10) { color = [234, 179, 8]; textColor = [0, 0, 0] }  // yellow
                 else if (p.rank && p.rank <= 20) { color = [249, 115, 22] }          // orange
                 
+                // Draw circle with a white border so overlapping pins are distinct
                 doc.setFillColor(...color)
-                doc.circle(mmX, mmY, 2.2, 'F')
+                doc.setDrawColor(255, 255, 255)
+                doc.setLineWidth(0.2)
+                doc.circle(mmX, mmY, 1.8, 'FD') // 'FD' = Fill and Draw stroke
+                
                 doc.setTextColor(...textColor)
-                doc.setFontSize(4)
+                doc.setFontSize(3.5)
                 doc.text(p.rank ? String(p.rank) : 'X', mmX, mmY + 0.4, { align: 'center' })
               })
 
