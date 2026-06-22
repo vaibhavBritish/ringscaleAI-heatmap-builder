@@ -14,7 +14,8 @@ const GoogleMap = memo(function GoogleMap({
   onMapClick = () => {},
   mapType = 'roadmap',
   showControls = false,
-  autoFit = true
+  autoFit = true,
+  panToCenter = null // { lat, lng } — force a one-time pan to this coord (ignores autoFit)
 }) {
   const mapContainerRef = useRef(null)
   const [map, setMap] = useState(null)
@@ -23,6 +24,7 @@ const GoogleMap = memo(function GoogleMap({
   const { config, loading: configLoading } = useConfig()
   const markersRef = useRef([])
   const boundsSignatureRef = useRef('')
+  const panToCenterDoneRef = useRef(null) // tracks the last panToCenter key we acted on
 
   useEffect(() => {
     // If we have a public key, we can start loading immediately
@@ -285,6 +287,16 @@ const GoogleMap = memo(function GoogleMap({
       map.setZoom(16)
     }
   }, [map, markers, googleRefs, autoFit])
+
+  // --- panToCenter: force a one-time pan to an explicit coordinate (e.g. during rescan) ---
+  useEffect(() => {
+    if (!map || !panToCenter) return
+    const key = `${panToCenter.lat?.toFixed(5)},${panToCenter.lng?.toFixed(5)}`
+    if (panToCenterDoneRef.current === key) return // already panned here
+    panToCenterDoneRef.current = key
+    map.panTo({ lat: panToCenter.lat, lng: panToCenter.lng })
+    map.setZoom(13)
+  }, [map, panToCenter])
 
   useEffect(() => {
     if (map) {

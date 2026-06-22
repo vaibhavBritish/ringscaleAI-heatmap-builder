@@ -207,12 +207,15 @@ export default function NewProjectPage() {
           setActiveScanJobId(rescanJobId)
           setScanning(true)
           
-          // Generate pins immediately
+          // Generate pins immediately (radius must be in km for generateHeatmapGrid)
+          const rawRadius = data.project.gridSettings?.radius || 1
+          const unit = data.project.gridSettings?.unit || 'mi'
+          const radiusInKm = unit === 'mi' ? rawRadius * 1.60934 : rawRadius
           const pins = generateHeatmapGrid(
             { lat: Number(data.project.latitude), lng: Number(data.project.longitude) },
             data.project.gridSettings?.shape || 'circle',
             data.project.gridSettings?.density || 133,
-            data.project.gridSettings?.radius || 1
+            radiusInKm
           )
           setHeatmapPins(pins)
           
@@ -241,49 +244,64 @@ export default function NewProjectPage() {
           
           const data = await response.json()
           
-          // Use projectScans for aggregate progress if available
-          const allScans = data.projectScans || [data.scanJob]
-          const totalProcessed = allScans.reduce((sum, s) => sum + (s.processedPoints || 0), 0)
-          const totalPoints = allScans.reduce((sum, s) => sum + (s.totalPoints || 0), 0)
+          // --- Progress calculation ---
+          // Primary: use the scanJob directly for most accurate live progress
+          const primaryJob = data.scanJob
+          const allScans = data.projectScans || []
+          
+          // Merge: combine primary scan job + any sibling scans from projectScans
+          const allScansList = primaryJob
+            ? [primaryJob, ...allScans.filter(s => s.scanId !== primaryJob.id)]
+            : allScans
+
+          const totalProcessed = allScansList.reduce((sum, s) => sum + (s.processedPoints || 0), 0)
+          const totalPoints = allScansList.reduce((sum, s) => sum + (s.totalPoints || 0), 0)
           
           if (totalPoints > 0) {
-            const progress = Math.min(100, Math.round((totalProcessed / totalPoints) * 100))
+            const progress = Math.min(99, Math.round((totalProcessed / totalPoints) * 100))
             setScanProgress(progress)
           }
           
-          // Update pins with ranks - match by coordinates for robustness
+          // --- Update heatmap pins with live rank data ---
           if (data.results && data.results.length > 0) {
             setHeatmapPins(prevPins => {
               return prevPins.map((pin) => {
-                // Find a matching result by coordinates with a bit more tolerance 
-                // for floating point differences between server and client
+                // Match result by coordinates with generous tolerance
+                // (0.0005 deg ≈ 55m) to handle floating-point drift
                 const match = data.results.find(r => 
-                  Math.abs(r.latitude - pin.latitude) < 0.0001 && 
-                  Math.abs(r.longitude - pin.longitude) < 0.0001
+                  Math.abs(r.latitude - pin.latitude) < 0.0005 && 
+                  Math.abs(r.longitude - pin.longitude) < 0.0005
                 )
                 
-                if (match && (match.found || match.rank)) {
-                  return { ...pin, rank: match.rank, found: match.found }
+                // Update pin if a result was found — even if found===false
+                // (not-found results should show grey X, not stay blue)
+                if (match && match.latitude != null) {
+                  return { ...pin, rank: match.rank ?? null, found: match.found ?? false }
                 }
                 return pin
               })
             })
           }
           
-          // Finish when all scans are terminal OR implicitly done by progress.
-          const allDone = allScans.every((s) => {
+          // --- Check completion ---
+          // A scan is done when status is terminal OR all points processed
+          const isDone = (s) => {
             if (['completed', 'failed', 'cancelled'].includes(s.status)) return true
             const total = s.totalPoints || 0
             const processed = s.processedPoints || 0
             return total > 0 && processed >= total
-          })
+          }
+
+          const allDone = primaryJob
+            ? isDone(primaryJob) && allScans.every(isDone)
+            : allScans.length > 0 && allScans.every(isDone)
           
           if (allDone) {
             setScanning(false)
             clearInterval(pollInterval)
             
-            const anyFailed = allScans.some(s => s.status === 'failed')
-            const anyCancelled = allScans.some(s => s.status === 'cancelled')
+            const anyFailed = (primaryJob?.status === 'failed') || allScans.some(s => s.status === 'failed')
+            const anyCancelled = (primaryJob?.status === 'cancelled') || allScans.some(s => s.status === 'cancelled')
             
             if (!anyFailed && !anyCancelled) {
               setScanProgress(100)
@@ -301,7 +319,7 @@ export default function NewProjectPage() {
         } catch (error) {
           console.error('Polling error:', error)
         }
-      }, 8000)
+      }, 4000)
     }
     
     return () => {
@@ -602,6 +620,10 @@ export default function NewProjectPage() {
             onMarkerClick={handleSelectBusiness}
             mapType={mapType}
             autoFit={!scanning}
+            panToCenter={scanning && selectedBusiness ? {
+              lat: selectedBusiness.latitude,
+              lng: selectedBusiness.longitude
+            } : null}
             gridSettings={scanning ? null : {
               shape: gridShape,
               density: gridDensity,
@@ -648,22 +670,27 @@ export default function NewProjectPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900 leading-tight">Scanning Grid...</h3>
-                      <p className="text-[11px] text-slate-500 font-medium">Processing all keywords</p>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        {heatmapPins.filter(p => 'found' in p).length > 0
+                          ? `${heatmapPins.filter(p => 'found' in p).length} of ${heatmapPins.length} pins scanned`
+                          : 'Processing all keywords'
+                        }
+                      </p>
                     </div>
                   </div>
+                  <span className="text-2xl font-black text-blue-600 tabular-nums">{scanProgress}%</span>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-bold text-slate-700">
                     <span className="uppercase tracking-wider text-[10px] text-slate-500">Overall Progress</span>
-                    <span className="text-blue-600">{scanProgress}%</span>
                   </div>
-                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                     <div 
-                      className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 transition-all duration-500 relative"
-                      style={{ width: `${scanProgress}%` }}
+                      className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 transition-all duration-700 ease-out relative rounded-full"
+                      style={{ width: `${Math.max(scanProgress, 3)}%` }}
                     >
-                      <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                      <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
                     </div>
                   </div>
                   <p className="text-[10px] text-center text-slate-400 font-medium pt-1">
