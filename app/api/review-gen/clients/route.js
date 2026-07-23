@@ -3,6 +3,9 @@ import { getDB } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
+const REVIEWGEN_API_BASE = 'https://api.review-gen.ringscaleai.com/api';
+const REVIEWGEN_ADMIN_KEY = process.env.REVIEWGEN_ADMIN_KEY;
+
 async function checkAdmin() {
   const session = await getServerSession(authOptions);
   return session?.user?.role === 'admin';
@@ -37,10 +40,11 @@ export async function POST(request) {
     const body = await request.json();
 
     // 1. External Broadcast
-    const response = await fetch('https://api.review-gen.ringscaleai.com/api/clients', {
+    const response = await fetch(`${REVIEWGEN_API_BASE}/clients`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Admin-Key': REVIEWGEN_ADMIN_KEY,
       },
       body: JSON.stringify(body),
     });
@@ -98,21 +102,22 @@ export async function PUT() {
     if (!await checkAdmin()) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    const response = await fetch('https://api.review-gen.ringscaleai.com/api/clients');
+    const response = await fetch(`${REVIEWGEN_API_BASE}/clients`, {
+      headers: { 'X-Admin-Key': REVIEWGEN_ADMIN_KEY },
+    });
     if (!response.ok) throw new Error('Failed to fetch from external server');
-    
+
     const externalClients = await response.json();
     const clients = Array.isArray(externalClients) ? externalClients : (externalClients.clients || []);
-    
+
     const db = await getDB();
     const ops = clients.map(client => ({
       updateOne: {
         filter: { slug: client.slug },
-        update: { 
+        update: {
           $set: {
             ...client,
             updatedAt: new Date(),
-            // Map external fields if necessary
             keyFeatures: client.key_features || client.keyFeatures,
             gmbLink: client.gmb_link || client.gmbLink,
             brandColor: client.brand_color || client.brandColor,
