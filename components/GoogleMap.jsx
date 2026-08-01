@@ -306,18 +306,24 @@ const GoogleMap = memo(function GoogleMap({
 
   return (
     <div className="w-full h-full min-h-[400px] rounded-xl overflow-hidden shadow-inner relative bg-slate-100">
-      <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+      {/* 
+        Isolate mapContainerRef inside its own un-conditional wrapper 
+        to prevent React removeChild errors when sibling conditional nodes mount/unmount 
+      */}
+      <div className="absolute inset-0 z-0">
+        <div ref={mapContainerRef} className="w-full h-full" />
+      </div>
       
-      {!map && !loadError && (
+      {!map && !loadError ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-slate-500 font-medium">Initializing Map...</p>
           </div>
         </div>
-      )}
+      ) : null}
       
-      {loadError && (
+      {loadError ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-red-50/90 backdrop-blur-sm p-6 text-center">
           <div className="flex flex-col items-center gap-3 max-w-sm">
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
@@ -327,7 +333,7 @@ const GoogleMap = memo(function GoogleMap({
             <p className="text-xs text-red-600">Please check your internet connection and API key configuration.</p>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 })
