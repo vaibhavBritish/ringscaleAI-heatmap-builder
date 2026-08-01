@@ -43,27 +43,26 @@ export default function Navbar() {
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${mobileMenuOpen ? 'bg-white' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
       <nav className="container mx-auto px-6 h-28 flex items-center justify-between">
         <div className="flex items-center gap-3 group cursor-pointer animate-in fade-in slide-in-from-left duration-700">
-          <Link href="/">
-            <Image
+          <Link href="/" className="block shrink-0 mr-4">
+            {/* Native img tag prevents Next.js aspect-ratio container bugs */}
+            <img
               src={branding.logoUrl || "/logo.png"}
               alt={branding.appName || "Ringscale AI"}
-              width={260}
-              height={260}
-              className="h-32 w-auto object-contain"
+              className="h-20 lg:h-24 xl:h-28 w-auto object-contain"
             />
           </Link>
         </div>
 
-        <div className="hidden xl:flex items-center gap-4 2xl:gap-8">
-          <div className="flex items-center gap-4 2xl:gap-8">
-            <Link href="#" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+        <div className="hidden xl:flex items-center gap-3 xl:gap-5">
+          <div className="flex items-center gap-3 xl:gap-5">
+            <Link href="#" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
               Platform
             </Link>
 
 
             {/* Services Dropdown */}
             <div className="relative group/services">
-              <button className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+              <button className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
                 Services <ChevronDown className="w-3 h-3 transition-transform group-hover/services:rotate-180" />
               </button>
 
@@ -93,42 +92,37 @@ export default function Navbar() {
               </div>
             </div>
 
-            <Link href="/#pricing" className="text-slate-600 hover:text-slate-900 font-medium transition whitespace-nowrap">Pricing</Link>
-            <Link href="/ai-qr-code" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+            <Link href="/#pricing" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition whitespace-nowrap">Pricing</Link>
+            <Link href="/ai-qr-code" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
               AI QR Code
             </Link>
-            <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+            <Link href="/partners" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
               Partners
             </Link>
-            {/* <Link href="/testimonials" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
-              Testimonials
-            </Link> */}
-            <Link href="/success-stories" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1 whitespace-nowrap">
+            <Link href="/success-stories" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
               Success Story
             </Link>
-            <Link href="/contact-us" className="text-slate-600 hover:text-slate-900 font-medium transition whitespace-nowrap">Contact Us</Link>
+            <Link href="/contact-us" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition whitespace-nowrap">Contact Us</Link>
             <Link href={meetingLink} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 font-bold flex items-center gap-2 transition-all duration-300 whitespace-nowrap">
+              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2 transition-all duration-300 whitespace-nowrap">
                 <Calendar className="w-4 h-4" />
                 Book a Meeting
               </Button>
             </Link>
-
-
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {session ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {session.user?.role === 'admin' && (
                   <Link href="/admin">
-                    <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 px-6 font-bold flex items-center gap-2">
+                    <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4" /> Admin Panel
                     </Button>
                   </Link>
                 )}
                 <Link href="/dashboard">
-                  <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 px-6 font-bold flex items-center gap-2">
+                  <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2">
                     <LayoutDashboard className="w-4 h-4" />
                     Dashboard
                   </Button>
@@ -137,13 +131,13 @@ export default function Navbar() {
             ) : (
               <>
                 <Link href="/login">
-                  <Button variant="ghost" className="rounded-full text-slate-600 hover:bg-slate-50 px-6 font-semibold">
+                  <Button variant="ghost" className="rounded-full text-slate-600 hover:text-blue-600 hover:bg-blue-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-semibold">
                     Log In
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 py-6 font-bold flex items-center gap-2 text-lg shadow-lg shadow-blue-200">
-                    GET OFFER <span className="text-xl">→</span>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10 px-5 xl:px-6 text-[13px] xl:text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-200/50">
+                    GET OFFER <span className="text-lg">→</span>
                   </Button>
                 </Link>
               </>
@@ -188,10 +182,9 @@ export default function Navbar() {
             AI QR Code
 
           </Link>
-          <Link href="/partners" className="text-slate-600 hover:text-slate-900 font-medium transition flex items-center gap-1">
+          <Link href="/partners" className="text-slate-600 hover:text-blue-600 font-medium transition flex items-center gap-1">
             Partners
           </Link>
-          {/* <Link href="/testimonials" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Testimonials</Link> */}
           <Link href="/success-stories" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Success Story</Link>
           <Link href="/contact-us" className="block text-slate-600 font-medium" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>
           <Link
@@ -208,13 +201,13 @@ export default function Navbar() {
           <div className="pt-4 border-t border-slate-50">
             {session ? (
               <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                <Button className="w-full bg-blue-600">Go to Dashboard</Button>
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">Go to Dashboard</Button>
               </Link>
             ) : (
               <div className="space-y-3">
-                <Link href="/login" className="block text-center text-slate-600 font-bold" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                <Link href="/login" className="block text-center text-slate-600 font-bold hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Login</Link>
                 <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-blue-600 py-6 text-lg">Get Started</Button>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg">Get Started</Button>
                 </Link>
               </div>
             )}
