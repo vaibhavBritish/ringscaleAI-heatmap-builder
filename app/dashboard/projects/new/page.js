@@ -7,9 +7,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Search, Loader2, MapPin, Check, Building2, Info, 
-  Settings, ChevronDown, ChevronUp, Plus, X, 
+import {
+  Search, Loader2, MapPin, Check, Building2, Info,
+  Settings, ChevronDown, ChevronUp, Plus, X,
   Target, Zap, CreditCard, RefreshCw, Layers, ChevronRight, Phone
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,7 +25,7 @@ export default function NewProjectPage() {
   const { data: session } = useSession()
   const userPlan = session?.user?.plan || 'trial'
   const { isIndia } = useCountry()
-  
+
   const router = useRouter()
   const [searching, setSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -33,7 +33,7 @@ export default function NewProjectPage() {
   const [selectedBusiness, setSelectedBusiness] = useState(null)
   const [mapType, setMapType] = useState('roadmap')
   const [creating, setCreating] = useState(false)
-  
+
   // Heatmap Settings
   const [gridShape, setGridShape] = useState('circle')
   const [gridDensity, setGridDensity] = useState(133)
@@ -50,13 +50,13 @@ export default function NewProjectPage() {
     // Admins can see 225, but everyone gets 133 as default
     setGridDensity(133)
   }, [session?.user?.role])
-  
+
   // Scanning State
   const [scanning, setScanning] = useState(false)
   const [activeScanJobId, setActiveScanJobId] = useState(null)
   const [scanProgress, setScanProgress] = useState(0)
   const [scanAnalytics, setScanAnalytics] = useState(null)
-  
+
   // Auto-clamp radius when unit changes or session loads
   useEffect(() => {
     const getLimit = (plan) => {
@@ -65,7 +65,7 @@ export default function NewProjectPage() {
         .replace('plan_', '')
         .replace(' ', '_')
         .replace('lite', 'advance')
-        
+
       const limits = {
         'trial': 5,
         'advance': 5,
@@ -74,11 +74,11 @@ export default function NewProjectPage() {
       }
       return limits[p] || 5
     }
-    
+
     // Max radius is always defined in miles according to requirements
     const maxMiles = getLimit(userPlan)
     const max = gridUnit === 'mi' ? maxMiles : Math.round(maxMiles * 1.60934)
-    
+
     if (gridRadius > max) {
       setGridRadius(max)
       toast.warning(`Radius restricted to ${max} ${gridUnit} for your ${userPlan.toLowerCase().includes('trial') ? 'Trial' : userPlan.replace('plan_', '').split('_').map(w => w.toUpperCase()).join(' ')} plan`, {
@@ -90,7 +90,7 @@ export default function NewProjectPage() {
       })
     }
   }, [gridUnit, userPlan, gridRadius])
-  
+
 
   // UI State
   const [sidebarSections, setSidebarSections] = useState({
@@ -98,7 +98,7 @@ export default function NewProjectPage() {
     source: true,
     settings: true
   })
-  
+
   const [keywordSuggestions, setKeywordSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
@@ -119,10 +119,10 @@ export default function NewProjectPage() {
     try {
       const response = await fetch(`/api/projects/${id}`)
       if (!response.ok) throw new Error('Failed to load project')
-      
+
       const data = await response.json()
       const proj = data.project
-      
+
       setSelectedBusiness({
         placeId: proj.placeId,
         name: proj.businessName,
@@ -132,20 +132,20 @@ export default function NewProjectPage() {
         longitude: proj.longitude,
         primaryType: proj.primaryType
       })
-      
+
       setSearchQuery(proj.businessName)
-      
+
       if (proj.gridSettings) {
         setGridShape(proj.gridSettings.shape || 'circle')
         setGridDensity(proj.gridSettings.density || 133)
         setGridRadius(proj.gridSettings.radius || 1)
         setGridUnit(proj.gridSettings.unit || 'mi')
       }
-      
+
       if (data.keywords) {
         setKeywords(data.keywords.map(k => k.keyword))
       }
-      
+
       toast.success('Project details loaded')
     } catch (error) {
       console.error('Error loading project details:', error)
@@ -184,7 +184,7 @@ export default function NewProjectPage() {
           const response = await fetch(`/api/scans/${rescanJobId}/results`)
           if (!response.ok) throw new Error('Scan not found')
           const data = await response.json()
-          
+
           if (data.project) {
             setSelectedBusiness({
               name: data.project.businessName,
@@ -199,14 +199,14 @@ export default function NewProjectPage() {
               setGridRadius(data.project.gridSettings.radius || 1)
             }
           }
-          
+
           if (data.keyword) {
             setKeywords([data.keyword.keyword])
           }
-          
+
           setActiveScanJobId(rescanJobId)
           setScanning(true)
-          
+
           // Generate pins immediately (radius must be in km for generateHeatmapGrid)
           const rawRadius = data.project.gridSettings?.radius || 1
           const unit = data.project.gridSettings?.unit || 'mi'
@@ -218,13 +218,13 @@ export default function NewProjectPage() {
             radiusInKm
           )
           setHeatmapPins(pins)
-          
+
         } catch (error) {
           console.error('Initial scan fetch error:', error)
           toast.error('Failed to load active scan')
         }
       }
-      
+
       fetchInitialScan()
     }
   }, [rescanJobId, scanning, activeScanJobId])
@@ -232,7 +232,7 @@ export default function NewProjectPage() {
   // Polling logic for scan results
   useEffect(() => {
     let pollInterval
-    
+
     if (scanning && activeScanJobId) {
       pollInterval = setInterval(async () => {
         // Skip polling if tab is hidden to save API requests
@@ -241,14 +241,14 @@ export default function NewProjectPage() {
         try {
           const response = await fetch(`/api/scans/${activeScanJobId}/results?aggregate=true`)
           if (!response.ok) throw new Error('Failed to fetch results')
-          
+
           const data = await response.json()
-          
+
           // --- Progress calculation ---
           // Primary: use the scanJob directly for most accurate live progress
           const primaryJob = data.scanJob
           const allScans = data.projectScans || []
-          
+
           // Merge: combine primary scan job + any sibling scans from projectScans
           const allScansList = primaryJob
             ? [primaryJob, ...allScans.filter(s => s.scanId !== primaryJob.id)]
@@ -256,23 +256,23 @@ export default function NewProjectPage() {
 
           const totalProcessed = allScansList.reduce((sum, s) => sum + (s.processedPoints || 0), 0)
           const totalPoints = allScansList.reduce((sum, s) => sum + (s.totalPoints || 0), 0)
-          
+
           if (totalPoints > 0) {
             const progress = Math.min(99, Math.round((totalProcessed / totalPoints) * 100))
             setScanProgress(progress)
           }
-          
+
           // --- Update heatmap pins with live rank data ---
           if (data.results && data.results.length > 0) {
             setHeatmapPins(prevPins => {
               return prevPins.map((pin) => {
                 // Match result by coordinates with generous tolerance
                 // (0.0005 deg ≈ 55m) to handle floating-point drift
-                const match = data.results.find(r => 
-                  Math.abs(r.latitude - pin.latitude) < 0.0005 && 
+                const match = data.results.find(r =>
+                  Math.abs(r.latitude - pin.latitude) < 0.0005 &&
                   Math.abs(r.longitude - pin.longitude) < 0.0005
                 )
-                
+
                 // Update pin if a result was found — even if found===false
                 // (not-found results should show grey X, not stay blue)
                 if (match && match.latitude != null) {
@@ -282,7 +282,7 @@ export default function NewProjectPage() {
               })
             })
           }
-          
+
           // --- Check completion ---
           // A scan is done when status is terminal OR all points processed
           const isDone = (s) => {
@@ -295,14 +295,14 @@ export default function NewProjectPage() {
           const allDone = primaryJob
             ? isDone(primaryJob) && allScans.every(isDone)
             : allScans.length > 0 && allScans.every(isDone)
-          
+
           if (allDone) {
             setScanning(false)
             clearInterval(pollInterval)
-            
+
             const anyFailed = (primaryJob?.status === 'failed') || allScans.some(s => s.status === 'failed')
             const anyCancelled = (primaryJob?.status === 'cancelled') || allScans.some(s => s.status === 'cancelled')
-            
+
             if (!anyFailed && !anyCancelled) {
               setScanProgress(100)
               toast.success('All scans completed!')
@@ -321,7 +321,7 @@ export default function NewProjectPage() {
         }
       }, 4000)
     }
-    
+
     return () => {
       if (pollInterval) clearInterval(pollInterval)
     }
@@ -329,11 +329,11 @@ export default function NewProjectPage() {
 
   const handleCancelScan = async () => {
     if (!activeScanJobId) return
-    
+
     try {
       const response = await fetch(`/api/scans/${activeScanJobId}/cancel`, { method: 'POST' })
       if (!response.ok) throw new Error('Failed to cancel scan')
-      
+
       setScanning(false)
       toast.success('Scan stopped')
     } catch (error) {
@@ -363,7 +363,7 @@ export default function NewProjectPage() {
 
     return () => clearTimeout(timer)
   }, [searchQuery, selectedBusiness])
-  
+
   // Debounced keyword suggestions
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -405,7 +405,7 @@ export default function NewProjectPage() {
 
       const data = await response.json()
       setSearchResults(data.results || [])
-      
+
       if (data.results?.length === 0) {
         toast.error('No businesses found')
       }
@@ -574,13 +574,13 @@ export default function NewProjectPage() {
 
       const data = await response.json()
       toast.success(existingProjectId ? 'Scan started!' : 'Project created! Starting scan...')
-      
+
       if (data.scanJobIds && data.scanJobIds.length > 0) {
         const firstScanId = data.scanJobIds[0]
         setActiveScanJobId(firstScanId)
         setScanning(true)
         setScanProgress(0)
-        
+
         // Persist scan ID in URL so a refresh doesn't lose state
         const url = new URL(window.location.href)
         url.searchParams.set('rescanJobId', firstScanId)
@@ -612,10 +612,10 @@ export default function NewProjectPage() {
   return (
     <div className="flex flex-col flex-1 -m-4 md:-m-6 bg-white lg:bg-slate-50 relative overflow-y-auto lg:overflow-hidden">
       <div className="flex flex-col lg:flex-row flex-1 relative min-h-screen lg:min-h-0">
-        
+
         {/* Map Center Area (70% on desktop, Top on mobile) */}
         <main className="w-full lg:flex-1 h-[38vh] sm:h-[42vh] lg:h-auto relative bg-slate-100 order-1 lg:order-2 border-b lg:border-b-0 border-slate-200">
-          <GoogleMap 
+          <GoogleMap
             markers={mapMarkers}
             onMarkerClick={handleSelectBusiness}
             mapType={mapType}
@@ -635,7 +635,7 @@ export default function NewProjectPage() {
 
           {/* Map Overlay Controls */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 scale-90 sm:scale-100">
-            <button 
+            <button
               onClick={() => setMapType(mapType === 'roadmap' ? 'satellite' : 'roadmap')}
               className="w-10 h-10 sm:w-12 sm:h-12 bg-white border border-slate-200 rounded-xl shadow-xl flex items-center justify-center hover:bg-slate-50 transition active:scale-95 overflow-hidden group"
               title={mapType === 'roadmap' ? 'Satellite View' : 'Roadmap View'}
@@ -646,10 +646,10 @@ export default function NewProjectPage() {
                 <Building2 className="w-5 h-5 text-slate-600 group-hover:text-blue-600 transition-colors" />
               )}
             </button>
-            <button 
+            <button
               onClick={() => {
                 if (selectedBusiness) {
-                  setHeatmapPins([...heatmapPins]) 
+                  setHeatmapPins([...heatmapPins])
                 }
               }}
               className="w-10 h-10 sm:w-12 sm:h-12 bg-white border border-slate-200 rounded-xl shadow-xl flex items-center justify-center hover:bg-slate-50 transition active:scale-95 group"
@@ -680,13 +680,13 @@ export default function NewProjectPage() {
                   </div>
                   <span className="text-2xl font-black text-blue-600 tabular-nums">{scanProgress}%</span>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-bold text-slate-700">
                     <span className="uppercase tracking-wider text-[10px] text-slate-500">Overall Progress</span>
                   </div>
                   <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 transition-all duration-700 ease-out relative rounded-full"
                       style={{ width: `${Math.max(scanProgress, 3)}%` }}
                     >
@@ -701,7 +701,7 @@ export default function NewProjectPage() {
             </div>
           )}
         </main>
-        
+
         {/* Left Sidebar (Now below map on mobile, Side on desktop) */}
         <aside className="w-full lg:w-[30%] lg:min-w-[320px] lg:max-w-[450px] min-w-0 max-w-none bg-white border-r lg:border-r border-slate-200 overflow-y-auto shadow-xl flex flex-col order-2 lg:order-1">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -738,11 +738,10 @@ export default function NewProjectPage() {
               isLoading={creating}
               cooldown={2000}
               disabled={!scanning && (!selectedBusiness || keywords.length === 0)}
-              className={`w-full h-11 rounded-xl font-bold shadow transition-all ${
-                scanning
+              className={`w-full h-11 rounded-xl font-bold shadow transition-all ${scanning
                   ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700'
                   : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95'
-              }`}
+                }`}
             >
               {scanning ? 'Stop Scan' : 'Run Scan'}
             </Button>
@@ -751,7 +750,7 @@ export default function NewProjectPage() {
           <div className="flex-1">
             {/* Target Business Section */}
             <div className="border-b border-slate-100">
-              <button 
+              <button
                 onClick={() => toggleSection('business')}
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
               >
@@ -761,14 +760,14 @@ export default function NewProjectPage() {
                 </div>
                 {sidebarSections.business ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
               </button>
-              
+
               {sidebarSections.business && (
                 <div className="px-4 pb-4 space-y-3">
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                       <Search className="w-4 h-4" />
                     </div>
-                    <Input 
+                    <Input
                       className="pl-9 pr-8 h-10 text-sm border-slate-200 focus:ring-blue-500"
                       placeholder="Search business..."
                       value={searchQuery}
@@ -827,7 +826,7 @@ export default function NewProjectPage() {
 
             {/* Source Section */}
             <div className="border-b border-slate-100">
-              <button 
+              <button
                 onClick={() => toggleSection('source')}
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
               >
@@ -840,20 +839,18 @@ export default function NewProjectPage() {
 
               {sidebarSections.source && (
                 <div className="px-4 pb-4 flex gap-4">
-                  <button 
+                  <button
                     onClick={() => setSource('google-maps')}
-                    className={`flex-1 p-2 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
-                      source === 'google-maps' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
+                    className={`flex-1 p-2 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${source === 'google-maps' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
                   >
                     <img src="https://www.google.com/favicon.ico" className="w-3 h-3" alt="" />
                     Google Maps
                   </button>
-                  <button 
+                  <button
                     onClick={() => setSource('local-pack')}
-                    className={`flex-1 p-2 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
-                      source === 'local-pack' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
+                    className={`flex-1 p-2 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 ${source === 'local-pack' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
                   >
                     <Search className="w-3 h-3" />
                     Local Pack
@@ -933,7 +930,7 @@ export default function NewProjectPage() {
                   <div className="space-y-3 pt-4">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Keywords ({keywords.length})</label>
-                      <button 
+                      <button
                         onClick={handleAutoGenerateKeywords}
                         className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 transition"
                       >
@@ -950,7 +947,7 @@ export default function NewProjectPage() {
                         </Badge>
                       ))}
                       <form onSubmit={handleAddKeyword} className="flex-1 min-w-[120px]">
-                        <input 
+                        <input
                           type="text"
                           className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 placeholder:text-slate-400"
                           placeholder="Add keyword..."
@@ -988,7 +985,7 @@ export default function NewProjectPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-[10px] text-slate-400 font-bold uppercase">Shape</label>
-                        <select 
+                        <select
                           value={gridShape}
                           onChange={(e) => setGridShape(e.target.value)}
                           className="w-full h-9 rounded-lg border-slate-200 text-sm focus:ring-emerald-500"
@@ -999,7 +996,7 @@ export default function NewProjectPage() {
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] text-slate-400 font-bold uppercase">Density</label>
-                        <select 
+                        <select
                           value={gridDensity}
                           onChange={(e) => setGridDensity(Number(e.target.value))}
                           className="w-full h-9 rounded-lg border-slate-200 text-sm focus:ring-emerald-500"
@@ -1015,8 +1012,8 @@ export default function NewProjectPage() {
                       <div className="space-y-1.5">
                         <label className="text-[10px] text-slate-400 font-bold uppercase">Radius ({gridUnit})</label>
                         <div className="flex">
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             step="0.1"
                             min="0"
                             max={gridUnit === 'mi' ? 25 : 40}
@@ -1063,26 +1060,25 @@ export default function NewProjectPage() {
                   {estimatedValue}
                 </div>
               </div>
-              
-              <Button 
+
+              <Button
                 type="button"
                 onClick={scanning ? handleCancelScan : handleCreateProject}
                 isLoading={creating}
                 cooldown={2000}
                 disabled={!scanning && (!selectedBusiness || keywords.length === 0)}
-                className={`flex-1 h-12 rounded-xl font-bold shadow-lg transition-all text-base ${
-                  scanning 
-                    ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700' 
+                className={`flex-1 h-12 rounded-xl font-bold shadow-lg transition-all text-base ${scanning
+                    ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700'
                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95'
-                }`}
+                  }`}
               >
                 {scanning ? 'Stop Scan' : 'Run Scan'}
               </Button>
             </div>
             {activeScanJobId && scanProgress === 100 && (
-              <Button 
-                asChild 
-                variant="outline" 
+              <Button
+                asChild
+                variant="outline"
                 className="w-full h-11 rounded-xl border-slate-200 font-bold text-slate-700 hover:bg-slate-50 mt-1"
               >
                 <Link href={`/dashboard/scans/${activeScanJobId}`}>
@@ -1093,7 +1089,7 @@ export default function NewProjectPage() {
           </div>
         </aside>
 
-        </div>
       </div>
-    )
-  }
+    </div>
+  )
+}

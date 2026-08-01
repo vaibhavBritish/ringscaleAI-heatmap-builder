@@ -1123,6 +1123,11 @@ async function handleRoute(request, props) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
+      const gridSettings = typeof project.gridSettings === 'string' ? JSON.parse(project.gridSettings) : project.gridSettings;
+      const rawRadius = gridSettings?.radius || 5;
+      const unit = gridSettings?.unit || 'km';
+      const searchRadiusMeters = unit === 'mi' ? Math.round(rawRadius * 1609.34) : Math.round(rawRadius * 1000);
+
       const scanJobId = uuidv4()
       await prisma.scanJob.create({
         data: {
@@ -1131,14 +1136,14 @@ async function handleRoute(request, props) {
           keywordId,
           status: 'queued',
           processedPoints: 0,
-          totalPoints: project.gridSettings?.density || 133,
-          searchRadiusMeters: (project.gridSettings?.radius || 5) * 1000,
+          totalPoints: gridSettings?.density || 133,
+          searchRadiusMeters,
           createdAt: new Date()
         }
       })
 
       // Trigger background worker
-      runScanJob(scanJobId).catch(err => console.error('Rescan error:', err))
+      runScanJob(scanJobId, { skipCache: true }).catch(err => console.error('Rescan error:', err))
 
       return handleCORS(NextResponse.json({ success: true, scanJobId }))
     }
