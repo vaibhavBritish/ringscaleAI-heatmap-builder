@@ -182,7 +182,7 @@ async function handleRoute(request, props) {
         'trial': 5,
         'advance': 5,
         'pro': 10,
-        'pro_plus': 20
+        'pro_plus': 12.4 // 20km max
       }
       return limits[p] || 5
     }
@@ -516,12 +516,15 @@ async function handleRoute(request, props) {
       }
 
       // Radius validation
-      const maxAllowedRadius = getMaxRadius(currentUser.plan)
+      const maxAllowedRadiusMiles = getMaxRadius(currentUser.plan)
       const requestedRadius = gridSettings?.radius || 5
-      if (requestedRadius > maxAllowedRadius) {
+      const requestedUnit = gridSettings?.unit || 'km'
+      const requestedRadiusMiles = requestedUnit === 'km' ? requestedRadius / 1.60934 : requestedRadius
+      
+      if (requestedRadiusMiles > maxAllowedRadiusMiles + 0.1) { // 0.1 margin for float errors
         return handleCORS(NextResponse.json({
-          error: `Your current plan allows a maximum search radius of ${maxAllowedRadius} miles. Please upgrade for more.`,
-          maxAllowedRadius
+          error: `Your current plan allows a maximum search radius of ${maxAllowedRadiusMiles} miles (${Math.round(maxAllowedRadiusMiles * 1.60934)} km). Please upgrade for more.`,
+          maxAllowedRadius: maxAllowedRadiusMiles
         }, { status: 403 }))
       }
 
@@ -801,9 +804,11 @@ async function handleRoute(request, props) {
       }
 
       // Radius validation
-      const maxAllowedRadius = getMaxRadius(currentUser.plan)
+      const maxAllowedRadius = 12.4
       const requestedRadius = radius || (bodyRadiusMeters ? bodyRadiusMeters / 1609.34 : 5)
-      if (requestedRadius > maxAllowedRadius) {
+      const requestedRadiusMiles = unit === 'mi' ? requestedRadius : requestedRadius / 1.60934
+      
+      if (requestedRadiusMiles > maxAllowedRadius + 0.1) {
         return handleCORS(NextResponse.json({
           error: `Your current plan allows a maximum search radius of ${maxAllowedRadius} miles. Please upgrade for more.`,
           maxAllowedRadius

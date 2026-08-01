@@ -70,7 +70,7 @@ export default function NewProjectPage() {
         'trial': 5,
         'advance': 5,
         'pro': 10,
-        'pro_plus': 20
+        'pro_plus': 12.4 // 20km max limit
       }
       return limits[p] || 5
     }
@@ -269,8 +269,7 @@ export default function NewProjectPage() {
                 // Match result by coordinates with generous tolerance
                 // (0.0005 deg ≈ 55m) to handle floating-point drift
                 const match = data.results.find(r =>
-                  Math.abs(r.latitude - pin.latitude) < 0.0005 &&
-                  Math.abs(r.longitude - pin.longitude) < 0.0005
+                  r.rowIndex === pin.row && r.colIndex === pin.col
                 )
 
                 // Update pin if a result was found — even if found===false
@@ -1016,14 +1015,14 @@ export default function NewProjectPage() {
                             type="number"
                             step="0.1"
                             min="0"
-                            max={gridUnit === 'mi' ? 25 : 40}
+                            max={gridUnit === 'mi' ? 12.4 : 20}
                             value={gridRadius}
                             onChange={(e) => {
                               const val = Number(e.target.value)
-                              const max = gridUnit === 'mi' ? 25 : 40
+                              const max = gridUnit === 'mi' ? 12.4 : 20
                               if (val > max) {
                                 setGridRadius(max)
-                                toast.error(`Maximum radius is ${max} ${gridUnit}`)
+                                toast.error(`Maximum radius is ${max} ${gridUnit} (20km limit)`)
                               } else {
                                 setGridRadius(Math.max(0, val))
                               }
