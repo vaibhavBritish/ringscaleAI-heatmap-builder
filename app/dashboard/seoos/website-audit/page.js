@@ -13,7 +13,11 @@ import { toast } from 'sonner'
 import { Globe, Search, Sparkles, RefreshCcw, AlertCircle, CheckCircle, Clock, Download, TrendingUp, BarChart3, ListFilter, DownloadCloud, Plus } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+import {
+  PdfReport, C, loadLogo, scoreColor, scoreVerdict,
+  reportFileName, formatReportDate,
+  reportRefNumber,
+} from '@/lib/pdf-report'
 import { v4 as uuidv4 } from 'uuid'
 import { RankTracker } from '@/components/seoos/RankTracker'
 
@@ -123,100 +127,294 @@ export default function WebsiteAuditPage() {
       toast.error('No audit data found to download')
       return
     }
-    
-    toast.info('Generating Deep-Chunked PDF report...')
+
+    toast.info('Building your SEO audit report…')
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 10
-      let currentY = margin
+      const host = auditUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+      const project = projects.find(p => p.id === (currentAudit?.projectId || projectId))
 
-      // Helper to add canvas to PDF with page management
-      const addElementToPdf = async (el, forceNewPage = false) => {
-        if (!el) return
-        
-        const canvas = await html2canvas(el, { 
-          scale: 1, 
-          useCORS: true, 
-          logging: false,
-          // CSS SANITATION: Map modern OKLCH/OKLAB colors to RGB for html2canvas compatibility
-          onclone: (clonedDoc) => {
-            const elements = clonedDoc.querySelectorAll('*')
-            elements.forEach(node => {
-               const style = window.getComputedStyle(node)
-               // Flatten Backgrounds
-               if (style.backgroundColor.includes('okl')) {
-                 node.style.backgroundColor = style.backgroundColor
-               }
-               // Flatten Text
-               if (style.color.includes('okl')) {
-                 node.style.color = style.color
-               }
-               // Flatten Borders
-               if (style.borderColor.includes('okl')) {
-                 node.style.borderColor = style.borderColor
-               }
-               // Special fix for modern Tailwind v4 Gradients
-               if (style.backgroundImage.includes('okl')) {
-                 // Fallback to a solid color if gradient parsing fails
-                 node.style.backgroundImage = 'none'
-                 node.style.backgroundColor = style.backgroundColor || '#1e293b'
-               }
-            })
-          }
+      const categories = [
+        { key: 'technical', label: 'Technical', score: currentAudit?.techScore },
+        { key: 'on-page', label: 'On-Page', score: currentAudit?.onPageScore },
+        { key: 'content', label: 'Content', score: currentAudit?.contentScore },
+        { key: 'schema', label: 'Schema', score: currentAudit?.schemaScore },
+        { key: 'performance', label: 'Performance', score: currentAudit?.perfScore },
+      ]
+      const scored = categories.filter(c => Number.isFinite(Number(c.score)))
+      const overall = scored.length
+        ? Math.round(scored.reduce((acc, c) => acc + Number(c.score), 0) / scored.length)
+        : 0
+      const verdict = scoreVerdict(overall)
+
+      const SEVERITY = { critical: 0, warning: 1, info: 2 }
+      const WEIGHT = { high: 0, medium: 1, low: 2 }
+      const severityTone = (s) => (s === 'critical' ? 'danger' : s === 'warning' ? 'warning' : 'info')
+      const categoryLabel = (t) => categories.find(c => c.key === t)?.label || (t ? String(t).replace(/(^|-)([a-z])/g, (m, p, ch) => `${p === '-' ? '-' : ''}${ch.toUpperCase()}`) : 'Other')
+
+      const open = issues.filter(i => i.status !== 'resolved' && i.status !== 'ignored')
+      const sorted = [...open].sort((a, b) =>
+        (SEVERITY[a.severity] ?? 3) - (SEVERITY[b.severity] ?? 3) ||
+        (WEIGHT[a.impact] ?? 3) - (WEIGHT[b.impact] ?? 3) ||
+        (WEIGHT[a.effort] ?? 3) - (WEIGHT[b.effort] ?? 3),
+      )
+      const countBy = (s) => issues.filter(i => i.severity === s).length
+      const critical = countBy('critical')
+      const warning = countBy('warning')
+      const info = countBy('info')
+      const resolved = issues.filter(i => i.status === 'resolved').length
+      const pages = [...new Set(issues.map(i => i.pageUrl).filter(Boolean))]
+
+      const logo = await loadLogo()
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const r = new PdfReport(doc, { logo, subject: host })
+      const refNum = reportRefNumber('SEO')
+
+      // ── Cover ──────────────────────────────────────────────────────────────
+      r.cover({
+        eyebrow: 'Website SEO Audit',
+        title: host.split('/')[0],
+        subtitle: auditUrl,
+        preparedFor: project?.businessName || host.split('/')[0],
+        refNumber: refNum,
+        meta: [
+          { label: 'Report Date', value: formatReportDate(currentAudit?.completedAt || currentAudit?.createdAt || new Date()) },
+          { label: 'Issues Detected', value: `${issues.length}` },
+          { label: 'Pages Crawled', value: String(pages.length || 1) },
+        ],
+        score: { value: overall, label: 'SEO Health Score' },
+        contents: [
+          { title: 'Executive Summary', detail: 'Health score, category breakdown and issue severity mix' },
+          { title: 'Prioritised Issues', detail: `All ${open.length} open issues ordered by severity and impact` },
+          ...(pages.length > 1 ? [{ title: 'Issues by Page', detail: `Where the problems sit across ${pages.length} crawled pages` }] : []),
+          ...(rankings.length ? [{ title: 'Keyword Rankings', detail: `Live Google positions for ${rankings.length} tracked keywords` }] : []),
+          ...(performanceData.length ? [{ title: 'Search Performance', detail: 'Clicks, impressions, CTR and position from Search Console' }] : []),
+          { title: 'Contact Us', detail: 'How to reach our team for a walkthrough' },
+        ],
+      })
+
+      // ── Executive summary ──────────────────────────────────────────────────
+      r.page('Executive Summary')
+      r.heading('Executive summary', {
+        sub: `${host} scores ${overall} out of 100 across the five categories our crawler evaluates. ${issues.length} issue${issues.length === 1 ? '' : 's'} ${issues.length === 1 ? 'was' : 'were'} detected in this run${project?.businessName ? ` for ${project.businessName}` : ''}.`,
+      })
+
+      const verdictY = r.y
+      const verdictH = 42
+      r.roundRect(r.margin, verdictY, r.inner, verdictH, 2.8, { fill: C.white, border: C.border })
+      r.donut(r.margin + 24, verdictY + verdictH / 2, 13.5, overall, {
+        thickness: 4.2, value: String(overall), valueSize: 16, caption: '/ 100',
+      })
+      r.stroke(C.hairline)
+      doc.setLineWidth(0.3)
+      doc.line(r.margin + 48, verdictY + 7, r.margin + 48, verdictY + verdictH - 7)
+      r.pill(verdict.label, r.margin + 58, verdictY + 8.4, { toneName: verdict.tone })
+      r.text(
+        critical > 0
+          ? `${critical} critical issue${critical === 1 ? '' : 's'} ${critical === 1 ? 'is' : 'are'} actively suppressing how this site is crawled, indexed or understood. Resolve those before anything else.`
+          : warning > 0
+            ? 'No blocking errors were found. The remaining warnings are optimisation opportunities that compound over time.'
+            : 'The site passed every check in this run. Keep monitoring as content and templates change.',
+        r.margin + 58, verdictY + 21, { size: 8.8, color: C.body, maxWidth: r.inner - 66, lineHeight: 4.3 },
+      )
+      r.y = verdictY + verdictH + 10
+
+      r.subheading('Category scores')
+      r.y = r.tiles(
+        categories.map(c => ({
+          label: c.label,
+          value: Number.isFinite(Number(c.score)) ? String(c.score) : '—',
+          sub: 'out of 100',
+          color: Number.isFinite(Number(c.score)) ? scoreColor(c.score) : C.faint,
+        })),
+        { y: r.y, columns: 5, height: 24 },
+      ) + 10
+
+      r.ensure(60, 'Executive Summary')
+      r.subheading('Score breakdown', { right: `Overall ${overall} / 100` })
+      r.y = r.meterRows(
+        categories.map(c => ({
+          label: c.label,
+          value: Number.isFinite(Number(c.score)) ? `${c.score} / 100` : '—',
+          percent: Number(c.score) || 0,
+        })),
+        { y: r.y + 1, rowH: 10, labelW: 46, valueW: 26 },
+      ) + 8
+
+      r.ensure(40, 'Executive Summary')
+      r.subheading('Issue severity mix')
+      r.y = r.tiles([
+        { label: 'Critical', value: String(critical), sub: 'Fix immediately', color: C.red },
+        { label: 'Warnings', value: String(warning), sub: 'Optimisation gaps', color: C.amber },
+        { label: 'Informational', value: String(info), sub: 'Worth reviewing', color: C.blue },
+        { label: 'Resolved', value: String(resolved), sub: 'Already closed out', color: C.green },
+      ], { y: r.y, columns: 4, height: 24 }) + 9
+
+      r.ensure(28, 'Executive Summary')
+      r.callout({
+        y: r.y,
+        toneName: critical > 0 ? 'danger' : warning > 0 ? 'warning' : 'success',
+        title: 'What this means commercially',
+        body: critical > 0
+          ? 'Critical issues are the ones search engines treat as hard signals — missing titles, noindex directives, absent viewport tags. Until they are cleared, on-page and content work will under-deliver because pages are not being read the way you intend.'
+          : warning > 0
+            ? 'With no blocking errors, gains now come from depth: richer content, tighter metadata and structured data. These compound, so sequence them by the impact column in the next section.'
+            : 'This site is technically clean. Shift budget from remediation to content expansion and link acquisition, and re-audit after any template or CMS change.',
+      })
+
+      // Quick wins callout — highlight low-effort, high-impact items.
+      const quickWins = sorted.filter(i => i.effort === 'low' && (i.impact === 'high' || i.impact === 'medium'))
+      if (quickWins.length > 0) {
+        r.y += 6
+        r.ensure(30, 'Executive Summary')
+        r.callout({
+          y: r.y,
+          toneName: 'success',
+          title: `⚡ ${quickWins.length} Quick Win${quickWins.length === 1 ? '' : 's'} Available`,
+          body: `These fixes are low effort but high impact — the fastest points to recover: ${quickWins.slice(0, 3).map(i => i.title).join(', ')}.`,
         })
-        
-        const imgData = canvas.toDataURL('image/jpeg', 0.8)
-        const imgWidth = canvas.width
-        const imgHeight = canvas.height
-        const ratio = (pageWidth - (margin * 2)) / imgWidth
-        const elHeightOnPdf = imgHeight * ratio
-
-        if (forceNewPage || (currentY + elHeightOnPdf > pageHeight - margin)) {
-          pdf.addPage()
-          currentY = margin
-        }
-
-        pdf.addImage(imgData, 'JPEG', margin, currentY, pageWidth - (margin * 2), elHeightOnPdf)
-        currentY += elHeightOnPdf + 5 // 5mm spacing
       }
 
-      // 1. Capture Header Sections
-      const summaryCards = document.querySelector('.grid-cols-2.sm\\:grid-cols-5')
-      const summaryBar = document.querySelector('.bg-slate-900.text-white.rounded-2xl')
-      
-      await addElementToPdf(summaryCards)
-      await addElementToPdf(summaryBar)
+      // ── Prioritised issues ───────────────────────────────────────────────────
+      r.page('Prioritised Issues')
+      r.heading('Prioritised issues', {
+        sub: `All ${open.length} open issue${open.length === 1 ? '' : 's'}, ordered by severity, impact and effort so the highest-value fixes surface first.`,
+      })
+      r.table({
+        y: r.y,
+        section: 'Prioritised Issues',
+        rowH: 15,
+        cols: [
+          { label: '#', width: 0.06, align: 'center', weight: 'bold', color: C.blue, render: (row, i) => String(i + 1) },
+          { label: 'Issue', width: 0.26, weight: 'bold', render: (row) => row.title, sub: (row) => (row.pageUrl ? row.pageUrl.replace(/^https?:\/\//, '') : categoryLabel(row.type)) },
+          { label: 'Detail', width: 0.34, size: 8.2, color: C.muted, render: (row) => row.description },
+          { label: 'Category', width: 0.12, align: 'center', size: 8, color: C.body, render: (row) => categoryLabel(row.type) },
+          { label: 'Impact / Effort', width: 0.12, align: 'center', size: 7.6, color: C.body, render: (row) => `${(row.impact || '—').toUpperCase()} / ${(row.effort || '—').toUpperCase()}` },
+          { label: 'Severity', width: 0.1, align: 'center', pill: (row) => ({ label: row.severity || 'info', toneName: severityTone(row.severity) }) },
+        ],
+        rows: sorted,
+        emptyText: 'No open issues — every detected problem has been resolved or ignored.',
+      })
 
-      // 2. Capture Active Tab Content Chunks
-      const activeTabContent = document.querySelector('div[role="tabpanel"][data-state="active"]')
-      if (activeTabContent) {
-        const issueList = activeTabContent.querySelector('.space-y-2')
-        if (issueList) {
-           const rows = issueList.querySelectorAll('.border.rounded-xl')
-           if (rows.length > 0) {
-              pdf.setFontSize(14); pdf.setFont(undefined, 'bold'); 
-              pdf.text('Detailed SEO Issues', margin, currentY + 5);
-              currentY += 10;
-              
-              for (const row of rows) {
-                await addElementToPdf(row)
-                await new Promise(r => setTimeout(r, 10))
-              }
-           } else {
-             await addElementToPdf(activeTabContent)
-           }
-        } else {
-          await addElementToPdf(activeTabContent)
+      // ── Issues by page ─────────────────────────────────────────────────────
+      if (pages.length > 1) {
+        r.page('Issues by Page')
+        r.heading('Issues by page', {
+          sub: `Where the ${open.length} open issues are concentrated across the ${pages.length} pages we crawled.`,
+        })
+        const byPage = pages
+          .map(pageUrl => {
+            const list = open.filter(i => i.pageUrl === pageUrl)
+            return {
+              pageUrl,
+              total: list.length,
+              critical: list.filter(i => i.severity === 'critical').length,
+              warning: list.filter(i => i.severity === 'warning').length,
+              info: list.filter(i => i.severity === 'info').length,
+            }
+          })
+          .sort((a, b) => b.critical - a.critical || b.total - a.total)
+
+        r.table({
+          y: r.y,
+          section: 'Issues by Page',
+          cols: [
+            { label: 'Page', width: 0.52, weight: 'bold', size: 8.2, render: (row) => row.pageUrl.replace(/^https?:\/\//, '') },
+            { label: 'Critical', width: 0.12, align: 'center', weight: 'bold', color: (row) => (row.critical ? C.red : C.faint), render: (row) => String(row.critical) },
+            { label: 'Warnings', width: 0.12, align: 'center', weight: 'bold', color: (row) => (row.warning ? C.amber : C.faint), render: (row) => String(row.warning) },
+            { label: 'Info', width: 0.12, align: 'center', color: C.muted, render: (row) => String(row.info) },
+            { label: 'Total', width: 0.12, align: 'center', weight: 'bold', render: (row) => String(row.total) },
+          ],
+          rows: byPage,
+        })
+      }
+
+      // ── Keyword rankings ───────────────────────────────────────────────────
+      if (rankings.length) {
+        r.page('Keyword Rankings')
+        const inTop3 = rankings.filter(k => k.rank && k.rank <= 3).length
+        const inTop10 = rankings.filter(k => k.rank && k.rank <= 10).length
+        const unranked = rankings.filter(k => !k.rank).length
+
+        r.heading('Keyword rankings', {
+          sub: `Live Google positions for the ${rankings.length} keyword${rankings.length === 1 ? '' : 's'} tracked against this site.`,
+        })
+        r.y = r.tiles([
+          { label: 'Tracked Keywords', value: String(rankings.length), sub: 'In this project', color: C.blue },
+          { label: 'Ranking Top 3', value: String(inTop3), sub: `${Math.round((inTop3 / rankings.length) * 100)}% of tracked`, color: C.green },
+          { label: 'Ranking Top 10', value: String(inTop10), sub: 'First page presence', color: [234, 179, 8] },
+          { label: 'Not Ranking', value: String(unranked), sub: 'No position found', color: C.faint },
+        ], { y: r.y, columns: 4, height: 24 }) + 10
+
+        r.subheading('Tracked keyword positions')
+        r.table({
+          y: r.y + 1,
+          section: 'Keyword Rankings',
+          rowH: 12.5,
+          cols: [
+            { label: '#', width: 0.05, align: 'center', weight: 'bold', color: C.blue, render: (row, i) => String(i + 1) },
+            { label: 'Keyword', width: 0.37, weight: 'bold', render: (row) => row.keyword, sub: (row) => (row.url ? row.url.replace(/^https?:\/\//, '') : 'No ranking URL recorded') },
+            { label: 'Current', width: 0.12, align: 'center', weight: 'bold', color: (row) => (row.rank && row.rank <= 3 ? C.green : row.rank && row.rank <= 10 ? C.blue : C.muted), render: (row) => (row.rank ? `#${row.rank}` : '—') },
+            { label: 'Best Ever', width: 0.12, align: 'center', color: C.muted, render: (row) => (row.bestRank ? `#${row.bestRank}` : '—') },
+            { label: 'Last Checked', width: 0.16, align: 'center', size: 7.8, color: C.faint, render: (row) => (row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '—') },
+            { label: 'Status', width: 0.18, align: 'center', pill: (row) => (row.rank && row.rank <= 3 ? { label: 'Top 3', toneName: 'success' } : row.rank && row.rank <= 10 ? { label: 'Page 1', toneName: 'info' } : row.rank ? { label: `Pos ${row.rank}`, toneName: 'warning' } : { label: 'Unranked', toneName: 'neutral' }) },
+          ],
+          rows: [...rankings].sort((a, b) => (a.rank || 999) - (b.rank || 999)),
+        })
+
+        // Average position callout.
+        const rankedKws = rankings.filter(k => k.rank)
+        if (rankedKws.length > 0) {
+          const avgPos = (rankedKws.reduce((s, k) => s + k.rank, 0) / rankedKws.length).toFixed(1)
+          r.y += 8
+          r.ensure(24, 'Keyword Rankings')
+          r.callout({
+            y: r.y,
+            toneName: Number(avgPos) <= 10 ? 'success' : Number(avgPos) <= 30 ? 'info' : 'warning',
+            title: `Average Ranking Position: #${avgPos}`,
+            body: `Across ${rankedKws.length} ranking keyword${rankedKws.length === 1 ? '' : 's'}, this site sits at an average position of ${avgPos}. Keywords with positions 1–10 appear on Google's first page and capture 90%+ of all clicks.`,
+          })
         }
       }
 
-      pdf.save(`SEO-Report-${auditUrl.replace(/https?:\/\//, '').replace(/\//g, '-')}.pdf`)
-      toast.success('Report successfully downloaded!')
+      // ── Search performance ─────────────────────────────────────────────────
+      if (performanceData.length) {
+        r.page('Search Performance')
+        const clicks = performanceData.reduce((acc, d) => acc + (d.clicks || 0), 0)
+        const impressions = performanceData.reduce((acc, d) => acc + (d.impressions || 0), 0)
+        const ctr = (performanceData.reduce((acc, d) => acc + (d.ctr || 0), 0) / performanceData.length) * 100
+        const position = performanceData.reduce((acc, d) => acc + (d.position || 0), 0) / performanceData.length
+
+        r.heading('Search performance', {
+          sub: 'Google Search Console data for the last 30 days, synced directly from the verified property.',
+        })
+        r.y = r.tiles([
+          { label: 'Total Clicks', value: clicks.toLocaleString(), sub: 'Last 30 days', color: C.blue },
+          { label: 'Impressions', value: impressions.toLocaleString(), sub: 'Times shown in search', color: C.blueDeep },
+          { label: 'Average CTR', value: `${ctr.toFixed(1)}%`, sub: 'Clicks per impression', color: C.green },
+          { label: 'Average Position', value: position.toFixed(1), sub: 'Across all queries', color: C.amber },
+        ], { y: r.y, columns: 4, height: 24 }) + 10
+
+        r.callout({
+          y: r.y,
+          toneName: ctr >= 3 ? 'success' : 'info',
+          title: 'Reading these numbers',
+          body: `Impressions show how often ${host} is eligible to be seen; clicks show how often the listing earns the visit. At ${ctr.toFixed(1)}% CTR and an average position of ${position.toFixed(1)}, the fastest wins usually come from rewriting titles and meta descriptions on the highest-impression, lowest-CTR pages.`,
+        })
+      }
+
+      // ── Contact ───────────────────────────────────────────────────────────
+      r.closing({
+        section: 'Contact Us',
+        headline: 'Let\'s talk through these findings',
+        body: 'Our team is ready to walk you through this audit and help you get the most out of your site.',
+      })
+
+      r.footers({ note: `${host} — Website SEO Audit` })
+      doc.save(reportFileName('Ringscale_SEO_Audit', host))
+      toast.success('SEO audit report downloaded')
     } catch (err) {
-      console.error('PDF Deep-Chunked Error:', err)
-      toast.error('Failed to generate PDF. Compatibility error with modern CSS colors.')
+      console.error('SEO report export error:', err)
+      toast.error('Failed to generate the SEO report')
     }
   }
 
