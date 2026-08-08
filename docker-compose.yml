@@ -21,7 +21,8 @@ services:
 
     environment:
       NODE_ENV: production
-      REDIS_URL: redis://redis:6379
+      HOSTNAME: "0.0.0.0"
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       VIRTUAL_HOST: ringscale.ai,*.ringscale.ai
       VIRTUAL_PORT: 3000
 
@@ -42,8 +43,13 @@ services:
     image: redis:alpine
     container_name: seo-heatmap-redis
     restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD} --protected-mode yes
+    # Bound to the host loopback only — reachable for local debugging via
+    # `redis-cli -h 127.0.0.1 -p 6379`, never from the public internet.
+    # The app itself talks to it over the internal "default" network below,
+    # so this mapping isn't even required for the app to function.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:

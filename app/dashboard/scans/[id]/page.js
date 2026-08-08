@@ -13,8 +13,11 @@ import { toast } from 'sonner'
 import GoogleMap from '@/components/GoogleMap'
 import { calculateAnalytics } from '@/lib/grid-utils'
 import jsPDF from 'jspdf'
-import { getPixelCoordinate } from '@/lib/mercator-projection'
-import { useConfig } from '@/hooks/use-config'
+import {
+  PdfReport, C, loadLogo, scoreColor, scoreVerdict,
+  computeMapFit, fetchStaticMap, reportFileName, formatReportDate,
+  reportRefNumber,
+} from '@/lib/pdf-report'
 
 export default function ScanResultsPage() {
   const router = useRouter()
@@ -33,7 +36,6 @@ export default function ScanResultsPage() {
 
   const [viewMode, setViewMode] = useState('single') // 'single' or 'overall'
   const [projectId, setProjectId] = useState(null)
-  const { config } = useConfig()
 
   useEffect(() => {
     fetchScanResults()
@@ -121,262 +123,201 @@ export default function ScanResultsPage() {
   const [downloadLoading, setDownloadLoading] = useState(false)
 
   const handleDownloadPDF = async () => {
+    if (!selectedBusiness || !scanData) return
+
     try {
       setDownloadLoading(true)
-      const doc = new jsPDF('l', 'mm', 'a4')
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
 
-      const loadImage = (src) => {
-        return new Promise((resolve, reject) => {
-          const img = new Image()
-          img.crossOrigin = 'Anonymous'
-          img.onload = () => resolve(img)
-          img.onerror = reject
-          img.src = src
-        })
+      const results = scanData.results || []
+      const topCompetitors = scanData.topCompetitors || []
+      const analytics = scanAnalytics || {
+        totalPoints: 0, foundCount: 0, notFoundCount: 0, averageRank: 0,
+        top3Percentage: 0, top10Percentage: 0, top20Percentage: 0, visibilityScore: 0, bestRank: null,
       }
+      const currentKeyword = viewMode === 'overall'
+        ? 'All Tracked Keywords'
+        : (scanData.projectScans?.find(ps => ps.scanId === scanId)?.keyword || scanData.keyword || 'Target Keyword')
+      const radiusMeters = scanData.scanJob?.searchRadiusMeters || 5000
+      const score = Number(analytics.visibilityScore) || 0
+      const verdict = scoreVerdict(score)
+      const notFoundPct = analytics.totalPoints
+        ? Math.round((analytics.notFoundCount / analytics.totalPoints) * 100)
+        : 0
 
-      // --- PAGE 1: HEATMAP AUDIT ---
-      doc.setFillColor(15, 23, 42) // Slate 900
-      doc.rect(0, 0, 75, pageHeight, 'F')
+      const logo = await loadLogo()
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const r = new PdfReport(doc, { logo, subject: selectedBusiness.name })
+      const refNum = reportRefNumber('HM')
 
-      try {
-        const logoImg = await loadImage('/logo.png')
-        doc.addImage(logoImg, 'PNG', 15, 12, 45, 15)
-      } catch (e) {
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(18)
-        doc.text('Ringscale AI', 15, 22)
-      }
-
-      let sy = 45
-      doc.setTextColor(59, 130, 246)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('PERFORMANCE AUDIT', 15, sy)
-      sy += 7
-
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(13)
-      doc.text(selectedBusiness.name, 15, sy, { maxWidth: 50 })
-      sy += (doc.splitTextToSize(selectedBusiness.name, 50).length * 6)
-
-      doc.setFontSize(8)
-      doc.setTextColor(148, 163, 184)
-      doc.setFont('helvetica', 'normal')
-      doc.text(selectedBusiness.address || '', 15, sy, { maxWidth: 50 })
-      sy += 12
-
-      const currentKeyword = scanData.projectScans?.find(ps => ps.scanId === scanId)?.keyword || 'Multiple Keywords'
-      doc.setTextColor(59, 130, 246)
-      doc.setFontSize(7)
-      doc.setFont('helvetica', 'bold')
-      doc.text('TARGET KEYWORD', 15, sy)
-      sy += 5
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(10)
-      doc.text(currentKeyword, 15, sy, { maxWidth: 50 })
-      sy += 15
-
-      if (scanAnalytics) {
-        const stats = [
-          { label: 'Visibility Score', value: `${scanAnalytics.visibilityScore}%`, color: [34, 197, 94] },
-          { label: 'Average Rank', value: String(scanAnalytics.averageRank || 'N/A'), color: [255, 255, 255] },
-          { label: 'Best Found Rank', value: `#${scanAnalytics.bestRank || '-'}`, color: [234, 179, 8] }
-        ]
-
-        stats.forEach(s => {
-          doc.setTextColor(148, 163, 184)
-          doc.setFontSize(7)
-          doc.text(s.label.toUpperCase(), 15, sy)
-          sy += 6
-          doc.setTextColor(...s.color)
-          doc.setFontSize(22)
-          doc.setFont('helvetica', 'bold')
-          doc.text(s.value, 15, sy)
-          sy += 15
-        })
-      }
-
-      sy = pageHeight - 40
-      doc.setTextColor(59, 130, 246)
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.text('RANKING LEGEND', 15, sy)
-      sy += 6
-      const legend = [
-        { color: [34, 197, 94], label: 'Top 3 (Dominant)' },
-        { color: [234, 179, 8], label: 'Top 10 (Visible)' },
-        { color: [249, 115, 22], label: 'Top 20 (Weak)' },
-        { color: [148, 163, 184], label: '20+ (Not Found)' }
-      ]
-      legend.forEach(item => {
-        doc.setFillColor(...item.color)
-        doc.circle(17, sy - 1, 1.5, 'F')
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.text(item.label, 21, sy)
-        sy += 5
+      // ── Cover ──────────────────────────────────────────────────────────────
+      r.cover({
+        eyebrow: 'Local Search Ranking Audit',
+        title: selectedBusiness.name,
+        subtitle: selectedBusiness.address || '',
+        preparedFor: scanData.project?.businessName || selectedBusiness.name,
+        refNumber: refNum,
+        meta: [
+          { label: 'Report Date', value: formatReportDate(new Date()) },
+          { label: 'Target Keyword', value: currentKeyword },
+          { label: 'Search Radius', value: `${(radiusMeters / 1000).toFixed(1)} km` },
+        ],
+        score: { value: score, label: 'Visibility Score' },
+        contents: [
+          { title: 'Executive Summary', detail: 'Visibility score, ranking distribution and key findings' },
+          { title: 'Local Ranking Heatmap', detail: `Rank measured across ${analytics.totalPoints} map points` },
+          ...(topCompetitors.length ? [{ title: 'Competitive Analysis', detail: `Benchmarked against ${topCompetitors.length} nearby businesses` }] : []),
+          { title: 'Contact Us', detail: 'How to reach our team for a walkthrough' },
+        ],
       })
 
-      const mapX = 85
-      const mapY = 15
-      const mapW = pageWidth - mapX - 15
-      const mapH = pageHeight - 30
+      // ── Executive summary ──────────────────────────────────────────────────
+      r.page('Executive Summary')
+      r.heading('Executive summary', {
+        sub: `${selectedBusiness.name} scores ${score}% visibility for "${currentKeyword}" across ${analytics.totalPoints} sampled locations within a ${(radiusMeters / 1000).toFixed(1)} km radius.`,
+      })
 
-      const apiKey = config?.googleMapsApiKey
-      if (apiKey && selectedBusiness) {
+      const verdictY = r.y
+      const verdictH = 42
+      r.roundRect(r.margin, verdictY, r.inner, verdictH, 2.8, { fill: C.white, border: C.border })
+      r.donut(r.margin + 24, verdictY + verdictH / 2, 13.5, score, {
+        thickness: 4.2, value: String(score), valueSize: 16, caption: '/ 100',
+      })
+      r.stroke(C.hairline)
+      doc.setLineWidth(0.3)
+      doc.line(r.margin + 48, verdictY + 7, r.margin + 48, verdictY + verdictH - 7)
+      r.pill(verdict.label, r.margin + 58, verdictY + 8.4, { toneName: verdict.tone })
+      r.text(
+        score >= 80
+          ? 'This business dominates the local pack for this search. Protect the position with steady review velocity and fresh content.'
+          : score >= 60
+            ? 'Solid visibility with clear headroom. The heatmap below shows exactly which parts of the service area still need work.'
+            : score >= 40
+              ? 'Visibility is inconsistent across the service area. A meaningful share of nearby searchers are not seeing this business at all.'
+              : 'This business is largely invisible for this search across the sampled area, losing the majority of local demand to competitors.',
+        r.margin + 58, verdictY + 21, { size: 8.8, color: C.body, maxWidth: r.inner - 66, lineHeight: 4.3 },
+      )
+      r.y = verdictY + verdictH + 10
+
+      r.subheading('Performance at a glance')
+      r.y = r.tiles([
+        { label: 'Best Rank', value: analytics.bestRank ? `#${analytics.bestRank}` : '—', sub: 'Strongest position found', color: C.green },
+        { label: 'Average Rank', value: analytics.averageRank ? String(analytics.averageRank) : '—', sub: 'Across found positions', color: C.blue },
+        { label: 'Top 3 Coverage', value: `${analytics.top3Percentage}%`, sub: 'Of sampled locations', color: scoreColor(analytics.top3Percentage) },
+        { label: 'Not Ranking', value: `${analytics.notFoundCount} · ${notFoundPct}%`, sub: 'No position found', color: analytics.notFoundCount ? C.red : C.green },
+      ], { y: r.y, columns: 4, height: 25 }) + 11
+
+      r.ensure(48, 'Executive Summary')
+      r.subheading('Ranking distribution', { right: `${analytics.totalPoints} points sampled` })
+      r.y = r.meterRows([
+        { label: 'Top 3 (Dominant)', value: `${analytics.top3Percentage}%`, percent: analytics.top3Percentage, color: C.green },
+        { label: 'Top 10 (Visible)', value: `${analytics.top10Percentage}%`, percent: analytics.top10Percentage, color: [234, 179, 8] },
+        { label: 'Top 20 (Weak)', value: `${analytics.top20Percentage}%`, percent: analytics.top20Percentage, color: C.orange },
+        { label: 'Not Found', value: `${notFoundPct}%`, percent: notFoundPct, color: C.faint },
+      ], { y: r.y + 1, rowH: 10.5, labelW: 50, valueW: 22 }) + 8
+
+      const keyFindings = []
+      if (analytics.top3Percentage < 30) keyFindings.push(`Only ${analytics.top3Percentage}% top-3 coverage — most of the service area is being lost to competitors`)
+      if (analytics.notFoundCount > 0) keyFindings.push(`${analytics.notFoundCount} of ${analytics.totalPoints} sampled points (${notFoundPct}%) returned no ranking at all`)
+      if (analytics.averageRank && analytics.averageRank > 10) keyFindings.push(`Average rank of ${analytics.averageRank} sits outside the first page for most searches`)
+      if (keyFindings.length === 0) keyFindings.push('Coverage is strong across the sampled area. Focus on defending the position as competitors respond.')
+
+      r.ensure(34, 'Executive Summary')
+      r.callout({
+        y: r.y,
+        toneName: keyFindings.length > 1 ? 'warning' : 'success',
+        title: '🔑 Key Findings at a Glance',
+        body: keyFindings.join('. ') + '.',
+      })
+
+      // ── Local ranking heatmap ────────────────────────────────────────────────
+      r.page('Local Ranking Heatmap')
+      r.heading('Local ranking heatmap', {
+        sub: `Rank position sampled at ${analytics.totalPoints} points across the service area for "${currentKeyword}". Each pin shows the position this business held in the local pack when searched from that spot.`,
+      })
+
+      const mapW = r.inner
+      const mapH = mapW / (600 / 420)
+      const fit = computeMapFit(results, { logicalW: 600, logicalH: 420 })
+
+      if (fit) {
         try {
-          const mapWidth = 1200
-          const mapHeight = 840
-          const radiusMeters = scanData.scanJob?.searchRadiusMeters || 5000
-          const zoom = Math.floor(16 - Math.log2(radiusMeters / 750))
-
-          const center = `${selectedBusiness.latitude},${selectedBusiness.longitude}`
-          const mapTypeParam = mapType === 'roadmap' ? 'roadmap' : 'satellite'
-          
-          // Build query for secure server-side proxy
-          const queryParams = new URLSearchParams({
-            center,
-            zoom: String(zoom),
-            size: '600x420',
-            scale: '2',
-            maptype: mapTypeParam,
-            format: 'png8'
+          const image = await fetchStaticMap({
+            center: fit.center, zoom: fit.zoom, width: 600, height: 420, scale: 2,
+            maptype: mapType === 'roadmap' ? 'roadmap' : 'satellite',
           })
-          
-          // Inject custom dashboard styles
-          const rawStyles = [
-            'feature:all|element:labels.text.fill|color:0x0c4bb0',
-            'feature:water|element:geometry|color:0xa2daf2',
-            'feature:landscape|element:geometry|color:0xe9f1f4'
-          ]
-          rawStyles.forEach(s => queryParams.append('style', s))
-
-          const proxyUrl = `/api/google/static-map?${queryParams.toString()}`
-          
-          const response = await fetch(proxyUrl)
-          const blob = await response.blob()
-          const reader = new FileReader()
-          const base64Data = await new Promise((res) => {
-            reader.onloadend = () => res(reader.result)
-            reader.readAsDataURL(blob)
+          const box = { x: r.margin, y: r.y, w: mapW, h: mapH }
+          r.roundRect(box.x - 1, box.y - 1, box.w + 2, box.h + 2, 2, { border: C.border, lineWidth: 0.5 })
+          doc.addImage(image, 'PNG', box.x, box.y, box.w, box.h)
+          r.heatmapPins({
+            points: results, center: fit.center, zoom: fit.zoom, box,
+            imgW: 1200, imgH: 840, scale: 2, radius: 2.1,
+            business: selectedBusiness,
           })
-          
-          // Draw map frame
-          doc.setDrawColor(226, 232, 240) // Slate 200
-          doc.setLineWidth(0.5)
-          doc.roundedRect(mapX - 2, mapY - 2, mapW + 4, mapH + 4, 3, 3, 'D')
-          doc.addImage(base64Data, 'PNG', mapX, mapY, mapW, mapH)
-          
-          // Draw high-fidelity markers
-          heatmapPins.forEach(p => {
-            if (p.rank === undefined && !p.found) return
-            const px = getPixelCoordinate(p.latitude, p.longitude, selectedBusiness.latitude, selectedBusiness.longitude, zoom, mapWidth, mapHeight)
-            if (px.x < 0 || px.x > mapWidth || px.y < 0 || px.y > mapHeight) return
-            
-            const mmX = mapX + (px.x * mapW / mapWidth)
-            const mmY = mapY + (px.y * mapH / mapHeight)
-            
-            let color = [148, 163, 184] // Slate 400 (Grey)
-            let textColor = [255, 255, 255]
-            if (p.rank && p.rank <= 3) color = [34, 197, 94] // Green
-            else if (p.rank && p.rank <= 10) {
-              color = [234, 179, 8] // Yellow
-              textColor = [0, 0, 0] // Black text for yellow background
-            }
-            else if (p.rank && p.rank <= 20) color = [249, 115, 22] // Orange
-            
-            doc.setFillColor(...color)
-            doc.circle(mmX, mmY, 2.5, 'F')
-            doc.setDrawColor(255, 255, 255)
-            doc.setLineWidth(0.3)
-            doc.circle(mmX, mmY, 2.5, 'S')
-            
-            doc.setTextColor(...textColor)
-            doc.setFontSize(5.5)
-            doc.setFont('helvetica', 'bold')
-            const txt = (p.found === false || !p.rank || p.rank > 20) ? 'X' : String(p.rank)
-            doc.text(txt, mmX, mmY + 0.4, { align: 'center' })
+        } catch (err) {
+          console.error('[Scan PDF] Heatmap render failed:', err)
+          r.roundRect(r.margin, r.y, mapW, mapH, 2, { fill: C.wash, border: C.border })
+          r.text('Map imagery could not be loaded for this report.', r.margin + mapW / 2, r.y + mapH / 2, {
+            size: 9, weight: 'bold', color: C.faint, align: 'center',
           })
-
-          // Business Marker (Red 'B')
-          const cpx = getPixelCoordinate(selectedBusiness.latitude, selectedBusiness.longitude, selectedBusiness.latitude, selectedBusiness.longitude, zoom, mapWidth, mapHeight)
-          const cmmX = mapX + (cpx.x * mapW / mapWidth)
-          const cmmY = mapY + (cpx.y * mapH / mapHeight)
-          doc.setFillColor(239, 68, 68) // Red 500
-          doc.circle(cmmX, cmmY, 4.0, 'F')
-          doc.setDrawColor(255, 255, 255)
-          doc.setLineWidth(0.5)
-          doc.circle(cmmX, cmmY, 4.0, 'S')
-          doc.setTextColor(255, 255, 255)
-          doc.setFontSize(7.5)
-          doc.setFont('helvetica', 'bold')
-          doc.text('B', cmmX, cmmY + 1.1, { align: 'center' })
-
-          // Map Legend Overlay
-          doc.setFillColor(255, 255, 255)
-          doc.roundedRect(mapX + 5, mapY + 5, 75, 8, 1, 1, 'F')
-          doc.setTextColor(15, 23, 42)
-          doc.setFontSize(8)
-          doc.setFont('helvetica', 'bold')
-          doc.text('LOCAL SEARCH RANKING HEATMAP', mapX + 8, mapY + 10.5)
-        } catch (e) {
-          console.error('Map Error:', e)
         }
       }
 
-      // --- PAGE 2: COMPETITORS ---
-      if (scanData?.topCompetitors?.length > 0) {
-        doc.addPage('l', 'mm', 'a4')
-        doc.setFillColor(15, 23, 42)
-        doc.rect(0, 0, pageWidth, 40, 'F')
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(22)
-        doc.setFont('helvetica', 'bold')
-        doc.text('COMPETITIVE ANALYSIS', 15, 25)
-        doc.setFontSize(10)
-        doc.setTextColor(59, 130, 246)
-        doc.text('TOP LOCAL SEARCH COMPETITORS', 15, 33)
+      r.y += mapH + 8
+      r.y = r.rankLegend(r.margin, r.y, { w: r.inner }) + 7
 
-        let cy = 55
-        doc.setFillColor(248, 250, 252)
-        doc.rect(15, cy, pageWidth - 30, 10, 'F')
-        doc.setTextColor(100, 116, 139)
-        doc.setFontSize(9)
-        doc.text('RANK', 20, cy + 6.5)
-        doc.text('BUSINESS NAME & ADDRESS', 40, cy + 6.5)
-        doc.text('AVG RANK', pageWidth - 70, cy + 6.5)
-        doc.text('VISIBILITY (%)', pageWidth - 40, cy + 6.5)
-        cy += 15
+      r.ensure(34, 'Local Ranking Heatmap')
+      r.y = r.tiles([
+        { label: 'Points Sampled', value: String(analytics.totalPoints), sub: 'Grid coverage', color: C.blue },
+        { label: 'Top 3 Positions', value: `${Math.round((analytics.top3Percentage / 100) * analytics.totalPoints)} · ${analytics.top3Percentage}%`, sub: 'Dominant coverage', color: C.green },
+        { label: 'Top 10 Positions', value: `${Math.round((analytics.top10Percentage / 100) * analytics.totalPoints)} · ${analytics.top10Percentage}%`, sub: 'Visible coverage', color: [234, 179, 8] },
+        { label: 'Not Ranked', value: `${analytics.notFoundCount} · ${notFoundPct}%`, sub: 'Outside top 20', color: C.faint },
+      ], { y: r.y, columns: 4, height: 25 }) + 9
 
-        scanData.topCompetitors.slice(0, 10).forEach((comp, idx) => {
-          doc.setTextColor(15, 23, 42)
-          doc.setFontSize(10)
-          doc.setFont('helvetica', 'bold')
-          doc.text(`#${idx + 1}`, 20, cy)
-          doc.text(comp.name, 40, cy)
-          doc.setFontSize(8)
-          doc.setTextColor(100, 116, 139)
-          doc.setFont('helvetica', 'normal')
-          doc.text(comp.address || 'Address not listed', 40, cy + 4)
-          doc.setTextColor(15, 23, 42)
-          doc.setFontSize(11)
-          doc.setFont('helvetica', 'bold')
-          doc.text(`${Math.round(comp.avgRank || comp.rank)}`, pageWidth - 65, cy + 2)
-          const visPercent = Math.round((comp.appearances / (scanAnalytics?.totalPoints || 1)) * 100)
-          doc.setTextColor(34, 197, 94)
-          doc.text(`${visPercent}%`, pageWidth - 35, cy + 2)
-          doc.setDrawColor(241, 245, 249)
-          doc.line(15, cy + 8, pageWidth - 15, cy + 8)
-          cy += 14
+      r.ensure(26, 'Local Ranking Heatmap')
+      r.callout({
+        y: r.y,
+        toneName: analytics.top3Percentage >= 50 ? 'success' : analytics.top3Percentage >= 25 ? 'warning' : 'danger',
+        title: 'Reading the heatmap',
+        body: `Green pins are the searches where this business owns the local pack. ${analytics.foundCount} of ${analytics.totalPoints} sampled points returned a position at all, with an average rank of ${analytics.averageRank || '—'}. Grey "X" pins are searches where a competitor took the placement entirely.`,
+      })
+
+      // ── Competitive analysis ─────────────────────────────────────────────────
+      if (topCompetitors.length) {
+        r.page('Competitive Analysis')
+        r.heading('Competitive analysis', {
+          sub: `The ${topCompetitors.length} businesses that appeared most often alongside this one across the sampled search grid.`,
+        })
+
+        r.table({
+          y: r.y,
+          section: 'Competitive Analysis',
+          cols: [
+            { label: '#', width: 0.06, align: 'center', weight: 'bold', color: C.blue, render: (row, i) => String(i + 1) },
+            { label: 'Business', width: 0.4, weight: 'bold', render: (row) => row.name, sub: (row) => row.address || 'Address not listed' },
+            { label: 'Avg Rank', width: 0.16, align: 'center', weight: 'bold', render: (row) => `#${Math.round(row.avgRank || row.rank || 0)}` },
+            { label: 'Appearances', width: 0.16, align: 'center', color: C.muted, render: (row) => String(row.appearances || 0) },
+            {
+              label: 'Visibility', width: 0.22, align: 'center',
+              pill: (row) => {
+                const pct = Math.round(((row.appearances || 0) / (analytics.totalPoints || 1)) * 100)
+                return { label: `${pct}%`, toneName: pct >= 50 ? 'danger' : pct >= 25 ? 'warning' : 'neutral' }
+              },
+            },
+          ],
+          rows: topCompetitors.slice(0, 10),
         })
       }
 
-      doc.save(`Audit_${selectedBusiness.name.replace(/\s+/g, '_')}.pdf`)
-      toast.success('Agency-grade report downloaded!')
+      // ── Contact ───────────────────────────────────────────────────────────
+      r.closing({
+        section: 'Contact Us',
+        headline: 'Let\'s talk through these findings',
+        body: 'Our team is ready to walk you through this scan and help you get the most out of your local visibility.',
+      })
+
+      r.footers({ note: `${selectedBusiness.name} — Local Search Ranking Audit` })
+      doc.save(reportFileName('Ringscale_Ranking_Audit', selectedBusiness.name))
+      toast.success('Audit report downloaded')
     } catch (error) {
       console.error('PDF Error:', error)
       toast.error('Failed to build report')
