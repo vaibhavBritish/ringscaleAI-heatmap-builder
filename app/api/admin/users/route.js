@@ -156,7 +156,15 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    if (!await checkAdmin()) {
+
+    const isAdmin = await checkAdmin()
+
+    // Support internal API authentication for server-to-server sync from gmb-connector
+    const authHeader = request.headers.get("authorization")
+    const internalSecret = process.env.RINGSCALE_INTERNAL_SECRET || process.env.SERVICE_SECRET_KEY
+    const isWebhookAuthorized = authHeader && internalSecret && authHeader === `Bearer ${internalSecret}`
+
+    if (!isAdmin && !isWebhookAuthorized) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
@@ -211,10 +219,16 @@ export async function POST(request) {
             }
         })
 
-        const { sendWelcomeEmail } = await import('@/lib/mail')
-        sendWelcomeEmail(email, name, selectedPlan, initialCredits).catch(err => {
-            console.error('Error sending welcome email:', err)
-        })
+        const { sendWelcomeEmail, sendGMBWelcomeEmail } = await import('@/lib/mail')
+        if (isWebhookAuthorized) {
+            sendGMBWelcomeEmail(email, name, selectedPlan, initialCredits, password).catch(err => {
+                console.error('Error sending GMB welcome email:', err)
+            })
+        } else {
+            sendWelcomeEmail(email, name, selectedPlan, initialCredits).catch(err => {
+                console.error('Error sending welcome email:', err)
+            })
+        }
 
         return NextResponse.json({
             message: "User created successfully",
