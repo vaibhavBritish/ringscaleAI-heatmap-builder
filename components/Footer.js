@@ -3,6 +3,8 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Building2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useSettings } from '@/components/providers'
 
 export default function Footer() {
@@ -36,6 +38,12 @@ export default function Footer() {
               <p className="text-[#526484] font-bold text-sm max-w-xs text-center lg:text-left">
                 The World's #1 <span className="text-blue-600">AI-Powered</span> SaaS Platform for Local Search Dominance.
               </p>
+              <Link href="https://connect.ringscale.ai/" target="_blank" rel="noopener noreferrer">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10 px-5 text-[13px] font-bold flex items-center gap-2 shadow-lg shadow-blue-200/50">
+                  <Building2 className="w-4 h-4" />
+                  Connect Your Google My Business Profile
+                </Button>
+              </Link>
             </div>
           </div>
 

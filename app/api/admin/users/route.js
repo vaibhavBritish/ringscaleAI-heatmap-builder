@@ -170,19 +170,24 @@ export async function POST(request) {
 
     try {
         const body = await request.json()
-        const { name, email, password, role, plan, credits } = body
+        const { name, email, password, role, plan, credits, businessName, placeId, address, latitude, longitude, primaryType } = body
 
         if (!email || !password) {
             return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
         }
 
-        const existingUser = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { email: email.toLowerCase() }
         })
 
-        if (existingUser) {
-            return NextResponse.json({ error: "User already exists" }, { status: 400 })
-        }
+        let isNewUser = false;
+
+        if (user) {
+            if (!isWebhookAuthorized) {
+                return NextResponse.json({ error: "User already exists" }, { status: 400 })
+            }
+        } else {
+            isNewUser = true;
 
         const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -204,30 +209,53 @@ export async function POST(request) {
         // Set trial expiry date (7 days from now) for trial accounts
         const trialEndsAt = selectedPlan === 'trial' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null
 
-        const user = await prisma.user.create({
-            data: {
-                id: uuidv4(),
-                name,
-                email: email.toLowerCase(),
-                password: hashedPassword,
-                role: role || 'user',
-                plan: selectedPlan,
-                credits: initialCredits,
-                ...(trialEndsAt && { trialEndsAt }),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            }
-        })
+            user = await prisma.user.create({
+                data: {
+                    id: uuidv4(),
+                    name,
+                    email: email.toLowerCase(),
+                    password: hashedPassword,
+                    role: role || 'user',
+                    plan: selectedPlan,
+                    credits: initialCredits,
+                    ...(trialEndsAt && { trialEndsAt }),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                }
+            })
 
-        const { sendWelcomeEmail, sendGMBWelcomeEmail } = await import('@/lib/mail')
-        if (isWebhookAuthorized) {
-            sendGMBWelcomeEmail(email, name, selectedPlan, initialCredits, password).catch(err => {
-                console.error('Error sending GMB welcome email:', err)
+            const { sendWelcomeEmail, sendGMBWelcomeEmail } = await import('@/lib/mail')
+            if (isWebhookAuthorized) {
+                sendGMBWelcomeEmail(email, name, selectedPlan, initialCredits, password).catch(err => {
+                    console.error('Error sending GMB welcome email:', err)
+                })
+            } else {
+                sendWelcomeEmail(email, name, selectedPlan, initialCredits).catch(err => {
+                    console.error('Error sending welcome email:', err)
+                })
+            }
+        }
+
+        if (isWebhookAuthorized && businessName && placeId) {
+            const existingProject = await prisma.project.findFirst({
+                where: { userId: user.id, placeId }
             })
-        } else {
-            sendWelcomeEmail(email, name, selectedPlan, initialCredits).catch(err => {
-                console.error('Error sending welcome email:', err)
-            })
+            if (!existingProject) {
+                await prisma.project.create({
+                    data: {
+                        id: uuidv4(),
+                        userId: user.id,
+                        businessName,
+                        placeId,
+                        address: address || '',
+                        latitude: parseFloat(latitude) || 0,
+                        longitude: parseFloat(longitude) || 0,
+                        primaryType: primaryType || '',
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    }
+                })
+            }
         }
 
         return NextResponse.json({

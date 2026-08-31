@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar, QrCode } from 'lucide-react'
+import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar, QrCode, Building2 } from 'lucide-react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
@@ -39,10 +39,12 @@ export default function Navbar() {
     ? "https://calendly.com/d/cxz8-97v-6m8/20-mins-product-demo-ringscale-ai?month=2026-05"
     : "https://calendly.com/ringscalemedia-info/ringscale-strategy-call"
 
+  const gmbConnectLink = "https://connect.ringscale.ai/"
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${mobileMenuOpen ? 'bg-white' : 'bg-white/80 backdrop-blur-xl border-b border-slate-100'}`}>
       <nav className="container mx-auto px-6 h-28 flex items-center justify-between">
-        <div className="flex items-center gap-3 group cursor-pointer animate-in fade-in slide-in-from-left duration-700">
+        <div className="flex items-center gap-3 shrink-0 group cursor-pointer animate-in fade-in slide-in-from-left duration-700">
           <Link href="/" className="block shrink-0 mr-4">
             {/* Native img tag prevents Next.js aspect-ratio container bugs */}
             <img
@@ -53,8 +55,8 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <div className="hidden xl:flex items-center gap-3 xl:gap-5">
-          <div className="flex items-center gap-3 xl:gap-5">
+        <div className="hidden xl:flex items-center gap-2 xl:gap-4 min-w-0">
+          <div className="flex items-center gap-2 xl:gap-4">
             <Link href="#" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
               Platform
             </Link>
@@ -104,25 +106,31 @@ export default function Navbar() {
             </Link>
             <Link href="/contact-us" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition whitespace-nowrap">Contact Us</Link>
             <Link href={meetingLink} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2 transition-all duration-300 whitespace-nowrap">
+              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-bold flex items-center gap-1.5 transition-all duration-300 whitespace-nowrap">
                 <Calendar className="w-4 h-4" />
                 Book a Meeting
               </Button>
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Link href={gmbConnectLink} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-bold flex items-center gap-1.5 whitespace-nowrap">
+                <Building2 className="w-4 h-4" />
+                Connect GMB
+              </Button>
+            </Link>
             {session ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {session.user?.role === 'admin' && (
                   <Link href="/admin">
-                    <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2">
+                    <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-bold flex items-center gap-1.5">
                       <ShieldCheck className="w-4 h-4" /> Admin Panel
                     </Button>
                   </Link>
                 )}
                 <Link href="/dashboard">
-                  <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-2">
+                  <Button variant="outline" className="rounded-full border-blue-600 text-blue-600 hover:bg-blue-50 h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-bold flex items-center gap-1.5">
                     <LayoutDashboard className="w-4 h-4" />
                     Dashboard
                   </Button>
@@ -131,12 +139,12 @@ export default function Navbar() {
             ) : (
               <>
                 <Link href="/login">
-                  <Button variant="ghost" className="rounded-full text-slate-600 hover:text-blue-600 hover:bg-blue-50 h-9 px-4 xl:px-5 text-[13px] xl:text-sm font-semibold">
+                  <Button variant="ghost" className="rounded-full text-slate-600 hover:text-blue-600 hover:bg-blue-50 h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-semibold">
                     Log In
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10 px-5 xl:px-6 text-[13px] xl:text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-200/50">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-10 px-4 xl:px-5 text-[13px] xl:text-sm font-bold flex items-center gap-1.5 shadow-lg shadow-blue-200/50">
                     GET OFFER <span className="text-lg">→</span>
                   </Button>
                 </Link>
@@ -195,6 +203,15 @@ export default function Navbar() {
             rel="noopener noreferrer"
           >
             <Calendar className="w-4 h-4" /> Book a Meeting
+          </Link>
+          <Link
+            href={gmbConnectLink}
+            className="flex items-center gap-2 text-blue-600 font-bold py-2"
+            onClick={() => setMobileMenuOpen(false)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Building2 className="w-4 h-4" /> Connect Your GMB
           </Link>
 
 
