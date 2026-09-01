@@ -237,11 +237,11 @@ export async function POST(request) {
         }
 
         if (isWebhookAuthorized && businessName && placeId) {
-            const existingProject = await prisma.project.findFirst({
+            let existingProject = await prisma.project.findFirst({
                 where: { userId: user.id, placeId }
             })
             if (!existingProject) {
-                await prisma.project.create({
+                existingProject = await prisma.project.create({
                     data: {
                         id: uuidv4(),
                         userId: user.id,
@@ -255,6 +255,19 @@ export async function POST(request) {
                         updatedAt: new Date()
                     }
                 })
+            }
+
+            if (isNewUser) {
+                // Background task: generate audit report and send the audit email
+                import('@/lib/audit-generator').then(async ({ generateAndStoreAuditReport }) => {
+                    try {
+                        const auditReport = await generateAndStoreAuditReport(existingProject.id);
+                        const { sendGMBAuditEmail } = await import('@/lib/mail');
+                        await sendGMBAuditEmail(email, name, auditReport);
+                    } catch (err) {
+                        console.error('Error generating audit or sending GMB audit email:', err);
+                    }
+                }).catch(err => console.error('Failed to load audit generator:', err));
             }
         }
 
