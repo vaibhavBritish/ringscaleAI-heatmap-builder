@@ -1,7 +1,10 @@
-import nodemailer from 'nodemailer'
-import prisma from '@/lib/prisma'
-import { getSecret } from './secrets'
+import re
+import os
 
+with open('./lib/mail.js', 'r') as f:
+    content = f.read()
+
+layout_func = """
 /**
  * Generates a professional email layout with Ringscale branding.
  */
@@ -52,88 +55,27 @@ function generateEmailLayout({ content, appName, logoUrl, supportPhone, preheade
     </html>
   `;
 }
+"""
 
-/**
- * Creates a fresh transporter each time it is called so that environment
- * variables (and any encrypted secrets) are resolved at send-time rather
- * than at module-import time.  This avoids the 535 "Username and Password
- * not accepted" error that occurs when the module is loaded before the
- * runtime environment is fully initialised.
- */
-function getTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_SERVER_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-    secure: process.env.EMAIL_SERVER_PORT === '465', // true for 465, false for other ports
-    auth: {
-      user: getSecret('EMAIL_SERVER_USER'),
-      pass: getSecret('EMAIL_SERVER_PASSWORD'),
-    },
-    tls: {
-      rejectUnauthorized: false // Helps in some environments
-    }
-  })
-}
+# Insert layout function after imports
+content = content.replace("import { getSecret } from './secrets'", "import { getSecret } from './secrets'\n" + layout_func)
 
-/**
- * Fetches dynamic email and branding settings from the database.
- */
-async function getEmailSettings() {
-  try {
-    const settings = await prisma.globalSetting.findMany()
-    const settingsMap = settings.reduce((acc, curr) => {
-      acc[curr.key] = curr.value
-      return acc
-    }, {})
+# We have these functions:
+# sendOTPEmail
+# sendPasswordResetEmail
+# sendSubscriptionEmail
+# sendWelcomeEmail
+# sendTrialEndingEmail
+# sendSubscriptionEndingReminderEmail
+# sendSubscriptionEndingAdminNotification
+# sendAdminErrorAlertEmail
+# sendGMBWelcomeEmail
+# sendGMBAuditEmail
 
-    let logoUrl = settingsMap.branding?.logoUrl || 'https://ringscale.ai/logo.png'
-    if (logoUrl.startsWith('/')) {
-      logoUrl = `https://ringscale.ai${logoUrl}`
-    }
-
-    return {
-      appName: settingsMap.branding?.appName || 'Ringscale AI',
-      logoUrl,
-      supportPhone: settingsMap.branding?.supportPhone || '+14372913099',
-      ...settingsMap.email
-    }
-  } catch (error) {
-    console.error('Error fetching email settings:', error)
-    return {
-      appName: 'Ringscale AI',
-      logoUrl: 'https://ringscale.ai/logo.png',
-      supportPhone: '+14372913099',
-      from: '"Ringscale AI" <noreply@ringscale.ai>'
-    }
-  }
-}
-
-/**
- * Determines the support phone number based on user's country (using phone number).
- */
-async function getSupportPhone(email) {
-  try {
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
-    if (user && user.phone) {
-      const cleanPhone = user.phone.replace(/\D/g, '')
-      if (user.phone.startsWith('+91') || (cleanPhone.startsWith('91') && cleanPhone.length === 12)) {
-        return '+917827494533' // Indian clients
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching user for support phone:', error)
-  }
-  return '+14372913091' // Out of India clients
-}
-
-/**
- * Sends a 6-digit OTP verification email to the user.
- * 
- * @param {string} email - Recipient email address
- * @param {string} otp - 6-digit verification code
- * @returns {Promise} - Result of the email sending operation
- */
-export async function sendOTPEmail(email, otp) {
+replacements = [
+    # sendOTPEmail
+    (r"export async function sendOTPEmail\(email, otp\) \{\s*const mailOptions = \{[^}]+?html: `[\s\S]+?`,\s*\}",
+     """export async function sendOTPEmail(email, otp) {
   const settings = await getEmailSettings()
   const appName = settings.appName || 'Ringscale AI'
   const logoUrl = settings.logoUrl || 'https://ringscale.ai/logo.png'
@@ -155,36 +97,11 @@ export async function sendOTPEmail(email, otp) {
         </div>
       `
     })
-  }
+  }"""),
 
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending OTP email:', error)
-    throw new Error('Failed to send verification email. Please check your SMTP settings.')
-  }
-}
-
-/**
- * Sends a password reset link email.
- *
- * @param {string} email      - Recipient email address
- * @param {string} name       - Recipient name
- * @param {string} resetToken - Secure reset token
- */
-export async function sendPasswordResetEmail(email, name, resetToken) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  
-  // Use BASE_URL, NEXTAUTH_URL, or determine based on environment
-  let appUrl = process.env.BASE_URL || process.env.NEXTAUTH_URL || 'https://ringscale.ai'
-  if (process.env.NODE_ENV === 'development' && appUrl.includes('ringscale.ai')) {
-    appUrl = 'http://localhost:3000'
-  }
-  
-  const resetUrl = `${appUrl}/reset-password?token=${resetToken}`
-
-  const mailOptions = {
+    # sendPasswordResetEmail
+    (r"const mailOptions = \{\s*from: process.env.EMAIL_FROM \|\| `\"\$\{appName\}\" <noreply@ringscale.ai>`,[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `Reset your ${appName} password`,
@@ -198,48 +115,20 @@ export async function sendPasswordResetEmail(email, name, resetToken) {
             <a href="${resetUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700; border-radius: 8px; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);">Reset My Password</a>
           </div>
           <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 28px;">
-            <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">⏳ This link will expire in <strong>1 hour</strong>. After that, you'll need to request a new one.</p>
+            <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">⏳ This link will expire in <strong>1 hour</strong>.</p>
           </div>
           <p style="font-size: 13px; color: #64748b; margin-bottom: 24px;">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${resetUrl}" style="color: #2563eb; word-break: break-all;">${resetUrl}</a></p>
           <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 28px;">
-            <p style="margin: 0; color: #64748b; font-size: 13px;">🔒 <strong>Didn't request this?</strong> If you didn't request a password reset, you can safely ignore this email. Your password will not change.</p>
+            <p style="margin: 0; color: #64748b; font-size: 13px;">🔒 <strong>Didn't request this?</strong> You can safely ignore this email.</p>
           </div>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending password reset email:', error)
-    throw new Error('Failed to send password reset email. Please check your SMTP settings.')
-  }
-}
-
-/**
- * Sends a subscription purchase confirmation email to the user.
- * 
- * @param {string} email - Recipient email address
- * @param {Object} details - Subscription and payment details
- * @returns {Promise} - Result of the email sending operation
- */
-export async function sendSubscriptionEmail(email, details) {
-  const { 
-    planName, 
-    credits, 
-    amount, 
-    currency, 
-    planEndsAt, 
-    receiptUrl, 
-    invoicePdf 
-  } = details
-
-  const formattedDate = planEndsAt ? new Date(planEndsAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }) : 'N/A'
-
+  }"""),
+  
+    # sendSubscriptionEmail
+    (r"export async function sendSubscriptionEmail\(email, details\) \{\s*(const \{\s*planName,[\s\S]+?invoicePdf\s*\} = details\n\n\s*const formattedDate = [\s\S]+?'N\/A'\n)\s*const mailOptions = \{[\s\S]+?html: `[\s\S]+?`,\s*\}",
+     """export async function sendSubscriptionEmail(email, details) {
+  \\1
   const settings = await getEmailSettings()
   const appName = settings.appName || 'Ringscale AI'
   const logoUrl = settings.logoUrl || 'https://ringscale.ai/logo.png'
@@ -285,34 +174,11 @@ export async function sendSubscriptionEmail(email, details) {
         ` : ''}
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending subscription email:', error)
-    // We don't throw here to avoid failing the payment processing if email fails
-    return null
-  }
-}
-
-/**
- * Sends a personalized welcome email to new users after registration.
- * 
- * @param {string} email - Recipient email address
- * @param {string} name - Recipient name
- * @returns {Promise} - Result of the email sending operation
- */
-export async function sendWelcomeEmail(email, name, plan, credits) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  const supportPhone = await getSupportPhone(email)
-  const appNameUpper = appName.toUpperCase()
-
-  const loginUrl = `${process.env.NEXTAUTH_URL}/login`
-  const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'
+  }"""),
   
-  const mailOptions = {
+    # sendWelcomeEmail (only replacing mailOptions part)
+    (r"(const loginUrl = `\$\{process.env.NEXTAUTH_URL\}/login`\n\s*const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'\n\s*)const mailOptions = \{[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """\\1const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `Welcome to ${appName}! 👋 - ${plan.charAt(0).toUpperCase() + plan.slice(1).replace('_', ' ')} Plan Active`,
@@ -341,39 +207,11 @@ export async function sendWelcomeEmail(email, name, plan, credits) {
           <p style="margin-bottom: 24px;">We've tried reaching you and don't want you to miss any time from your trial. Please give us a quick call at <strong>${supportPhone}</strong> so we can make sure everything is good to go. It should only take a few minutes.</p>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending welcome email:', error)
-    // We don't throw here to avoid failing registration if email fails
-    return null
-  }
-}
-
-/**
- * Sends a trial-ending reminder email to a trial user (sent when ~7 days remain).
- *
- * @param {string} email - Recipient email address
- * @param {string} name  - Recipient name
- * @param {Date}   trialEndsAt - When the trial expires
- */
-export async function sendTrialEndingEmail(email, name, trialEndsAt) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  const supportPhone = await getSupportPhone(email)
-  const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'
-
-  const formattedDate = trialEndsAt
-    ? new Date(trialEndsAt).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    : 'soon'
-
-  const mailOptions = {
+  }"""),
+  
+    # sendTrialEndingEmail (only replacing mailOptions part)
+    (r"(const formattedDate = [^;]+?;\n\s*)const mailOptions = \{[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """\\1const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `⏳ Your ${appName} 7-Day Trial is Ending – Don't Lose Access!`,
@@ -394,31 +232,11 @@ export async function sendTrialEndingEmail(email, name, trialEndsAt) {
           <p style="margin-bottom: 24px;">Have questions? Call us at <strong>${supportPhone}</strong> — we'd love to help you get the most out of ${appName}.</p>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending trial ending email:', error)
-    return null
-  }
-}
-
-/**
- * Sends a 7-day subscription expiration reminder to the user.
- */
-export async function sendSubscriptionEndingReminderEmail(email, name, planName, planEndsAt) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  const supportPhone = await getSupportPhone(email)
+  }"""),
   
-  const formattedDate = planEndsAt ? new Date(planEndsAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }) : 'soon'
-
-  const mailOptions = {
+    # sendSubscriptionEndingReminderEmail
+    (r"(const formattedDate = [^;]+?;\n\s*)const mailOptions = \{[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """\\1const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `Action Required: Your ${appName} subscription is expiring in 7 days`,
@@ -437,26 +255,12 @@ export async function sendSubscriptionEndingReminderEmail(email, name, planName,
           <p>If you have any questions or need assistance, feel free to reply to this email or call our team at <strong>${supportPhone}</strong>.</p>
       `
     })
-  }
+  }"""),
 
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending subscription reminder email:', error)
-    return null
-  }
-}
-
-/**
- * Sends a notification to the admin/sales team when a user's subscription is expiring.
- */
-export async function sendSubscriptionEndingAdminNotification(adminEmail, user, planName) {
-  const formattedDate = user.planEndsAt ? new Date(user.planEndsAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }) : 'soon'
-
+    # sendSubscriptionEndingAdminNotification
+    (r"export async function sendSubscriptionEndingAdminNotification\(adminEmail, user, planName\) \{\s*(const formattedDate = [\s\S]+?'soon'\n)\s*const mailOptions = \{[\s\S]+?html: `[\s\S]+?`,\s*\}",
+     """export async function sendSubscriptionEndingAdminNotification(adminEmail, user, planName) {
+  \\1
   const settings = await getEmailSettings()
   const appName = settings.appName || 'Ringscale AI'
   const logoUrl = settings.logoUrl || 'https://ringscale.ai/logo.png'
@@ -492,20 +296,11 @@ export async function sendSubscriptionEndingAdminNotification(adminEmail, user, 
         <p style="margin-top: 20px;">Please reach out to this user to assist with their renewal process.</p>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending admin notification email:', error)
-    return null
-  }
-}
-
-/**
- * Sends a critical error alert to the admin email.
- */
-export async function sendAdminErrorAlertEmail(adminEmail, context, errorDetails, additionalData = {}) {
+  }"""),
+  
+    # sendAdminErrorAlertEmail
+    (r"export async function sendAdminErrorAlertEmail\(adminEmail, context, errorDetails, additionalData = \{\}\) \{\s*const mailOptions = \{[\s\S]+?html: `[\s\S]+?`,\s*\}",
+     """export async function sendAdminErrorAlertEmail(adminEmail, context, errorDetails, additionalData = {}) {
   const settings = await getEmailSettings()
   const appName = settings.appName || 'Ringscale AI'
   const logoUrl = settings.logoUrl || 'https://ringscale.ai/logo.png'
@@ -541,29 +336,11 @@ export async function sendAdminErrorAlertEmail(adminEmail, context, errorDetails
         </div>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('CRITICAL: Failed to send error alert email:', error)
-    return null
-  }
-}
-
-/**
- * Sends a welcome email containing generated credentials to users registering via GMB.
- */
-export async function sendGMBWelcomeEmail(email, name, plan, credits, password) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  const supportPhone = await getSupportPhone(email)
-  const appNameUpper = appName.toUpperCase()
-
-  const loginUrl = `${process.env.NEXTAUTH_URL}/login`
-  const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'
+  }"""),
   
-  const mailOptions = {
+    # sendGMBWelcomeEmail
+    (r"(const loginUrl = `\$\{process.env.NEXTAUTH_URL\}/login`\n\s*const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'\n\s*)const mailOptions = \{[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """\\1const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `Welcome to ${appName}! 👋 - ${plan.charAt(0).toUpperCase() + plan.slice(1).replace('_', ' ')} Plan Active`,
@@ -597,36 +374,11 @@ export async function sendGMBWelcomeEmail(email, name, plan, credits, password) 
           <p style="margin-bottom: 24px;">We've tried reaching you and don't want you to miss any time from your trial. Please give us a quick call at <strong>${supportPhone}</strong> so we can make sure everything is good to go.</p>
       `
     })
-  }
-
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending GMB welcome email:', error)
-    return null
-  }
-}
-
-/**
- * Sends an email containing the initial audit report to the user.
- */
-export async function sendGMBAuditEmail(email, name, auditReport) {
-  const settings = await getEmailSettings()
-  const appName = settings.appName || 'Ringscale AI'
-  const supportPhone = await getSupportPhone(email)
-  const appNameUpper = appName.toUpperCase()
-
-  const publicAuditUrl = `${process.env.NEXTAUTH_URL}/public/audit/${auditReport.projectId}`
-  const bookMeeting = 'https://calendly.com/ringscalemedia-info/ringscale-strategy-call'
+  }"""),
   
-  // Audit Metrics
-  const optimizationScore = auditReport?.metrics?.optimizationScore || 0;
-  const rating = auditReport?.businessInfo?.rating || 0;
-  const reviewCount = auditReport?.businessInfo?.reviewCount || 0;
-  const aiKeywords = auditReport?.keywords?.aiSuggested?.slice(0, 3) || [];
-  const topKeywords = auditReport?.keywords?.topRanked?.slice(0, 3) || [];
-
-  const mailOptions = {
+    # sendGMBAuditEmail
+    (r"(const topKeywords = auditReport\?\.keywords\?\.topRanked\?\.slice\(0, 3\) \|\| \[\];\n\s*)const mailOptions = \{[\s\S]+?html: `([\s\S]+?)`,\s*\}",
+     """\\1const mailOptions = {
     from: process.env.EMAIL_FROM || `"${appName}" <noreply@ringscale.ai>`,
     to: email,
     subject: `Your ${appName} Initial Audit Report is Ready 🚀`,
@@ -669,12 +421,15 @@ export async function sendGMBAuditEmail(email, name, auditReport) {
           <p style="margin-bottom: 24px;">Have any questions? Give us a call at <strong>${supportPhone}</strong>.</p>
       `
     })
-  }
+  }""")
+]
 
-  try {
-    return await getTransporter().sendMail(mailOptions)
-  } catch (error) {
-    console.error('Error sending GMB Audit email:', error)
-    return null
-  }
-}
+for pattern, repl in replacements:
+    content, count = re.subn(pattern, repl, content)
+    if count == 0:
+        print(f"Warning: Failed to match and replace a pattern: {pattern[:50]}")
+    else:
+        print(f"Successfully replaced pattern: {pattern[:50]}")
+
+with open('./lib/mail.js', 'w') as f:
+    f.write(content)
