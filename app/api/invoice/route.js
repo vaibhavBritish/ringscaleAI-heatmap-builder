@@ -24,7 +24,7 @@ export async function GET(request) {
     
     const isIndia = country === 'IN' || isIndiaReferer
     const companyAddress = isIndia 
-      ? "P-10 Patel Nagar, New Delhi, 110008" 
+      ? "First Floor, C-9, near Janakpuri Metro Station, Pocket C1, New Krishna Park, Vikaspuri, Delhi, 110018" 
       : "1470 HurOntario St Mississauga Ontario L5G 3H4"
 
     const { searchParams } = new URL(request.url)

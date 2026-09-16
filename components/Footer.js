@@ -132,14 +132,14 @@ export default function Footer() {
                   
                   // Priority 1: Check URL Path (Middle-ware driven)
                   const path = typeof window !== 'undefined' ? window.location.pathname : '';
-                  if (path.startsWith('/in/') || path === '/in') return "P-10 Patel Nagar, New Delhi, 110008";
+                  if (path.startsWith('/in/') || path === '/in') return "First Floor, C-9, near Janakpuri Metro Station, Pocket C1, New Krishna Park, Vikaspuri, Delhi, 110018";
                   if (path.startsWith('/us/') || path === '/us') return "1470 HurOntario St Mississauga Ontario L5G 3H4";
                   
                   // Priority 2: Check Timezone as fallback
                   const userTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
                   const isIndiaTz = userTz.includes('Calcutta') || userTz.includes('Kolkata') || userTz.includes('Asia/Kolkata');
                   return isIndiaTz 
-                    ? "P-10 Patel Nagar, New Delhi, 110008" 
+                    ? "First Floor, C-9, near Janakpuri Metro Station, Pocket C1, New Krishna Park, Vikaspuri, Delhi, 110018" 
                     : "1470 HurOntario St Mississauga Ontario L5G 3H4";
                 })()
               }

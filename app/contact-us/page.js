@@ -15,8 +15,8 @@ const ContactUsPage = () => {
     in: {
       name: 'India Office',
       phone: '+91 91523 03009',
-      address: 'P-10 Patel Nagar, New Delhi, 110008',
-      mapUrl: 'https://maps.google.com/maps?q=P-10+Patel+Nagar,+New+Delhi,+110008&output=embed',
+      address: 'First Floor, C-9, near Janakpuri Metro Station, Pocket C1, New Krishna Park, Vikaspuri, Delhi, 110018',
+      mapUrl: 'https://maps.google.com/maps?q=First+Floor,+C-9,+near+Janakpuri+Metro+Station,+Pocket+C1,+New+Krishna+Park,+Vikaspuri,+Delhi,+110018&output=embed',
       timezone: 'Asia/Kolkata'
     },
     intl: {
