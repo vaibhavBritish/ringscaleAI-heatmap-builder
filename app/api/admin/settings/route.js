@@ -7,7 +7,7 @@ import redis from "@/lib/redis"
 
 async function checkAdmin() {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !['superadmin', 'admin'].includes(session.user.role)) {
         return false
     }
     return true

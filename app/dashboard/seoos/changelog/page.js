@@ -24,7 +24,7 @@ export default function ChangelogPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/projects').then(r => r.json()).then(d => {
       setProjects(d.projects || [])
       setLoading(false)

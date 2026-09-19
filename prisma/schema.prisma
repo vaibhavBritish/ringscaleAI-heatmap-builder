@@ -34,6 +34,8 @@ model User {
   companyId            String?   @db.ObjectId
   company              Company?  @relation(fields: [companyId], references: [oid])
 
+  salesRecords         SalesRecord[]
+
   @@map("users")
 }
 
@@ -488,4 +490,25 @@ model Blog {
   updatedAt   DateTime @updatedAt
 
   @@map("blogs")
+}
+
+model SalesRecord {
+  oid                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                   String   @unique @default(uuid())
+  staffId              String   @db.ObjectId // reference to User.oid
+  customerName         String
+  customerEmail        String
+  status               String   @default("Lead") // Lead, In Progress, Converted, Lost
+  totalPayment         Float    @default(0)
+  remainingPayment     Float    @default(0)
+  subscriptionBasis    String?  // e.g., 'monthly', 'yearly', 'one-time'
+  subscriptionDuration String?  // e.g., '12 months', 'lifetime'
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  staff                User     @relation(fields: [staffId], references: [oid], onDelete: Cascade)
+
+  @@index([staffId])
+  @@map("sales_records")
 }

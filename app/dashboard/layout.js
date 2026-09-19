@@ -294,7 +294,7 @@ export default function DashboardLayout({ children }) {
             )}
 
             {/* SEOOS Admin Section */}
-            {session?.user?.role === 'admin' && (
+            {['superadmin', 'admin'].includes(session?.user?.role) && (
               <>
                 <div className="pt-4 pb-1">
                   <div className="flex items-center gap-2 px-3">

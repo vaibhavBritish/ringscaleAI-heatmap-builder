@@ -1003,7 +1003,7 @@ export default function NewProjectPage() {
                           <option value={49}>49 Pins | 7x7</option>
                           <option value={81}>81 Pins | 9x9</option>
                           <option value={133}>133 Pins [Recommended]</option>
-                          {session?.user?.role === 'admin' && (
+                          {['superadmin', 'admin'].includes(session?.user?.role) && (
                             <option value={225}>225 Pins | 15x15</option>
                           )}
                         </select>

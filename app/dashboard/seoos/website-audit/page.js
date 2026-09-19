@@ -43,7 +43,7 @@ export default function WebsiteAuditPage() {
   const [syncingGsc, setSyncingGsc] = useState(false)
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/projects').then(r => r.json()).then(d => setProjects(d.projects || []))
     fetch('/api/seoos/website-audit').then(r => r.json()).then(d => setRuns(d.runs || []))
   }, [session])

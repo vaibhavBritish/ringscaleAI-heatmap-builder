@@ -425,7 +425,7 @@ export default function ProjectDetailPage() {
                     <SelectItem value="7">7x7 (49 points)</SelectItem>
                     <SelectItem value="9">9x9 (81 points)</SelectItem>
                     <SelectItem value="11">133 Pins [Recommended]</SelectItem>
-                    {session?.user?.role === 'admin' && (
+                    {['superadmin', 'admin'].includes(session?.user?.role) && (
                       <SelectItem value="15">15x15 (225 points)</SelectItem>
                     )}
                   </SelectContent>

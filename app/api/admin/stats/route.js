@@ -6,29 +6,53 @@ import redis from "@/lib/redis"
 
 export const dynamic = 'force-dynamic'
 
-async function checkAdmin() {
+async function getAuth() {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-        return false
+    if (!session || !['superadmin', 'admin', 'staff'].includes(session.user.role)) {
+        return null
     }
-    return true
+    return session
 }
 
 export async function GET(request) {
-    if (!await checkAdmin()) {
+    const session = await getAuth()
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     try {
-        // Disabled caching for real-time dynamic updates as requested
-        /*
-        const cacheKey = 'admin:stats:summary'
-        if (redis) {
-            const cached = await redis.get(cacheKey)
-            if (cached) return NextResponse.json(JSON.parse(cached))
-        }
-        */
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+        if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
+        if (session.user.role === 'staff') {
+            // Fetch Sales Stats for Staff
+            const sales = await prisma.salesRecord.findMany({
+                where: { staffId: user.oid }
+            })
+            const totalLeads = sales.length
+            const converted = sales.filter(s => s.status === 'Converted').length
+            const totalRevenue = sales.reduce((acc, curr) => acc + curr.totalPayment, 0)
+            const totalRemaining = sales.reduce((acc, curr) => acc + curr.remainingPayment, 0)
+
+            // Calculate growth compared to last 7 days (mock logic for simplicity)
+            const recentSales = sales.filter(s => s.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+            const recentRevenue = recentSales.reduce((acc, curr) => acc + curr.totalPayment, 0)
+
+            const responseData = {
+                role: 'staff',
+                stats: [
+                    { title: "Total Leads", value: totalLeads, change: recentSales.length, period: "new this week" },
+                    { title: "Converted Clients", value: converted, change: null },
+                    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, change: null },
+                    { title: "Pending Collections", value: `$${totalRemaining.toLocaleString()}`, change: null },
+                ],
+                planStats: [], // Not applicable for staff
+                topKeywords: []
+            }
+            return NextResponse.json(responseData)
+        }
+
+        // --- PLATFORM STATS FOR SUPERADMIN & ADMIN ---
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
@@ -57,7 +81,7 @@ export async function GET(request) {
             }
         })
 
-        // Normalize and group plan stats to avoid duplicates (e.g. 'trail' vs 'Trial')
+        // Normalize and group plan stats to avoid duplicates
         const normalizedStats = {}
         usersByPlan.forEach(item => {
             let rawName = (item.plan || 'Trial').trim()
@@ -121,6 +145,7 @@ export async function GET(request) {
         })
 
         const responseData = {
+            role: session.user.role,
             stats: [
                 { title: "Total Users", value: totalUsers, change: growthPct, period: "last 7 days" },
                 { title: "Active Projects", value: totalProjects, change: null },
@@ -130,13 +155,6 @@ export async function GET(request) {
             planStats,
             topKeywords
         }
-
-        /*
-        if (redis) {
-            // Cache for 1 minute instead of 15 if enabled
-            await redis.set(cacheKey, JSON.stringify(responseData), 'EX', 60)
-        }
-        */
 
         return NextResponse.json(responseData)
     } catch (error) {

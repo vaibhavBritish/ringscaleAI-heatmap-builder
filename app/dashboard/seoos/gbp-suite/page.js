@@ -32,7 +32,7 @@ export default function GBPSuitePage() {
   const [generating, setGenerating] = useState(null)
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/projects').then(r => r.json()).then(d => {
       const ps = d.projects || []
       setProjects(ps)

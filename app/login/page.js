@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -61,7 +61,17 @@ export default function LoginPage() {
         toast.error(result.error)
       } else {
         toast.success('Welcome back!')
-        router.push('/dashboard')
+        
+        // Fetch the session to determine the user's role
+        const session = await getSession()
+        const role = session?.user?.role
+
+        // Route to the appropriate panel based on role
+        if (['superadmin', 'admin', 'staff'].includes(role)) {
+          router.push('/admin')
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')

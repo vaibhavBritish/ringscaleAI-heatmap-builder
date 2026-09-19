@@ -35,7 +35,7 @@ export default function CitationsPage() {
   const [form, setForm] = useState({ directoryName: '', directoryUrl: '', category: 'general', status: 'pending', phone: '', website: '', city: '', state: '' })
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/projects').then(r => r.json()).then(d => {
       setProjects(d.projects || [])
       setLoading(false)

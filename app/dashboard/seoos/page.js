@@ -35,7 +35,7 @@ export default function SEOOSHomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/seoos/reports')
       .then(r => r.json())
       .then(setData)
