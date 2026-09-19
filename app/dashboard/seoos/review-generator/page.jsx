@@ -38,7 +38,7 @@ export default function ReviewGeneratorPage() {
 
   useEffect(() => {
     if (status === 'loading') return
-    if (!session || session.user?.role !== 'admin') {
+    if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'superadmin')) {
       router.push('/dashboard')
     }
   }, [session, status, router])
