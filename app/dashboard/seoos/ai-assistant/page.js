@@ -40,7 +40,7 @@ export default function AIAssistantPage() {
   const [genTopic, setGenTopic] = useState('')
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     Promise.all([
       fetch('/api/projects').then(r => r.json()),
       fetch(`/api/seoos/ai?status=${statusFilter}`).then(r => r.json()),

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 async function checkPartner() {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user.role !== 'partner' && session.user.role !== 'admin')) {
+    if (!session || (session.user.role !== 'partner' && !['superadmin', 'admin'].includes(session.user.role))) {
         return null
     }
     return session
@@ -30,7 +30,7 @@ export async function GET(request) {
         // Note: admin can see all if we don't filter, but here we want partner-specific view
         const companyId = session.user.companyId
 
-        if (!companyId && session.user.role !== 'admin') {
+        if (!companyId && !['superadmin', 'admin'].includes(session.user.role)) {
             return NextResponse.json({ users: [] })
         }
 
@@ -79,7 +79,7 @@ export async function POST(request) {
             return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
         }
 
-        if (!session.user.companyId && session.user.role !== 'admin') {
+        if (!session.user.companyId && !['superadmin', 'admin'].includes(session.user.role)) {
             return NextResponse.json({ error: "You are not associated with a company" }, { status: 400 })
         }
 

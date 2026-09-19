@@ -9,42 +9,71 @@ import {
   LogOut,
   Building,
   FileText,
-  CreditCard
+  CreditCard,
+  Briefcase
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { signOut } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 
 const adminNavItems = [
   {
     title: "Overview",
     href: "/admin",
     icon: LayoutDashboard,
+    roles: ["superadmin", "admin", "staff"]
+  },
+  {
+    title: "Sales CRM",
+    href: "/admin/sales",
+    icon: Briefcase,
+    roles: ["superadmin", "admin", "staff"]
+  },
+  {
+    title: "Staff Management",
+    href: "/admin/staff",
+    icon: Users,
+    roles: ["superadmin", "admin"]
+  },
+  {
+    title: "Admin Management",
+    href: "/admin/admins",
+    icon: Users,
+    roles: ["superadmin"]
   },
   {
     title: "User Management",
     href: "/admin/users",
     icon: Users,
+    roles: ["superadmin", "admin"]
   },
   {
     title: "Partner Companies",
     href: "/admin/companies",
     icon: Building,
+    roles: ["superadmin", "admin"]
   },
   {
     title: "Payments & Renewals",
     href: "/admin/payments",
     icon: CreditCard,
+    roles: ["superadmin", "admin"]
   },
   {
     title: "Blogs",
     href: "/admin/blogs",
     icon: FileText,
+    roles: ["superadmin", "admin"]
   },
 ]
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const userRole = session?.user?.role || "user"
+
+  // Filter nav items based on role
+  const visibleNavItems = adminNavItems.filter(item => item.roles.includes(userRole))
 
   return (
     <aside
@@ -75,7 +104,7 @@ export function AdminSidebar() {
             Main Menu
           </p>
           <ul className="space-y-1">
-            {adminNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = pathname === item.href
               return (
                 <li key={item.href}>
@@ -106,32 +135,34 @@ export function AdminSidebar() {
         </div>
 
         {/* System */}
-        <div>
-          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-            System
-          </p>
-          <ul className="space-y-1">
-            <li>
-              <Link
-                href="/admin/settings"
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
-                  pathname === "/admin/settings"
-                    ? "bg-blue-600/15 text-blue-400 ring-1 ring-blue-600/20"
-                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                )}
-              >
-                <Settings
+        {['superadmin', 'admin'].includes(userRole) && (
+          <div>
+            <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+              System
+            </p>
+            <ul className="space-y-1">
+              <li>
+                <Link
+                  href="/admin/settings"
                   className={cn(
-                    "h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110",
-                    pathname === "/admin/settings" ? "text-blue-400" : "text-slate-500"
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
+                    pathname === "/admin/settings"
+                      ? "bg-blue-600/15 text-blue-400 ring-1 ring-blue-600/20"
+                      : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                   )}
-                />
-                <span className="tracking-tight">Settings</span>
-              </Link>
-            </li>
-          </ul>
-        </div>
+                >
+                  <Settings
+                    className={cn(
+                      "h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110",
+                      pathname === "/admin/settings" ? "text-blue-400" : "text-slate-500"
+                    )}
+                  />
+                  <span className="tracking-tight">Settings</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
       </nav>
 
       {/* Footer / Sign Out */}

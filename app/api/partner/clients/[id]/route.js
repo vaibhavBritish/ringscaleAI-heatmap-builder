@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 async function checkPartner() {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user.role !== 'partner' && session.user.role !== 'admin')) {
+    if (!session || (session.user.role !== 'partner' && !['superadmin', 'admin'].includes(session.user.role))) {
         return null
     }
     return session
@@ -62,7 +62,7 @@ export async function DELETE(request, { params }) {
         }
 
         // Verify the user belongs to the partner's company if they are not an admin
-        if (session.user.role !== 'admin' && user.companyId !== session.user.companyId) {
+        if (!['superadmin', 'admin'].includes(session.user.role) && user.companyId !== session.user.companyId) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
 

@@ -667,7 +667,7 @@ export default function AdminRandomizerPage() {
                         <option value={49}>49 Pins</option>
                         <option value={81}>81 Pins</option>
                         <option value={133}>133 Pins</option>
-                        {session?.user?.role === 'admin' && (
+                        {['superadmin', 'admin'].includes(session?.user?.role) && (
                           <option value={225}>225 Pins</option>
                         )}
                       </select>

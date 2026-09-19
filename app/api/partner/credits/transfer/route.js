@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth"
 export async function POST(request) {
     const session = await getServerSession(authOptions)
     
-    if (!session || (session.user.role !== 'partner' && session.user.role !== 'admin')) {
+    if (!session || (session.user.role !== 'partner' && !['superadmin', 'admin'].includes(session.user.role))) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
@@ -41,7 +41,7 @@ export async function POST(request) {
                 throw new Error("Client not found")
             }
 
-            if (session.user.role !== 'admin' && client.companyId !== session.user.companyId) {
+            if (!['superadmin', 'admin'].includes(session.user.role) && client.companyId !== session.user.companyId) {
                 throw new Error("Unauthorized: Client does not belong to your company")
             }
 

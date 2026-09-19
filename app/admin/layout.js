@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default async function AdminLayout({ children }) {
   const session = await getServerSession(authOptions)
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !['superadmin', 'admin', 'staff'].includes(session.user.role)) {
     redirect("/")
   }
 

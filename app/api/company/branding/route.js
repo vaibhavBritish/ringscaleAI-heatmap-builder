@@ -57,11 +57,11 @@ export async function GET(request) {
 export async function PATCH(request) {
     const session = await getServerSession(authOptions)
     
-    if (!session || (session.user.role !== 'partner' && session.user.role !== 'admin')) {
+    if (!session || (session.user.role !== 'partner' && !['superadmin', 'admin'].includes(session.user.role))) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    if (!session.user.companyId && session.user.role !== 'admin') {
+    if (!session.user.companyId && !['superadmin', 'admin'].includes(session.user.role)) {
         return NextResponse.json({ error: "No company associated with this account" }, { status: 400 })
     }
 

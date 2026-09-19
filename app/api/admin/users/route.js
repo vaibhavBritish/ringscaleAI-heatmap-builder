@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 // Middleware to check if user is admin
 async function checkAdmin() {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !['superadmin', 'admin'].includes(session.user.role)) {
         return false
     }
     return true
@@ -28,13 +28,16 @@ export async function GET(request) {
         const search = searchParams.get("search") || ""
         const skip = (page - 1) * limit
 
-        const where = search ? {
-            OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { company: { name: { contains: search, mode: 'insensitive' } } }
-            ]
-        } : {}
+        const where = {
+            role: 'user',
+            ...(search ? {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                    { company: { name: { contains: search, mode: 'insensitive' } } }
+                ]
+            } : {})
+        }
 
         const [users, total] = await Promise.all([
             prisma.user.findMany({

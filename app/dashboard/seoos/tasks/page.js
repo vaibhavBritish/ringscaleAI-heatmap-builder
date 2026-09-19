@@ -22,7 +22,7 @@ export default function TasksPage() {
   const [form, setForm] = useState({ title: '', description: '', type: 'technical', priority: 'medium', dueDate: '' })
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') { router.push('/dashboard'); return }
+    if (!['superadmin', 'admin'].includes(session?.user?.role)) { router.push('/dashboard'); return }
     fetch('/api/projects').then(r => r.json()).then(d => {
       setProjects(d.projects || [])
       setLoading(false)
