@@ -1012,62 +1012,6 @@ function KeywordsTab({ keywords }) {
           </CardContent>
         </Card>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* AI Suggested Keywords */}
-        <Card className="border-2 border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-all bg-white overflow-hidden">
-          <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-6 py-4 sm:px-8 sm:py-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                <Star className="w-5 h-5 fill-purple-600" />
-              </div>
-              <div>
-                <CardTitle className="text-xl font-black text-slate-900">AI Suggested Keywords</CardTitle>
-                <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Growth Opportunities</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 sm:p-8 space-y-4">
-            {keywords.aiSuggested?.map((kw, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all group cursor-default">
-                <div className="w-8 h-8 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 font-black text-xs group-hover:text-purple-600 group-hover:border-purple-200 transition-colors">
-                  {idx + 1}
-                </div>
-                <div className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors flex-1">{kw}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* High Ranked Keywords */}
-        <Card className="border-2 border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-all bg-white overflow-hidden">
-          <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-6 py-4 sm:px-8 sm:py-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xl font-black text-slate-900">High Ranked Keywords</CardTitle>
-                <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Current Performance</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 sm:p-8 space-y-4">
-            {keywords.topRanked?.map((kw, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group cursor-default">
-                <div className="w-8 h-8 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 font-black text-xs group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
-                  {idx + 1}
-                </div>
-                <div className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors flex-1">{kw}</div>
-                <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-[10px] font-black uppercase">
-                  <TrendingUp className="w-3 h-3" /> High
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }
