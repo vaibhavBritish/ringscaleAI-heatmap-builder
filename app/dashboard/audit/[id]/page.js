@@ -29,7 +29,8 @@ import {
   Phone,
   ExternalLink,
   Globe,
-  Layers
+  Layers,
+  Target
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -999,10 +1000,10 @@ function KeywordsTab({ keywords }) {
           <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-6 py-4 sm:px-8 sm:py-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                <Megaphone className="w-5 h-5" />
+                <Target className="w-5 h-5" />
               </div>
               <div>
-                <CardTitle className="text-xl font-black text-slate-900">Active Campaign Keywords</CardTitle>
+                <CardTitle className="text-xl font-black text-slate-900">Local SEO Target Keywords</CardTitle>
                 <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Keywords we are working on</CardDescription>
               </div>
             </div>
