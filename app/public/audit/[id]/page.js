@@ -29,7 +29,8 @@ import {
   Phone,
   ExternalLink,
   Globe,
-  Layers
+  Layers,
+  Target
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -985,6 +986,33 @@ function KeywordsTab({ keywords }) {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {keywords.activeCampaign?.length > 0 && (
+        <Card className="border-2 border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-all bg-white overflow-hidden mb-8">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-6 py-4 sm:px-8 sm:py-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-black text-slate-900">Local SEO Target Keywords</CardTitle>
+                <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Keywords we are working on</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 sm:p-8">
+            <div className="flex flex-wrap gap-3">
+              {keywords.activeCampaign.map((kw, idx) => (
+                <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold hover:bg-indigo-100 transition-colors cursor-default">
+                  <Tag className="w-3.5 h-3.5" />
+                  {kw}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* AI Suggested Keywords */}
