@@ -63,6 +63,23 @@ export default function KeywordsPage() {
     })
   }, [selectedProject])
 
+  const handleSyncGMBKeywords = async () => {
+    try {
+      const res = await fetch('/api/admin/sync-keywords', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to sync')
+      toast.success(`Synced ${data.addedCount} new keywords from GMB Connector!`)
+      if (selectedProject) {
+        // Refresh keywords for current project
+        const kwRes = await fetch(`/api/projects/${selectedProject}/keywords`)
+        const kwData = await kwRes.json()
+        setKeywords(kwData.keywords || [])
+      }
+    } catch (err) {
+      toast.error('Sync failed: ' + err.message)
+    }
+  }
+
   const handleCluster = async () => {
     if (keywords.length === 0) { toast.error('No keywords to cluster'); return }
     const project = projects.find(p => p.id === selectedProject)
@@ -166,14 +183,22 @@ export default function KeywordsPage() {
           </h1>
           <p className="text-slate-500 mt-1">AI-powered keyword clustering and intent segmentation</p>
         </div>
-        <select
-          onChange={e => setSelectedProject(e.target.value)}
-          value={selectedProject}
-          className="border border-slate-200 rounded-xl px-4 py-2 text-sm bg-white shadow-sm"
-        >
-          <option value="">Select project...</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={handleSyncGMBKeywords}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+          >
+            <RefreshCcw className="w-4 h-4" /> Sync GMB Keywords
+          </Button>
+          <select
+            onChange={e => setSelectedProject(e.target.value)}
+            value={selectedProject}
+            className="border border-slate-200 rounded-xl px-4 py-2 text-sm bg-white shadow-sm"
+          >
+            <option value="">Select project...</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
+          </select>
+        </div>
       </div>
 
       {selectedProject ? (
