@@ -122,7 +122,7 @@ export default function Navbar() {
             </Link>
             {session ? (
               <div className="flex items-center gap-2">
-                {session.user?.role === 'admin' && (
+                {['admin', 'superadmin'].includes(session.user?.role) && (
                   <Link href="/admin">
                     <Button variant="ghost" className="rounded-full text-indigo-600 hover:bg-indigo-50 h-9 px-3 xl:px-4 text-[13px] xl:text-sm font-bold flex items-center gap-1.5">
                       <ShieldCheck className="w-4 h-4" /> Admin Panel
