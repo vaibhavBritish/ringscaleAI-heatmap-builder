@@ -8,16 +8,19 @@ export async function GET(req, props) {
     const { id: projectId } = params
 
     const recentAudit = await prisma.businessAudit.findUnique({
-      where: { id: projectId },
-      include: { project: true }
+      where: { id: projectId }
     })
 
     if (!recentAudit) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 })
     }
+    
+    const project = await prisma.project.findUnique({
+      where: { id: recentAudit.projectId || projectId }
+    })
 
     const auditData = JSON.parse(recentAudit.auditDataJson)
-    const businessNameQuery = auditData.businessInfo?.name || recentAudit.project?.businessName
+    const businessNameQuery = auditData.businessInfo?.name || project?.businessName
 
     if (!businessNameQuery) {
       return NextResponse.json({ activeCampaign: auditData.keywords?.activeCampaign || [] })
@@ -45,12 +48,16 @@ export async function GET(req, props) {
         const db = client.db('gmb-connector')
         
         const escapedName = businessNameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const business = await db.collection('Business').findOne({ 
+        const businesses = await db.collection('Business').find({ 
           businessName: { $regex: new RegExp(escapedName, 'i') } 
-        })
+        }).toArray()
         
-        if (business) {
-          const allKeywords = new Set(business.keywords || [])
+        const allKeywords = new Set()
+        
+        for (const business of businesses) {
+          if (business.keywords && Array.isArray(business.keywords)) {
+            business.keywords.forEach(k => allKeywords.add(k))
+          }
           
           // Try both ObjectId and String formats for businessId
           const locations = await db.collection('BusinessLocation').find({
@@ -65,10 +72,12 @@ export async function GET(req, props) {
               loc.keywords.forEach(k => allKeywords.add(k))
             }
           }
-          if (allKeywords.size > 0) {
-            activeCampaign = Array.from(allKeywords)
-          }
         }
+        
+        if (allKeywords.size > 0) {
+          activeCampaign = Array.from(allKeywords)
+        }
+        
         await client.close()
       }
     } catch (err) {

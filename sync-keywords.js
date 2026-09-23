@@ -27,12 +27,17 @@ async function main() {
       // Find business in GMB
       // Using a regex for case-insensitive match, but escaping special characters
       const escapedName = project.businessName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const business = await gmbDb.collection('Business').findOne({ 
+      const businesses = await gmbDb.collection('Business').find({ 
         businessName: { $regex: new RegExp(escapedName, 'i') } 
-      });
+      }).toArray();
       
-      if (business) {
-        const allKeywords = new Set(business.keywords || [])
+      const allKeywords = new Set()
+      
+      for (const business of businesses) {
+        if (business.keywords && Array.isArray(business.keywords)) {
+          business.keywords.forEach(k => allKeywords.add(k))
+        }
+        
         // Fetch locations for this business
         const locations = await gmbDb.collection('BusinessLocation').find({
           $or: [
@@ -40,31 +45,32 @@ async function main() {
             { businessId: business._id.toString() }
           ]
         }).toArray()
+        
         for (const loc of locations) {
           if (loc.keywords && Array.isArray(loc.keywords)) {
             loc.keywords.forEach(k => allKeywords.add(k))
           }
         }
+      }
+      
+      if (allKeywords.size > 0) {
+        // Fetch existing keywords for this project
+        const existingKeywords = await prisma.keyword.findMany({
+          where: { projectId: project.id }
+        });
+        const existingKeywordSet = new Set(existingKeywords.map(k => k.keyword.toLowerCase()));
         
-        if (allKeywords.size > 0) {
-          // Fetch existing keywords for this project
-          const existingKeywords = await prisma.keyword.findMany({
-            where: { projectId: project.id }
-          });
-          const existingKeywordSet = new Set(existingKeywords.map(k => k.keyword.toLowerCase()));
-          
-          for (const kw of Array.from(allKeywords)) {
-            if (!existingKeywordSet.has(kw.toLowerCase())) {
-              await prisma.keyword.create({
-                data: {
-                  id: uuidv4(),
-                  projectId: project.id,
-                  keyword: kw
-                }
-              });
-              addedCount++;
-              console.log(`Added keyword "${kw}" to project "${project.businessName}"`);
-            }
+        for (const kw of Array.from(allKeywords)) {
+          if (!existingKeywordSet.has(kw.toLowerCase())) {
+            await prisma.keyword.create({
+              data: {
+                id: uuidv4(),
+                projectId: project.id,
+                keyword: kw
+              }
+            });
+            addedCount++;
+            console.log(`Added keyword "${kw}" to project "${project.businessName}"`);
           }
         }
       }
