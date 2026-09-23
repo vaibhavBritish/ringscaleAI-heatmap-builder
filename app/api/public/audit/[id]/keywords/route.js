@@ -44,13 +44,22 @@ export async function GET(req, props) {
         await client.connect()
         const db = client.db('gmb-connector')
         
+        const escapedName = businessNameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const business = await db.collection('Business').findOne({ 
-          businessName: { $regex: new RegExp(`^${businessNameQuery.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}$`, 'i') } 
+          businessName: { $regex: new RegExp(escapedName, 'i') } 
         })
         
         if (business) {
           const allKeywords = new Set(business.keywords || [])
-          const locations = await db.collection('BusinessLocation').find({ businessId: business._id }).toArray()
+          
+          // Try both ObjectId and String formats for businessId
+          const locations = await db.collection('BusinessLocation').find({
+            $or: [
+              { businessId: business._id },
+              { businessId: business._id.toString() }
+            ]
+          }).toArray()
+          
           for (const loc of locations) {
             if (loc.keywords && Array.isArray(loc.keywords)) {
               loc.keywords.forEach(k => allKeywords.add(k))
