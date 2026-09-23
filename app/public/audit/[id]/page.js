@@ -977,7 +977,33 @@ function InfoItem({ label, value, icon }) {
   )
 }
 
-function KeywordsTab({ keywords }) {
+function KeywordsTab({ keywords: initialKeywords }) {
+  const params = useParams()
+  const [keywords, setKeywords] = useState(initialKeywords)
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  useEffect(() => {
+    async function syncKeywords() {
+      setIsSyncing(true)
+      try {
+        const res = await fetch(`/api/public/audit/${params.id}/keywords`)
+        if (res.ok) {
+          const freshData = await res.json()
+          if (freshData.activeCampaign) {
+             setKeywords(prev => ({ ...prev, activeCampaign: freshData.activeCampaign }))
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync keywords:', e)
+      } finally {
+        setIsSyncing(false)
+      }
+    }
+    if (params?.id) {
+      syncKeywords()
+    }
+  }, [params?.id])
+
   if (!keywords) return (
     <div className="flex justify-center items-center h-48">
       <p className="text-slate-400 font-bold italic">No keyword data available for this business.</p>
@@ -994,8 +1020,11 @@ function KeywordsTab({ keywords }) {
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
                 <Target className="w-5 h-5" />
               </div>
-              <div>
-                <CardTitle className="text-xl font-black text-slate-900">Local SEO Target Keywords</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-xl font-black text-slate-900">Local SEO Target Keywords</CardTitle>
+                  {isSyncing && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
+                </div>
                 <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Keywords we are working on</CardDescription>
               </div>
             </div>
