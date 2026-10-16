@@ -41,12 +41,14 @@ export default function AdminOverview() {
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [period, setPeriod] = useState('all')
 
   useEffect(() => {
     setMounted(true)
     async function fetchStats() {
+      setLoading(true)
       try {
-        const res = await fetch('/api/admin/stats')
+        const res = await fetch(`/api/admin/stats?period=${period}`)
         const data = await res.json()
         if (res.ok) {
           setStats(data.stats || [])
@@ -64,7 +66,7 @@ export default function AdminOverview() {
       }
     }
     fetchStats()
-  }, [])
+  }, [period])
 
   const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']
 
@@ -96,7 +98,11 @@ export default function AdminOverview() {
       case "Total Leads": return <Target size={20} />
       case "Converted Clients": return <Briefcase size={20} />
       case "Total Revenue": return <BadgeDollarSign size={20} />
+      case "Revenue (USD)": return <BadgeDollarSign size={20} />
+      case "Revenue (INR)": return <BadgeDollarSign size={20} />
       case "Pending Collections": return <Wallet size={20} />
+      case "Pending (USD)": return <Wallet size={20} />
+      case "Pending (INR)": return <Wallet size={20} />
       default: return <Activity size={20} />
     }
   }
@@ -136,6 +142,20 @@ export default function AdminOverview() {
               : "Real-time statistics and performance metrics across the entire platform."}
           </p>
         </div>
+        {isStaff && (
+          <div className="relative z-10 sm:self-center mt-4 sm:mt-0">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+            >
+              <option value="all">All Time</option>
+              <option value="daily">Today</option>
+              <option value="weekly">This Week</option>
+              <option value="monthly">This Month</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}

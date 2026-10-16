@@ -24,27 +24,53 @@ export async function GET(request) {
         const user = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
 
+        const url = new URL(request.url)
+        const period = url.searchParams.get('period') || 'all'
+
         if (session.user.role === 'staff') {
+            let dateFilter = {}
+            if (period === 'daily') {
+                const startOfDay = new Date();
+                startOfDay.setHours(0, 0, 0, 0);
+                dateFilter = { createdAt: { gte: startOfDay } }
+            } else if (period === 'weekly') {
+                const startOfWeek = new Date();
+                startOfWeek.setDate(startOfWeek.getDate() - 7);
+                dateFilter = { createdAt: { gte: startOfWeek } }
+            } else if (period === 'monthly') {
+                const startOfMonth = new Date();
+                startOfMonth.setMonth(startOfMonth.getMonth() - 1);
+                dateFilter = { createdAt: { gte: startOfMonth } }
+            }
+
             // Fetch Sales Stats for Staff
             const sales = await prisma.salesRecord.findMany({
-                where: { staffId: user.oid }
+                where: { staffId: user.oid, ...dateFilter }
             })
             const totalLeads = sales.length
             const converted = sales.filter(s => s.status === 'Converted').length
-            const totalRevenue = sales.reduce((acc, curr) => acc + curr.totalPayment, 0)
-            const totalRemaining = sales.reduce((acc, curr) => acc + curr.remainingPayment, 0)
+            
+            const salesUSD = sales.filter(s => s.currency === 'USD' || !s.currency)
+            const salesINR = sales.filter(s => s.currency === 'INR')
 
-            // Calculate growth compared to last 7 days (mock logic for simplicity)
+            const totalRevenueUSD = salesUSD.reduce((acc, curr) => acc + curr.totalPayment, 0)
+            const totalRemainingUSD = salesUSD.reduce((acc, curr) => acc + curr.remainingPayment, 0)
+
+            const totalRevenueINR = salesINR.reduce((acc, curr) => acc + curr.totalPayment, 0)
+            const totalRemainingINR = salesINR.reduce((acc, curr) => acc + curr.remainingPayment, 0)
+
+            // Calculate growth compared to last 7 days for the whole period (if applicable)
             const recentSales = sales.filter(s => s.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-            const recentRevenue = recentSales.reduce((acc, curr) => acc + curr.totalPayment, 0)
 
             const responseData = {
                 role: 'staff',
                 stats: [
                     { title: "Total Leads", value: totalLeads, change: recentSales.length, period: "new this week" },
                     { title: "Converted Clients", value: converted, change: null },
-                    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, change: null },
-                    { title: "Pending Collections", value: `$${totalRemaining.toLocaleString()}`, change: null },
+                    { title: "Revenue (USD)", value: `$${totalRevenueUSD.toLocaleString()}`, change: null },
+                    { title: "Revenue (INR)", value: `₹${totalRevenueINR.toLocaleString()}`, change: null },
+                    { title: "Pending (USD)", value: `$${totalRemainingUSD.toLocaleString()}`, change: null },
+                    { title: "Pending (INR)", value: `₹${totalRemainingINR.toLocaleString()}`, change: null },
                 ],
                 planStats: [], // Not applicable for staff
                 topKeywords: []
