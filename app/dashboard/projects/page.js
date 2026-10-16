@@ -58,8 +58,9 @@ export default function ProjectsPage() {
   }
 
   const handleNewProject = (e) => {
+    const isAdmin = ['admin', 'superadmin'].includes(session?.user?.role)
     const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
-    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
+    const isExpired = !isAdmin && ((expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0))
     
     if (isExpired) {
       e.preventDefault()

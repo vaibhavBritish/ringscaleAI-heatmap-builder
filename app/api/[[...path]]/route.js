@@ -161,6 +161,7 @@ async function handleRoute(request, props) {
     // Helper to check if plan/trial is expired (Time OR Credits)
     const isPlanExpired = (user) => {
       if (!user) return true
+      if (['admin', 'superadmin'].includes(user.role)) return false
       const now = new Date()
       // Use planEndsAt if available, otherwise fallback to trialEndsAt
       const expiryDate = user.planEndsAt || user.trialEndsAt
@@ -171,7 +172,8 @@ async function handleRoute(request, props) {
     }
 
     // Helper to get max radius based on plan (in miles)
-    const getMaxRadius = (plan) => {
+    const getMaxRadius = (plan, role) => {
+      if (['admin', 'superadmin'].includes(role)) return 100
       const p = (plan || 'trial')
         .toLowerCase()
         .replace('plan_', '')
@@ -516,7 +518,7 @@ async function handleRoute(request, props) {
       }
 
       // Radius validation
-      const maxAllowedRadiusMiles = getMaxRadius(currentUser.plan)
+      const maxAllowedRadiusMiles = getMaxRadius(currentUser.plan, currentUser.role)
       const requestedRadius = gridSettings?.radius || 5
       const requestedUnit = gridSettings?.unit || 'km'
       const requestedRadiusMiles = requestedUnit === 'km' ? requestedRadius / 1.60934 : requestedRadius
@@ -531,10 +533,11 @@ async function handleRoute(request, props) {
       // Automatically add keywords and start scan jobs
       const scanJobIds = []
       if (keywords.length > 0) {
-        // Credit check: 100 credits per keyword
-        const creditsNeeded = keywords.length * 100
+        const isAdmin = ['admin', 'superadmin'].includes(currentUser.role)
+        // Credit check: 100 credits per keyword (waived for admins)
+        const creditsNeeded = isAdmin ? 0 : keywords.length * 100
         const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
-        if ((userDoc?.credits || 0) < creditsNeeded) {
+        if (!isAdmin && (userDoc?.credits || 0) < creditsNeeded) {
           return handleCORS(NextResponse.json({
             error: `Not enough credits. You need ${creditsNeeded} credits for ${keywords.length} keyword(s). You have ${userDoc?.credits || 0}.`,
             creditsNeeded,
@@ -583,8 +586,8 @@ async function handleRoute(request, props) {
           runScanJob(scanJobId).catch(err => console.error('Background scan error:', err))
         }
 
-        // Deduct credits for newly added keywords only
-        if (keywordsAdded > 0) {
+        // Deduct credits for newly added keywords only (waived for admins)
+        if (!isAdmin && keywordsAdded > 0) {
           await prisma.user.update({
             where: { id: currentUser.id },
             data: { credits: { decrement: keywordsAdded * 100 } }
@@ -714,12 +717,13 @@ async function handleRoute(request, props) {
         return handleCORS(NextResponse.json({ ...existingKeyword, creditsRemaining: userDoc?.credits || 0 }))
       }
 
-      // Credit check: 100 credits per new keyword
-      const KEYWORD_COST = 100
+      // Credit check: 100 credits per new keyword (waived for admins)
+      const isAdmin = ['admin', 'superadmin'].includes(currentUser.role)
+      const KEYWORD_COST = isAdmin ? 0 : 100
       const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
       const currentCredits = userDoc?.credits || 0
 
-      if (currentCredits < KEYWORD_COST) {
+      if (!isAdmin && currentCredits < KEYWORD_COST) {
         return handleCORS(NextResponse.json({
           error: `Not enough credits. Adding a keyword costs ${KEYWORD_COST} credits. You have ${currentCredits}.`,
           creditsRemaining: currentCredits,
@@ -737,16 +741,19 @@ async function handleRoute(request, props) {
         }
       })
 
-      // Deduct credits
-      const updatedUser = await prisma.user.update({
-        where: { id: currentUser.id },
-        data: { credits: { decrement: KEYWORD_COST } }
-      })
+      // Deduct credits for non-admin users only
+      let updatedUser = userDoc
+      if (!isAdmin && KEYWORD_COST > 0) {
+        updatedUser = await prisma.user.update({
+          where: { id: currentUser.id },
+          data: { credits: { decrement: KEYWORD_COST } }
+        })
+      }
 
       return handleCORS(NextResponse.json({
         ...keywordDoc,
         creditsDeducted: KEYWORD_COST,
-        creditsRemaining: updatedUser.credits
+        creditsRemaining: updatedUser?.credits ?? 0
       }))
     }
 
@@ -804,11 +811,12 @@ async function handleRoute(request, props) {
       }
 
       // Radius validation
-      const maxAllowedRadius = 12.4
+      const isAdmin = ['admin', 'superadmin'].includes(currentUser.role)
+      const maxAllowedRadius = isAdmin ? 100 : 12.4
       const requestedRadius = radius || (bodyRadiusMeters ? bodyRadiusMeters / 1609.34 : 5)
       const requestedRadiusMiles = unit === 'mi' ? requestedRadius : requestedRadius / 1.60934
       
-      if (requestedRadiusMiles > maxAllowedRadius + 0.1) {
+      if (!isAdmin && requestedRadiusMiles > maxAllowedRadius + 0.1) {
         return handleCORS(NextResponse.json({
           error: `Your current plan allows a maximum search radius of ${maxAllowedRadius} miles. Please upgrade for more.`,
           maxAllowedRadius
