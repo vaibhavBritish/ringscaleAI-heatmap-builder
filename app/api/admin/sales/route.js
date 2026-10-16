@@ -62,6 +62,7 @@ export async function POST(req) {
       status, 
       totalPayment, 
       remainingPayment, 
+      currency,
       subscriptionBasis, 
       subscriptionDuration, 
       notes 
@@ -81,6 +82,7 @@ export async function POST(req) {
         status: status || 'Lead',
         totalPayment: parseFloat(totalPayment) || 0,
         remainingPayment: parseFloat(remainingPayment) || 0,
+        currency: currency || 'USD',
         subscriptionBasis,
         subscriptionDuration,
         notes

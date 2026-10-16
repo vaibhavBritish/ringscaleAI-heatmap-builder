@@ -12,11 +12,11 @@ export async function GET(request, { params }) {
     let project
     try {
       // Standard Prisma lookup
-      project = await prisma.project.findUnique({
+      project = await prisma.project.findFirst({
         where: { clientSlug: slug }
       })
     } catch (err) {
-      console.warn("Client API: Stale schema detected, using Failsafe...")
+      console.warn("Client API: Prisma error, using Failsafe...", err.message)
       // Direct MongoDB bypass
       try {
         const result = await prisma.$runCommandRaw({

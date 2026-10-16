@@ -501,6 +501,7 @@ model SalesRecord {
   status               String   @default("Lead") // Lead, In Progress, Converted, Lost
   totalPayment         Float    @default(0)
   remainingPayment     Float    @default(0)
+  currency             String   @default("USD")
   subscriptionBasis    String?  // e.g., 'monthly', 'yearly', 'one-time'
   subscriptionDuration String?  // e.g., '12 months', 'lifetime'
   notes                String?

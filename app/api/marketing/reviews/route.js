@@ -10,7 +10,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 })
     }
 
-    const project = await prisma.project.findUnique({
+    const project = await prisma.project.findFirst({
       where: { clientSlug: slug }
     })
 

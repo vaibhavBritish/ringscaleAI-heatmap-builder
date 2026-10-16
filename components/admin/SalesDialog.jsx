@@ -9,6 +9,7 @@ export function SalesDialog({ isOpen, onClose, onSave, initialData }) {
     status: "Lead",
     totalPayment: 0,
     remainingPayment: 0,
+    currency: "USD",
     subscriptionBasis: "",
     subscriptionDuration: "",
     notes: ""
@@ -24,6 +25,7 @@ export function SalesDialog({ isOpen, onClose, onSave, initialData }) {
         status: "Lead",
         totalPayment: 0,
         remainingPayment: 0,
+        currency: "USD",
         subscriptionBasis: "",
         subscriptionDuration: "",
         notes: ""
@@ -78,7 +80,18 @@ export function SalesDialog({ isOpen, onClose, onSave, initialData }) {
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Payment ($)</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Currency</label>
+            <select 
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950"
+              value={formData.currency}
+              onChange={(e) => setFormData({...formData, currency: e.target.value})}
+            >
+              <option value="USD">USD ($)</option>
+              <option value="INR">INR (₹)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Payment</label>
             <input 
               type="number" 
               step="0.01"
@@ -89,7 +102,7 @@ export function SalesDialog({ isOpen, onClose, onSave, initialData }) {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Remaining Payment ($)</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Remaining Payment</label>
             <input 
               type="number" 
               step="0.01"

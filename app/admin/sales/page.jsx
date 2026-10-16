@@ -142,10 +142,10 @@ export default function SalesManagementPage() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1 text-slate-900 dark:text-slate-100">
-                          <span className="text-xs text-slate-500">Total:</span> ${sale.totalPayment}
+                          <span className="text-xs text-slate-500">Total:</span> {sale.currency === 'INR' ? '₹' : '$'}{sale.totalPayment}
                         </div>
                         <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
-                          <span className="text-xs text-slate-500">Remaining:</span> ${sale.remainingPayment}
+                          <span className="text-xs text-slate-500">Remaining:</span> {sale.currency === 'INR' ? '₹' : '$'}{sale.remainingPayment}
                         </div>
                       </div>
                     </td>
