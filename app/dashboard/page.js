@@ -59,8 +59,9 @@ export default function DashboardPage() {
 
   const handleNewProject = (e) => {
     const user = stats?.user || session?.user
+    const isAdmin = ['admin', 'superadmin'].includes(user?.role)
     const expiryDate = user?.planEndsAt || user?.trialEndsAt
-    const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (user?.credits <= 0)
+    const isExpired = !isAdmin && ((expiryDate && new Date(expiryDate) < new Date()) || (user?.credits <= 0))
     
     if (isExpired) {
       e.preventDefault()

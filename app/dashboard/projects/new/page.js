@@ -599,8 +599,9 @@ export default function NewProjectPage() {
     setSidebarSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
+  const isAdmin = ['admin', 'superadmin'].includes(session?.user?.role)
   const estimatedLabel = scanning ? 'Estimated Time' : 'Estimated Cost'
-  const estimatedValue = scanning ? '~2 min' : `${keywords.length * 100} Credits`
+  const estimatedValue = scanning ? '~2 min' : (isAdmin ? '0 Credits (Admin Free)' : `${keywords.length * 100} Credits`)
   const mapMarkers = useMemo(() => {
     return [
       ...(selectedBusiness ? [{ ...selectedBusiness, selected: true }] : searchResults),

@@ -335,8 +335,9 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <Dialog open={showScanDialog} onOpenChange={(open) => {
+          const isAdmin = ['admin', 'superadmin'].includes(session?.user?.role)
           const expiryDate = session?.user?.planEndsAt || session?.user?.trialEndsAt
-          const isExpired = (expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0)
+          const isExpired = !isAdmin && ((expiryDate && new Date(expiryDate) < new Date()) || (session?.user?.credits <= 0))
           
           if (open && isExpired) {
             setIsPlanModalOpen(true)
@@ -561,8 +562,8 @@ export default function ProjectDetailPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Credits</p>
-                  <p className="text-lg font-black text-blue-600">{session?.user?.credits?.toLocaleString() || 0}</p>
-                  <p className="text-[10px] text-slate-400">100 per keyword</p>
+                  <p className="text-lg font-black text-blue-600">{['admin', 'superadmin'].includes(session?.user?.role) ? 'Unlimited' : (session?.user?.credits?.toLocaleString() || 0)}</p>
+                  <p className="text-[10px] text-slate-400">{['admin', 'superadmin'].includes(session?.user?.role) ? 'Free for Admin' : '100 per keyword'}</p>
                 </div>
               </div>
             </CardHeader>

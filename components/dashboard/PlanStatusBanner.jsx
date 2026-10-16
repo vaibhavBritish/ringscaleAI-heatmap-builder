@@ -17,6 +17,7 @@ export default function PlanStatusBanner() {
 
   const user = freshUser || session?.user
   if (!user) return null
+  if (['admin', 'superadmin'].includes(user?.role)) return null
 
   const userPlan = ['admin', 'superadmin'].includes(user?.role) ? 'pro' : user.plan
   const expiryDate = user.planEndsAt ? new Date(user.planEndsAt) : (user.trialEndsAt ? new Date(user.trialEndsAt) : null)

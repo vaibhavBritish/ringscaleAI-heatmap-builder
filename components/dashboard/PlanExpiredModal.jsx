@@ -18,6 +18,9 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
   const router = useRouter()
   const { data: session } = useSession()
 
+  const isAdmin = ['admin', 'superadmin'].includes(session?.user?.role)
+  if (isAdmin) return null
+
   const isCreditsExpired = (session?.user?.credits || 0) <= 0
   const isTrial = session?.user?.plan === 'trial'
 
