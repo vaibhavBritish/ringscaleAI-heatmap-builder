@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { fetchGmbKeywordsForProject } from '@/lib/gmb-connector-db'
+import { fetchGmbKeywordsForProject, extractCityOrRegion, cleanKeywordsList } from '@/lib/gmb-connector-db'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(req, props) {
@@ -34,7 +34,7 @@ export async function GET(req, props) {
     const auditData = JSON.parse(recentAudit.auditDataJson || '{}')
     const businessNameQuery = project?.businessName || auditData.businessInfo?.name || ''
 
-    const allKeywords = new Set()
+    const rawKeywords = []
 
     // 1. Existing keywords from Prisma Keyword table
     if (project?.id) {
@@ -43,14 +43,14 @@ export async function GET(req, props) {
         select: { keyword: true }
       })
       storedKeywords.forEach(k => {
-        if (k.keyword && k.keyword.trim()) allKeywords.add(k.keyword.trim())
+        if (k.keyword && k.keyword.trim()) rawKeywords.push(k.keyword.trim())
       })
     }
 
     // 2. Existing keywords from auditDataJson
     if (Array.isArray(auditData.keywords?.activeCampaign)) {
       auditData.keywords.activeCampaign.forEach(k => {
-        if (k && typeof k === 'string' && k.trim()) allKeywords.add(k.trim())
+        if (k && typeof k === 'string' && k.trim()) rawKeywords.push(k.trim())
       })
     }
 
@@ -59,41 +59,78 @@ export async function GET(req, props) {
       const gmbKeywords = await fetchGmbKeywordsForProject({
         businessName: businessNameQuery,
         placeId: project?.placeId,
-        email: user?.email
+        email: user?.email,
+        address: project?.address || auditData.businessInfo?.address || ''
       })
 
       if (Array.isArray(gmbKeywords) && gmbKeywords.length > 0) {
-        for (const kw of gmbKeywords) {
-          if (kw && typeof kw === 'string' && kw.trim()) {
-            const trimmed = kw.trim()
-            allKeywords.add(trimmed)
-
-            // Save to Prisma Keyword if project exists
-            if (project?.id) {
-              const existing = await prisma.keyword.findFirst({
-                where: { projectId: project.id, keyword: trimmed }
-              })
-              if (!existing) {
-                await prisma.keyword.create({
-                  data: {
-                    id: uuidv4(),
-                    projectId: project.id,
-                    keyword: trimmed,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                  }
-                }).catch(() => {})
-              }
-            }
-          }
-        }
+        rawKeywords.push(...gmbKeywords)
       }
     } catch (gmbErr) {
       console.error('[Keywords API] Error fetching from GMB Connector DB:', gmbErr)
     }
 
-    // 4. Update auditDataJson with the merged, active keywords
-    const activeCampaign = Array.from(allKeywords)
+    // 4. Resolve City/Region dynamically from GMB address, project address, or business details
+    const resolvedCity = extractCityOrRegion(
+      project?.address,
+      auditData.businessInfo?.address,
+      project?.businessName,
+      auditData.businessInfo?.name
+    )
+
+    // 5. Clean all placeholders [city/region], [your city], etc. and deduplicate
+    const activeCampaign = cleanKeywordsList(rawKeywords, resolvedCity)
+
+    // 6. Update Prisma Keyword records if placeholders existed or keywords need sync
+    if (project?.id && activeCampaign.length > 0) {
+      try {
+        const currentKeywords = await prisma.keyword.findMany({
+          where: { projectId: project.id }
+        })
+        const hasPlaceholdersOrDuplicates = currentKeywords.some(k => 
+          k.keyword.includes('[') || k.keyword.includes('(')
+        ) || currentKeywords.length > activeCampaign.length
+
+        if (hasPlaceholdersOrDuplicates) {
+          // Delete old placeholder/duplicate records
+          await prisma.keyword.deleteMany({
+            where: { projectId: project.id }
+          })
+          // Insert clean unique keywords
+          for (const kw of activeCampaign) {
+            await prisma.keyword.create({
+              data: {
+                id: uuidv4(),
+                projectId: project.id,
+                keyword: kw,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            }).catch(() => {})
+          }
+        } else {
+          // Ensure every active keyword exists
+          const existingSet = new Set(currentKeywords.map(k => k.keyword.toLowerCase()))
+          for (const kw of activeCampaign) {
+            if (!existingSet.has(kw.toLowerCase())) {
+              await prisma.keyword.create({
+                data: {
+                  id: uuidv4(),
+                  projectId: project.id,
+                  keyword: kw,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              }).catch(() => {})
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.error('[Keywords API] Error updating prisma keywords:', dbErr)
+      }
+    }
+
+    // 7. Update auditDataJson with the clean, active keywords
     if (JSON.stringify(activeCampaign) !== JSON.stringify(auditData.keywords?.activeCampaign)) {
       if (!auditData.keywords) auditData.keywords = {}
       auditData.keywords.activeCampaign = activeCampaign
@@ -109,3 +146,4 @@ export async function GET(req, props) {
     return NextResponse.json({ error: 'Failed to fetch keywords' }, { status: 500 })
   }
 }
+
