@@ -30,7 +30,11 @@ import {
   ExternalLink,
   Globe,
   Layers,
-  Target
+  Target,
+  Copy,
+  Check,
+  Search,
+  Sparkles
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -986,69 +990,219 @@ function InfoItem({ label, value, icon }) {
 
 function KeywordsTab({ keywords: initialKeywords }) {
   const params = useParams()
+  const router = useRouter()
   const [keywords, setKeywords] = useState(initialKeywords)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [copiedKeyword, setCopiedKeyword] = useState(null)
+  const [copiedAll, setCopiedAll] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const syncKeywords = async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch(`/api/public/audit/${params.id}/keywords`)
+      if (res.ok) {
+        const freshData = await res.json()
+        if (freshData.activeCampaign) {
+          setKeywords(prev => ({ ...prev, activeCampaign: freshData.activeCampaign }))
+          toast.success(`Synced ${freshData.activeCampaign.length} keywords from GMB`)
+        }
+      } else {
+        toast.error('Failed to sync keywords from GMB')
+      }
+    } catch (e) {
+      console.error('Failed to sync keywords:', e)
+      toast.error('Error connecting to GMB Connector')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   useEffect(() => {
-    async function syncKeywords() {
-      setIsSyncing(true)
-      try {
-        const res = await fetch(`/api/public/audit/${params.id}/keywords`)
-        if (res.ok) {
-          const freshData = await res.json()
-          if (freshData.activeCampaign) {
-             setKeywords(prev => ({ ...prev, activeCampaign: freshData.activeCampaign }))
-          }
-        }
-      } catch (e) {
-        console.error('Failed to sync keywords:', e)
-      } finally {
-        setIsSyncing(false)
-      }
-    }
     if (params?.id) {
       syncKeywords()
     }
   }, [params?.id])
 
-  if (!keywords) return (
-    <div className="flex justify-center items-center h-48">
-      <p className="text-slate-400 font-bold italic">No keyword data available for this business.</p>
-    </div>
+  const activeKeywords = keywords?.activeCampaign || []
+  const filteredKeywords = activeKeywords.filter(kw => 
+    kw.toLowerCase().includes(searchTerm.toLowerCase().trim())
   )
 
+  const handleCopyKeyword = (kw, e) => {
+    e?.stopPropagation()
+    navigator.clipboard.writeText(kw)
+    setCopiedKeyword(kw)
+    toast.success(`Copied "${kw}" to clipboard`)
+    setTimeout(() => {
+      setCopiedKeyword(null)
+    }, 2000)
+  }
+
+  const handleCopyAll = () => {
+    if (activeKeywords.length === 0) return
+    navigator.clipboard.writeText(activeKeywords.join('\n'))
+    setCopiedAll(true)
+    toast.success(`Copied all ${activeKeywords.length} keywords to clipboard!`)
+    setTimeout(() => {
+      setCopiedAll(false)
+    }, 2500)
+  }
+
+  const handleLaunchHeatmap = (kw, e) => {
+    e?.stopPropagation()
+    router.push(`/dashboard/projects/new?projectId=${params.id}&keyword=${encodeURIComponent(kw)}`)
+  }
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      {/* Active Campaign Keywords (from GMB Connector) */}
-      {keywords.activeCampaign && keywords.activeCampaign.length > 0 && (
-        <Card className="border-2 border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-all bg-white overflow-hidden">
-          <CardHeader className="border-b border-slate-50 bg-slate-50/30 px-6 py-4 sm:px-8 sm:py-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="border-2 border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-all bg-white overflow-hidden">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 px-6 py-5 sm:px-8 sm:py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100 shrink-0">
                 <Target className="w-5 h-5" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-xl font-black text-slate-900">Local SEO Target Keywords</CardTitle>
-                  {isSyncing && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <CardTitle className="text-xl font-black text-slate-900 tracking-tight">
+                    Local SEO Target Keywords
+                  </CardTitle>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    {activeKeywords.length} Keywords
+                  </span>
+                  {isSyncing && <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />}
                 </div>
-                <CardDescription className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Keywords we are working on</CardDescription>
+                <CardDescription className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider">
+                  Live keywords connected with Google Business Profile & GMB Connector
+                </CardDescription>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-6 sm:p-8">
-            <div className="flex flex-wrap gap-3">
-              {keywords.activeCampaign.map((kw, idx) => (
-                <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold hover:bg-indigo-100 transition-colors cursor-default">
-                  <Tag className="w-3.5 h-3.5" />
-                  {kw}
-                </div>
-              ))}
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={syncKeywords}
+                disabled={isSyncing}
+                className="rounded-xl border-slate-200 font-bold text-xs h-9 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/50"
+              >
+                <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? 'animate-spin text-indigo-600' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync from GMB'}
+              </Button>
+
+              {activeKeywords.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyAll}
+                  className="rounded-xl border-slate-200 font-bold text-xs h-9 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/50"
+                >
+                  {copiedAll ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+                      Copied All!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />
+                      Copy All ({activeKeywords.length})
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {/* Search bar for quick filtering */}
+          {activeKeywords.length > 6 && (
+            <div className="mt-4 pt-4 border-t border-slate-200/60 flex items-center gap-2">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filter keywords..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                />
+              </div>
+              {searchTerm && (
+                <span className="text-xs text-slate-400 font-medium">
+                  Showing {filteredKeywords.length} of {activeKeywords.length}
+                </span>
+              )}
+            </div>
+          )}
+        </CardHeader>
+
+        <CardContent className="p-6 sm:p-8">
+          {activeKeywords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-3">
+                <Tag className="w-7 h-7" />
+              </div>
+              <p className="text-slate-700 font-bold text-base mb-1">No keywords synced yet</p>
+              <p className="text-slate-400 text-xs max-w-sm mb-4">
+                Keywords configured on your connected Google Business Profile will appear here automatically.
+              </p>
+              <Button
+                size="sm"
+                onClick={syncKeywords}
+                disabled={isSyncing}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs h-9"
+              >
+                <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                Fetch Keywords Now
+              </Button>
+            </div>
+          ) : filteredKeywords.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-slate-400 text-sm font-semibold">No keywords match "{searchTerm}"</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2.5">
+              {filteredKeywords.map((kw, idx) => {
+                const isCopied = copiedKeyword === kw
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => handleCopyKeyword(kw, e)}
+                    title="Click to copy keyword or launch scan"
+                    className={`group relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-150 active:scale-95 text-left cursor-pointer shadow-sm hover:shadow ${
+                      isCopied
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 ring-2 ring-emerald-500/20'
+                        : 'bg-white hover:bg-indigo-50/70 border-slate-200 hover:border-indigo-300 text-slate-800 hover:text-indigo-700'
+                    }`}
+                  >
+                    <Tag className={`w-3.5 h-3.5 transition-colors ${isCopied ? 'text-emerald-600' : 'text-slate-400 group-hover:text-indigo-600'}`} />
+                    <span className="truncate max-w-[280px] sm:max-w-md">{kw}</span>
+                    
+                    <span className={`inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide border transition-all ${
+                      isCopied 
+                        ? 'bg-emerald-100/80 border-emerald-300 text-emerald-700' 
+                        : 'bg-slate-100 border-slate-200 group-hover:bg-indigo-100 group-hover:border-indigo-200 text-slate-500 group-hover:text-indigo-600 opacity-70 group-hover:opacity-100'
+                    }`}>
+                      {isCopied ? (
+                        <>
+                          <Check className="w-2.5 h-2.5" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-2.5 h-2.5" />
+                          Copy
+                        </>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

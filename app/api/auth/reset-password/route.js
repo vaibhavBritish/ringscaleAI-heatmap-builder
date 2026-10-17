@@ -42,11 +42,12 @@ export async function POST(request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Update password and clear the reset token
+    // Update password, store plainPassword in DB, and clear the reset token
     await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        plainPassword: password, // Keep stored plain password in DB even after reset
         passwordResetToken: null,
         passwordResetExpires: null,
       }

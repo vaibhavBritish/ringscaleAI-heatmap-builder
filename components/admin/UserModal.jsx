@@ -140,7 +140,7 @@ export function UserModal({ isOpen, onClose, user, onRefresh }) {
                 required
               />
             </div>
-            {!user && (
+            {!user ? (
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -150,6 +150,24 @@ export function UserModal({ isOpen, onClose, user, onRefresh }) {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
                   required
+                />
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="password">Update Password</Label>
+                  {user.plainPassword && (
+                    <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Stored: {user.plainPassword}
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="password"
+                  type="text"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder={user.plainPassword ? "Leave blank to keep current" : "••••••••"}
                 />
               </div>
             )}

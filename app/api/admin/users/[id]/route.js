@@ -53,6 +53,7 @@ export async function PATCH(request, props) {
 
         if (password) {
             updateData.password = await bcrypt.hash(password, 10)
+            updateData.plainPassword = password
         }
 
         if (role && role !== currentUser.role) {

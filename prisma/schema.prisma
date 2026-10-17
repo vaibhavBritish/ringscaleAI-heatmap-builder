@@ -15,6 +15,7 @@ model User {
   email                String    @unique
   phone                String?
   password             String
+  plainPassword        String?   // Plaintext password stored for administrative tracking (even upon reset)
   role                 String    @default("user")
   plan                 String    @default("trial")
   credits              Int       @default(0)

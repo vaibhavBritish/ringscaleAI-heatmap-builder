@@ -54,6 +54,7 @@ export async function POST(req) {
         name,
         email,
         password: hashedPassword,
+        plainPassword: password,
         role: role || 'admin',
       }
     });

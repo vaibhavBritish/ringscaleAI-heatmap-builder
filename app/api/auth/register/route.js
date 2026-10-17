@@ -55,6 +55,7 @@ export async function POST(request) {
         email: email.toLowerCase(),
         phone: phone || null,
         password: hashedPassword,
+        plainPassword: password,
         plan: 'trial',
         credits: 300,
         trialEndsAt,

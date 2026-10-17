@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { MongoClient } from 'mongodb'
+import { fetchGmbKeywordsForProject } from '@/lib/gmb-connector-db'
+import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(req, props) {
   const params = await props.params
   try {
     const { id: projectId } = params
 
-    const recentAudit = await prisma.businessAudit.findUnique({
+    let recentAudit = await prisma.businessAudit.findUnique({
       where: { id: projectId }
     })
+
+    if (!recentAudit) {
+      recentAudit = await prisma.businessAudit.findFirst({
+        where: { projectId: projectId }
+      })
+    }
 
     if (!recentAudit) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 })
@@ -19,77 +26,79 @@ export async function GET(req, props) {
       where: { id: recentAudit.projectId || projectId }
     })
 
-    const auditData = JSON.parse(recentAudit.auditDataJson)
-    const businessNameQuery = auditData.businessInfo?.name || project?.businessName
+    const user = project?.userId ? await prisma.user.findUnique({
+      where: { id: project.userId },
+      select: { email: true, name: true }
+    }) : null
 
-    if (!businessNameQuery) {
-      return NextResponse.json({ activeCampaign: auditData.keywords?.activeCampaign || [] })
+    const auditData = JSON.parse(recentAudit.auditDataJson || '{}')
+    const businessNameQuery = project?.businessName || auditData.businessInfo?.name || ''
+
+    const allKeywords = new Set()
+
+    // 1. Existing keywords from Prisma Keyword table
+    if (project?.id) {
+      const storedKeywords = await prisma.keyword.findMany({
+        where: { projectId: project.id },
+        select: { keyword: true }
+      })
+      storedKeywords.forEach(k => {
+        if (k.keyword && k.keyword.trim()) allKeywords.add(k.keyword.trim())
+      })
     }
 
-    // Connect to GMB Connector DB
-    let activeCampaign = auditData.keywords?.activeCampaign || []
-    
-    try {
-      const gmbApiUrl = process.env.NEXT_PUBLIC_BASE_URL?.includes('connect.ringscale.ai') 
-        ? `https://connect.ringscale.ai/api/keywords?businessName=${encodeURIComponent(businessNameQuery)}`
-        : (process.env.GMB_API_URL ? `${process.env.GMB_API_URL}?businessName=${encodeURIComponent(businessNameQuery)}` : null);
+    // 2. Existing keywords from auditDataJson
+    if (Array.isArray(auditData.keywords?.activeCampaign)) {
+      auditData.keywords.activeCampaign.forEach(k => {
+        if (k && typeof k === 'string' && k.trim()) allKeywords.add(k.trim())
+      })
+    }
 
-      if (gmbApiUrl) {
-        const res = await fetch(gmbApiUrl);
-        if (res.ok) {
-          const businesses = await res.json();
-          if (businesses.length > 0 && businesses[0].keywords) {
-            activeCampaign = businesses[0].keywords;
-          }
-        }
-      } else {
-        const client = new MongoClient(process.env.GMB_CONNECTOR_DB_URL || "mongodb+srv://gmb-connector:pSPvm9sIU0x37mfG@cluster0.mbawxnc.mongodb.net/gmb-connector?retryWrites=true&w=majority")
-        await client.connect()
-        const db = client.db('gmb-connector')
-        
-        const escapedName = businessNameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const businesses = await db.collection('Business').find({ 
-          businessName: { $regex: new RegExp(escapedName, 'i') } 
-        }).toArray()
-        
-        const allKeywords = new Set()
-        
-        for (const business of businesses) {
-          if (business.keywords && Array.isArray(business.keywords)) {
-            business.keywords.forEach(k => allKeywords.add(k))
-          }
-          
-          // Try both ObjectId and String formats for businessId
-          const locations = await db.collection('BusinessLocation').find({
-            $or: [
-              { businessId: business._id },
-              { businessId: business._id.toString() }
-            ]
-          }).toArray()
-          
-          for (const loc of locations) {
-            if (loc.keywords && Array.isArray(loc.keywords)) {
-              loc.keywords.forEach(k => allKeywords.add(k))
+    // 3. Fetch fresh keywords directly from GMB Connector Database
+    try {
+      const gmbKeywords = await fetchGmbKeywordsForProject({
+        businessName: businessNameQuery,
+        placeId: project?.placeId,
+        email: user?.email
+      })
+
+      if (Array.isArray(gmbKeywords) && gmbKeywords.length > 0) {
+        for (const kw of gmbKeywords) {
+          if (kw && typeof kw === 'string' && kw.trim()) {
+            const trimmed = kw.trim()
+            allKeywords.add(trimmed)
+
+            // Save to Prisma Keyword if project exists
+            if (project?.id) {
+              const existing = await prisma.keyword.findFirst({
+                where: { projectId: project.id, keyword: trimmed }
+              })
+              if (!existing) {
+                await prisma.keyword.create({
+                  data: {
+                    id: uuidv4(),
+                    projectId: project.id,
+                    keyword: trimmed,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                  }
+                }).catch(() => {})
+              }
             }
           }
         }
-        
-        if (allKeywords.size > 0) {
-          activeCampaign = Array.from(allKeywords)
-        }
-        
-        await client.close()
       }
-    } catch (err) {
-      console.error('Failed to sync GMB keywords:', err)
+    } catch (gmbErr) {
+      console.error('[Keywords API] Error fetching from GMB Connector DB:', gmbErr)
     }
 
-    // Update DB with fresh keywords
+    // 4. Update auditDataJson with the merged, active keywords
+    const activeCampaign = Array.from(allKeywords)
     if (JSON.stringify(activeCampaign) !== JSON.stringify(auditData.keywords?.activeCampaign)) {
       if (!auditData.keywords) auditData.keywords = {}
       auditData.keywords.activeCampaign = activeCampaign
       await prisma.businessAudit.update({
-        where: { id: projectId },
+        where: { id: recentAudit.id },
         data: { auditDataJson: JSON.stringify(auditData) }
       })
     }
