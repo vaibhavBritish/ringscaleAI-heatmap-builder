@@ -399,19 +399,35 @@ async function handleRoute(request, props) {
         orderBy: { createdAt: 'desc' }
       })
 
-      // Get keyword counts and latest scan for each project
+      // Get keyword counts, latest scan, and audit status for each project
       const enrichedProjects = await Promise.all(projects.map(async (project) => {
         const keywordCount = await prisma.keyword.count({ where: { projectId: project.id } })
         const latestScan = await prisma.scanJob.findFirst({
           where: { projectId: project.id },
           orderBy: { createdAt: 'desc' }
         })
+        let audit = null
+        try {
+          audit = await prisma.businessAudit.findFirst({
+            where: {
+              OR: [
+                { id: project.id },
+                { projectId: project.id }
+              ]
+            },
+            select: { optimizationScore: true, updatedAt: true }
+          })
+        } catch (auditErr) {
+          console.warn(`[Projects] Audit lookup notice for ${project.id}:`, auditErr.message)
+        }
 
         return {
           ...project,
           keywordCount,
           latestScanDate: latestScan?.createdAt || null,
-          latestScanStatus: latestScan?.status || null
+          latestScanStatus: latestScan?.status || null,
+          hasAudit: !!audit,
+          auditScore: audit?.optimizationScore ?? null
         }
       }))
 
@@ -1330,10 +1346,50 @@ async function handleRoute(request, props) {
         return { ...scan, keyword: keywordDoc?.keyword, project }
       }))
 
+      // Fetch user's businesses with keywords and audit reports
+      const userProjects = await prisma.project.findMany({
+        where: { userId: currentUser.id },
+        select: {
+          id: true,
+          businessName: true,
+          address: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      const userBusinesses = await Promise.all(userProjects.map(async (p) => {
+        const keywordCount = await prisma.keyword.count({ where: { projectId: p.id } })
+        let audit = null
+        try {
+          audit = await prisma.businessAudit.findFirst({
+            where: {
+              OR: [
+                { id: p.id },
+                { projectId: p.id }
+              ]
+            },
+            select: { optimizationScore: true, updatedAt: true }
+          })
+        } catch (auditErr) {
+          console.warn(`[Dashboard Stats] Audit lookup notice for ${p.id}:`, auditErr.message)
+        }
+
+        return {
+          id: p.id,
+          businessName: p.businessName,
+          address: p.address,
+          keywordCount,
+          auditScore: audit?.optimizationScore ?? null,
+          hasAudit: !!audit
+        }
+      }))
+
       const statsResponse = { 
         totalProjects, 
         totalScans, 
         recentScans,
+        businesses: userBusinesses,
         user: {
           credits: freshUser?.credits ?? currentUser.credits,
           plan: freshUser?.plan ?? currentUser.plan,

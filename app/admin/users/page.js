@@ -215,6 +215,11 @@ export default function UsersPage() {
                         <div className="flex flex-col gap-0.5">
                           <span className="font-semibold text-slate-900 dark:text-slate-100">{user.name || "N/A"}</span>
                           <span className="text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
+                          {user.plainPassword && (
+                            <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded w-fit mt-0.5 border border-emerald-200 dark:border-emerald-800" title="Stored User Password">
+                              🔑 {user.plainPassword}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </TableCell>

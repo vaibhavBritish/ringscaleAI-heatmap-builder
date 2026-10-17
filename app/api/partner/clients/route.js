@@ -116,6 +116,7 @@ export async function POST(request) {
                     name,
                     email: email.toLowerCase(),
                     password: hashedPassword,
+                    plainPassword: password,
                     role: 'user',
                     companyId: session.user.companyId,
                     plan: plan || 'trial',
