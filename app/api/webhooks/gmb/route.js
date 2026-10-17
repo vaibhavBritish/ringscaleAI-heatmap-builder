@@ -226,6 +226,8 @@ export async function POST(request) {
           console.error(`Error generating audit for project ${targetProjectId} (${locName}):`, err)
         }
       }).catch(err => console.error('Failed to load audit generator:', err))
+    }
+
     // Asynchronously perform full GMB multi-location & keywords sync from MongoDB
     import('@/lib/gmb-customer-sync').then(({ syncCustomerGMBBusinesses }) => {
       syncCustomerGMBBusinesses(user).catch(err => {
