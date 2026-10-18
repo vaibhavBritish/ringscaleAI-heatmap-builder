@@ -114,6 +114,57 @@ export default function NewProjectPage() {
     }
   }, [existingProjectId])
 
+  const pickTopRatedKeywords = (keywordsList = [], businessName = '', address = '', primaryType = '') => {
+    const rawStrings = (keywordsList || []).map(k => (typeof k === 'string' ? k : k?.keyword || '')).filter(Boolean)
+    const unique = Array.from(new Set(rawStrings.map(s => s.trim())))
+    if (unique.length === 0) return []
+
+    const city = parseCityFromAddress(address).toLowerCase()
+    const businessWords = `${businessName} ${primaryType}`.toLowerCase()
+    
+    const isDental = businessWords.includes('dent')
+    const isJewelry = businessWords.includes('jewel')
+    const isLegal = businessWords.includes('law') || businessWords.includes('attorney') || businessWords.includes('cpa') || businessWords.includes('account')
+
+    const scored = unique.map(kw => {
+      const lower = kw.toLowerCase().trim()
+      let score = 0
+
+      // Primary city match
+      if (city && lower.includes(city)) score += 50
+
+      // Core service match
+      if (isDental && (lower.includes('dentist') || lower.includes('dental'))) score += 25
+      else if (isJewelry && (lower.includes('jewel') || lower.includes('gold') || lower.includes('diamond'))) score += 25
+      else if (isLegal && (lower.includes('lawyer') || lower.includes('attorney') || lower.includes('cpa') || lower.includes('accountant'))) score += 25
+      else if (primaryType && lower.includes(primaryType.toLowerCase().split(' ')[0])) score += 20
+
+      // High-intent commercial modifiers
+      if (lower.includes('near me')) score += 30
+      if (lower.includes('best') || lower.includes('emergency') || lower.includes('family') || lower.includes('top')) score += 20
+      if (lower.includes('implant') || lower.includes('cleaning') || lower.includes('care') || lower.includes('service')) score += 15
+
+      // Conciseness (prefer 2-4 words)
+      const words = lower.split(/\s+/).length
+      if (words >= 2 && words <= 4) score += 10
+      else if (words > 5) score -= 15
+
+      // Penalize irrelevant other cities if known
+      const otherCities = ['boston', 'lowell', 'waltham', 'beverly', 'roslindale', 'jamaica plain', 'springfield', 'worcester']
+        .filter(c => c !== city)
+      for (const oc of otherCities) {
+        if (lower.includes(oc)) {
+          score -= 40
+        }
+      }
+
+      return { kw, score }
+    })
+
+    scored.sort((a, b) => b.score - a.score)
+    return scored.slice(0, 3).map(s => s.kw)
+  }
+
   const fetchProjectDetails = async (id) => {
     setSearching(true)
     try {
@@ -123,13 +174,16 @@ export default function NewProjectPage() {
       const data = await response.json()
       const proj = data.project
 
+      const lat = Number(proj.latitude) || 0
+      const lng = Number(proj.longitude) || 0
+
       setSelectedBusiness({
         placeId: proj.placeId,
         name: proj.businessName,
         businessName: proj.businessName,
         address: proj.address,
-        latitude: proj.latitude,
-        longitude: proj.longitude,
+        latitude: lat,
+        longitude: lng,
         primaryType: proj.primaryType
       })
 
@@ -142,8 +196,14 @@ export default function NewProjectPage() {
         setGridUnit(proj.gridSettings.unit || 'mi')
       }
 
-      if (data.keywords) {
-        setKeywords(data.keywords.map(k => k.keyword))
+      if (data.keywords && data.keywords.length > 0) {
+        // Show ONLY the 3 top rated keywords
+        const top3 = pickTopRatedKeywords(data.keywords, proj.businessName, proj.address, proj.primaryType)
+        setKeywords(top3.length > 0 ? top3 : data.keywords.slice(0, 3).map(k => k.keyword))
+      } else {
+        const city = parseCityFromAddress(proj.address)
+        const generated = buildServiceKeywords(proj, city).slice(0, 3)
+        setKeywords(generated)
       }
 
       toast.success('Project details loaded')
@@ -620,7 +680,7 @@ export default function NewProjectPage() {
             onMarkerClick={handleSelectBusiness}
             mapType={mapType}
             autoFit={!scanning}
-            panToCenter={scanning && selectedBusiness ? {
+            panToCenter={selectedBusiness && selectedBusiness.latitude && selectedBusiness.latitude !== 0 ? {
               lat: selectedBusiness.latitude,
               lng: selectedBusiness.longitude
             } : null}
