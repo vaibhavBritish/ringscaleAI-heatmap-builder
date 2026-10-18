@@ -631,10 +631,36 @@ async function handleRoute(request, props) {
     const projectMatch = route.match(/^\/projects\/([^/]+)$/)
     if (projectMatch && method === 'GET') {
       const projectId = projectMatch[1]
-      const project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
+      let project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
 
       if (!project) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
+      }
+
+      // If coordinates are 0 or missing, dynamically resolve them to the exact business location
+      if (!project.latitude || !project.longitude || (project.latitude === 0 && project.longitude === 0)) {
+        try {
+          if (project.placeId && project.placeId.startsWith('ChIJ')) {
+            const place = await getPlaceDetails(project.placeId)
+            if (place && place.latitude && place.longitude) {
+              project.latitude = place.latitude
+              project.longitude = place.longitude
+              if (place.address && (!project.address || project.address.startsWith('Website:'))) {
+                project.address = place.address
+              }
+              await prisma.project.update({
+                where: { id: project.id },
+                data: {
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                  address: project.address
+                }
+              }).catch(() => {})
+            }
+          }
+        } catch (coordErr) {
+          console.warn('[projects/:id] Auto-resolve coordinates error:', coordErr.message)
+        }
       }
 
       const keywords = await prisma.keyword.findMany({
