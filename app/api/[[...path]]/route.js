@@ -415,11 +415,24 @@ async function handleRoute(request, props) {
                 { projectId: project.id }
               ]
             },
-            select: { optimizationScore: true, updatedAt: true }
+            select: { optimizationScore: true, updatedAt: true, auditDataJson: true }
           })
         } catch (auditErr) {
           console.warn(`[Projects] Audit lookup notice for ${project.id}:`, auditErr.message)
         }
+
+        const projectCreatedAt = new Date(project.createdAt || Date.now())
+        const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
+        let periodic = {}
+        if (audit?.auditDataJson) {
+          try {
+            const parsed = JSON.parse(audit.auditDataJson)
+            periodic = parsed.periodicReports || {}
+          } catch {}
+        }
+
+        const isDay15Available = !!periodic.day15 || daysElapsed >= 15
+        const isDay30Available = !!periodic.day30 || daysElapsed >= 30
 
         return {
           ...project,
@@ -427,7 +440,20 @@ async function handleRoute(request, props) {
           latestScanDate: latestScan?.createdAt || null,
           latestScanStatus: latestScan?.status || null,
           hasAudit: !!audit,
-          auditScore: audit?.optimizationScore ?? null
+          auditScore: audit?.optimizationScore ?? null,
+          auditUpdatedAt: audit?.updatedAt || null,
+          daysElapsed,
+          daysToDay15: Math.max(0, 15 - daysElapsed),
+          daysToDay30: Math.max(0, 30 - daysElapsed),
+          isDay15Available,
+          isDay30Available,
+          day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
+          day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
+          day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
+          day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
+          day30EmailSent: periodic.day30?.emailSent ?? false,
+          day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
+          periodicReports: periodic
         }
       }))
 
@@ -1395,11 +1421,24 @@ async function handleRoute(request, props) {
                 { projectId: p.id }
               ]
             },
-            select: { optimizationScore: true, updatedAt: true }
+            select: { optimizationScore: true, updatedAt: true, auditDataJson: true }
           })
         } catch (auditErr) {
           console.warn(`[Dashboard Stats] Audit lookup notice for ${p.id}:`, auditErr.message)
         }
+
+        const projectCreatedAt = new Date(p.createdAt || Date.now())
+        const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
+        let periodic = {}
+        if (audit?.auditDataJson) {
+          try {
+            const parsed = JSON.parse(audit.auditDataJson)
+            periodic = parsed.periodicReports || {}
+          } catch {}
+        }
+
+        const isDay15Available = !!periodic.day15 || daysElapsed >= 15
+        const isDay30Available = !!periodic.day30 || daysElapsed >= 30
 
         return {
           id: p.id,
@@ -1407,7 +1446,20 @@ async function handleRoute(request, props) {
           address: p.address,
           keywordCount,
           auditScore: audit?.optimizationScore ?? null,
-          hasAudit: !!audit
+          hasAudit: !!audit,
+          auditUpdatedAt: audit?.updatedAt || null,
+          daysElapsed,
+          daysToDay15: Math.max(0, 15 - daysElapsed),
+          daysToDay30: Math.max(0, 30 - daysElapsed),
+          isDay15Available,
+          isDay30Available,
+          day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
+          day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
+          day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
+          day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
+          day30EmailSent: periodic.day30?.emailSent ?? false,
+          day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
+          periodicReports: periodic
         }
       }))
 
