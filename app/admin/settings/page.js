@@ -31,12 +31,14 @@ import {
   XCircle,
   Mail,
   Phone,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw
 } from "lucide-react"
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [resettingQuota, setResettingQuota] = useState(false)
   const [settings, setSettings] = useState(null)
 
   useEffect(() => {
@@ -70,10 +72,34 @@ export default function SettingsPage() {
       
       setSettings(prev => ({ ...prev, [key]: value }))
       toast.success(`${key.charAt(0).toUpperCase() + key.slice(1)} updated successfully`)
+      // Refetch settings to keep status completely in sync
+      if (key === "google_quota") {
+        fetchSettings()
+      }
     } catch (error) {
       toast.error(error.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleResetQuota = async () => {
+    try {
+      setResettingQuota(true)
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_google_quota" })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to reset quota")
+      
+      toast.success(data.message || "Today's quota counter reset to 0")
+      await fetchSettings()
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setResettingQuota(false)
     }
   }
 
@@ -293,11 +319,84 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Quota Management</h3>
-                    <p className="text-sm text-slate-500">Configure safety limits for external API requests.</p>
+                    <p className="text-sm text-slate-500">Configure safety limits and monitor external Google API requests.</p>
                   </div>
                 </div>
 
-                <div className="max-w-md p-6 rounded-xl border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/10 space-y-4">
+                <div className="max-w-xl p-6 rounded-xl border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/10 space-y-5">
+                  {/* Realtime Quota Status Card */}
+                  {settings.google_quota_status && (
+                    <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Today's Google Places API Usage ({settings.google_quota_status.today})
+                        </span>
+                        {settings.google_quota_status.isExceeded ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                            Quota Exceeded (Requests Paused)
+                          </span>
+                        ) : settings.google_quota_status.isUnlimited ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                            Unlimited Mode
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                            Active & Normal
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                            {settings.google_quota_status.current.toLocaleString()}{" "}
+                            <span className="text-sm font-medium text-slate-500">
+                              / {settings.google_quota_status.limit > 0 ? settings.google_quota_status.limit.toLocaleString() : "Unlimited"} calls
+                            </span>
+                          </div>
+                          {!settings.google_quota_status.isUnlimited && (
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              {settings.google_quota_status.remaining.toLocaleString()} remaining today
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResetQuota}
+                          disabled={resettingQuota}
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:text-red-400 shrink-0"
+                        >
+                          {resettingQuota ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          Reset Counter
+                        </Button>
+                      </div>
+
+                      {/* Visual Meter Bar */}
+                      {settings.google_quota_status.limit > 0 && (
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 rounded-full transition-all duration-500 ${
+                              settings.google_quota_status.isExceeded
+                                ? "bg-red-600"
+                                : (settings.google_quota_status.current / settings.google_quota_status.limit) > 0.8
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(100, Math.round((settings.google_quota_status.current / settings.google_quota_status.limit) * 100))}%`
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="google-quota" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                       Google API Daily Safety Limit
@@ -307,7 +406,7 @@ export default function SettingsPage() {
                         id="google-quota"
                         type="number"
                         placeholder="250"
-                        value={settings.google_quota?.dailyLimit || 250}
+                        value={settings.google_quota?.dailyLimit ?? 250}
                         onChange={(e) => setSettings({
                           ...settings,
                           google_quota: { dailyLimit: parseInt(e.target.value) || 0 }
@@ -316,13 +415,13 @@ export default function SettingsPage() {
                       <Button 
                         onClick={() => handleUpdate("google_quota", settings.google_quota)}
                         disabled={saving}
-                        className="bg-red-600 hover:bg-red-700 text-white"
+                        className="bg-red-600 hover:bg-red-700 text-white min-w-[120px]"
                       >
                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Limit"}
                       </Button>
                     </div>
                     <p className="text-[11px] text-slate-500 italic mt-2">
-                      This limit prevents the application from making more calls to Google once reached for the day. Default is 250.
+                      Set to <strong>0</strong> for unlimited calls without daily cut-off. Any positive value acts as a daily ceiling to prevent unexpected Google billing. Default is 250.
                     </p>
                   </div>
                 </div>

@@ -1498,6 +1498,12 @@ async function handleRoute(request, props) {
     ))
 
   } catch (error) {
+    if (error.message === 'DAILY_QUOTA_REACHED') {
+      return handleCORS(NextResponse.json(
+        { error: 'Daily Google API safety limit reached. Searches and scans are temporarily paused to protect against billing.' },
+        { status: 429 }
+      ))
+    }
     console.error('API Error:', error)
     return handleCORS(NextResponse.json(
       { error: error.message || 'Internal server error' },
