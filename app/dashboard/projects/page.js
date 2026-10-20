@@ -184,7 +184,7 @@ export default function ProjectsPage() {
                       <DropdownMenuItem asChild>
                         <Link href={`/dashboard/audit/${project.id}`}>
                           <ShieldCheck className="w-4 h-4 mr-2" />
-                          Business Audit
+                          Business Audit (15d & 30d)
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -213,6 +213,17 @@ export default function ProjectsPage() {
                         {formatDistanceToNow(new Date(project.latestScanDate), { addSuffix: true })}
                       </div>
                     )}
+                    {project.isDay30Available ? (
+                      <div className="flex items-center gap-1.5 py-1 px-2 bg-indigo-50 text-indigo-700 font-bold rounded-md border border-indigo-200">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        30d Audit Ready
+                      </div>
+                    ) : project.isDay15Available ? (
+                      <div className="flex items-center gap-1.5 py-1 px-2 bg-blue-50 text-blue-700 font-bold rounded-md border border-blue-200">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        15d Audit Ready
+                      </div>
+                    ) : null}
                   </div>
 
                   {project.latestScanStatus && (

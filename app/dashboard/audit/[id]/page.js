@@ -34,7 +34,12 @@ import {
   Copy,
   Check,
   Search,
-  Sparkles
+  Sparkles,
+  Mail,
+  Send,
+  Calendar,
+  Clock,
+  FileText
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -60,6 +65,8 @@ import {
 } from '@/lib/pdf-report'
 
 
+import { downloadAuditPdf } from '@/lib/export-audit-pdf'
+
 export default function BusinessAuditPage() {
   const params = useParams()
   const router = useRouter()
@@ -67,10 +74,73 @@ export default function BusinessAuditPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingMilestone, setDownloadingMilestone] = useState(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [generatingMilestone, setGeneratingMilestone] = useState(null)
   const [mounted, setMounted] = useState(false)
   const { config } = useConfig()
 
   useEffect(() => { setMounted(true) }, [])
+
+  const handleDownloadMilestone = async (milestone) => {
+    if (!data) return
+    setDownloadingMilestone(milestone)
+    try {
+      await downloadAuditPdf(data, {
+        milestone,
+        businessName: data.businessInfo?.name
+      })
+      toast.success(`${milestone === '15_days' ? '15-Day' : milestone === '30_days' ? '30-Day' : 'Milestone'} report downloaded!`)
+    } catch (err) {
+      toast.error('Download failed: ' + err.message)
+    } finally {
+      setDownloadingMilestone(null)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    setSendingEmail(true)
+    try {
+      const res = await fetch(`/api/projects/${params.id}/audit/periodic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_email' })
+      })
+      const result = await res.json()
+      if (res.ok && result.success) {
+        toast.success(result.message || '30-Day updated audit report sent to your email!')
+        fetchAuditData(false)
+      } else {
+        throw new Error(result.error || 'Failed to send audit email')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Could not send email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  const handleGenerateMilestone = async (cycle) => {
+    setGeneratingMilestone(cycle)
+    try {
+      const res = await fetch(`/api/projects/${params.id}/audit/periodic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_milestone', cycle })
+      })
+      const result = await res.json()
+      if (res.ok && result.success) {
+        toast.success(result.message || 'Milestone audit report generated!')
+        fetchAuditData(false)
+      } else {
+        throw new Error(result.error || 'Failed to generate milestone')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Could not generate milestone')
+    } finally {
+      setGeneratingMilestone(null)
+    }
+  }
 
   const handleDownloadPDF = async () => {
     if (!data) return
@@ -608,6 +678,190 @@ export default function BusinessAuditPage() {
           })}
         </p>
       )}
+
+      {/* Periodic Milestones (15-Day and 30-Day Cycles) Banner */}
+      <Card className="border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/20 rounded-3xl shadow-sm overflow-hidden mb-8">
+        <CardHeader className="p-6 border-b border-indigo-50/80 bg-white/60">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  Periodic Audit Reports & Automated Emailing
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold">
+                  Track your growth across 15-day and 30-day audit milestones. Updated reports are automatically sent to your email every 30 days.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={sendingEmail}
+                onClick={handleSendEmail}
+                className="rounded-xl border-indigo-200 font-bold text-xs h-9 px-3.5 text-indigo-700 bg-white hover:bg-indigo-50 shadow-sm flex items-center gap-1.5"
+                title="Send current 30-day updated report to your email address"
+              >
+                {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Send 30-Day to Email
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. Baseline Audit */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    Day 0
+                  </span>
+                  <span className="text-xs font-black text-slate-800">
+                    {data.periodicReports?.initial?.optimizationScore || data.metrics?.optimizationScore || 75}% Score
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-slate-900 text-sm">Baseline Audit Report</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Initial profile scan captured at onboarding</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={downloadingMilestone === 'initial'}
+                onClick={() => handleDownloadMilestone('initial')}
+                className="mt-4 w-full h-8 text-xs font-bold border-slate-200 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl"
+              >
+                {downloadingMilestone === 'initial' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
+                Download Baseline (PDF)
+              </Button>
+            </div>
+
+            {/* 2. 15-Day Milestone */}
+            {(() => {
+              const p15 = data.periodicReports?.day15
+              const is15Ready = !!p15 || (data.auditCycle?.daysElapsed ?? 0) >= 15
+              const daysLeft = data.auditCycle?.daysToDay15 ?? Math.max(0, 15 - (data.auditCycle?.daysElapsed ?? 0))
+
+              return (
+                <div className="bg-white border border-blue-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full -mr-6 -mt-6 pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] uppercase font-black tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                        Day 15 Milestone
+                      </span>
+                      {is15Ready && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-black text-blue-700">
+                            {p15?.optimizationScore || data.metrics?.optimizationScore || 80}%
+                          </span>
+                          {p15?.scoreDelta && (
+                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              {p15.scoreDelta}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="font-extrabold text-slate-900 text-sm">15-Day Updated Audit</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                      {is15Ready ? 'Intermediate optimization & ranking progress' : `Unlocks in ${daysLeft} days`}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={downloadingMilestone === '15_days'}
+                      onClick={() => handleDownloadMilestone('15_days')}
+                      className="flex-1 h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
+                    >
+                      {downloadingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
+                      Download 15-Day (PDF)
+                    </Button>
+                    {!is15Ready && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={generatingMilestone === '15_days'}
+                        onClick={() => handleGenerateMilestone('15_days')}
+                        className="h-8 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 rounded-xl"
+                        title="Generate early for preview"
+                      >
+                        {generatingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Generate'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* 3. 30-Day Milestone */}
+            {(() => {
+              const p30 = data.periodicReports?.day30
+              const is30Ready = !!p30 || (data.auditCycle?.daysElapsed ?? 0) >= 30
+              const daysLeft = data.auditCycle?.daysToDay30 ?? Math.max(0, 30 - (data.auditCycle?.daysElapsed ?? 0))
+
+              return (
+                <div className="bg-white border border-indigo-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/5 rounded-full -mr-6 -mt-6 pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] uppercase font-black tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1">
+                        <Mail className="w-2.5 h-2.5" /> Day 30 (Auto-Email)
+                      </span>
+                      {is30Ready && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-black text-indigo-700">
+                            {p30?.optimizationScore || data.metrics?.optimizationScore || 85}%
+                          </span>
+                          {p30?.scoreDelta && (
+                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              {p30.scoreDelta}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="font-extrabold text-slate-900 text-sm">30-Day Updated Audit</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                      {is30Ready ? 'Full monthly progress report automatically delivered' : `Unlocks in ${daysLeft} days`}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={downloadingMilestone === '30_days'}
+                      onClick={() => handleDownloadMilestone('30_days')}
+                      className="flex-1 h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs"
+                    >
+                      {downloadingMilestone === '30_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
+                      Download 30-Day (PDF)
+                    </Button>
+                    {!is30Ready && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={generatingMilestone === '30_days'}
+                        onClick={() => handleGenerateMilestone('30_days')}
+                        className="h-8 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                        title="Generate early for preview"
+                      >
+                        {generatingMilestone === '30_days' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Generate'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Tabs - Pill Style */}
       <Tabs defaultValue="audit" className="w-full">

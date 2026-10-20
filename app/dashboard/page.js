@@ -20,7 +20,11 @@ import {
   MapPin,
   ChevronRight,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Download,
+  Mail,
+  Calendar,
+  FileText
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from 'next-auth/react'
@@ -28,6 +32,7 @@ import { useRouter } from 'next/navigation'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import PlanTimer from '@/components/dashboard/PlanTimer'
 import { toast } from 'sonner'
+import { downloadAuditPdf } from '@/lib/export-audit-pdf'
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -37,6 +42,26 @@ export default function DashboardPage() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [cancellingScanId, setCancellingScanId] = useState(null)
   const [isSyncingGMB, setIsSyncingGMB] = useState(false)
+  const [downloadingMilestoneKey, setDownloadingMilestoneKey] = useState(null)
+
+  const handleDownloadMilestone = async (biz, milestone) => {
+    const key = `${biz.id}_${milestone}`
+    setDownloadingMilestoneKey(key)
+    try {
+      const res = await fetch(`/api/projects/${biz.id}/audit`)
+      if (!res.ok) throw new Error('Failed to load audit')
+      const auditData = await res.json()
+      await downloadAuditPdf(auditData, {
+        milestone,
+        businessName: biz.businessName
+      })
+      toast.success(`${milestone === '15_days' ? '15-Day' : '30-Day'} report downloaded!`)
+    } catch (err) {
+      toast.error('Download failed: ' + err.message)
+    } finally {
+      setDownloadingMilestoneKey(null)
+    }
+  }
 
   const handleSyncGMB = async () => {
     setIsSyncingGMB(true)
@@ -311,9 +336,51 @@ export default function DashboardPage() {
                         {biz.keywordCount > 0 ? `${biz.keywordCount} Target Keywords` : 'GMB Keywords Active'}
                       </span>
                     </div>
+
+                    {/* Periodic 15-Day & 30-Day Audit Downloads */}
+                    <div className="mt-3.5 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-700">
+                        <span className="flex items-center gap-1 text-indigo-700">
+                          <FileText className="w-3 h-3" /> Scheduled Audits
+                        </span>
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-bold flex items-center gap-1">
+                          <Mail className="w-2.5 h-2.5" /> Sent every 30d
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingMilestoneKey === `${biz.id}_15_days`}
+                          onClick={() => handleDownloadMilestone(biz, '15_days')}
+                          className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-blue-50 text-blue-700 border-blue-200 rounded-lg justify-center shadow-2xs"
+                        >
+                          {downloadingMilestoneKey === `${biz.id}_15_days` ? (
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          ) : (
+                            <Download className="w-3 h-3 mr-1" />
+                          )}
+                          15-Day PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingMilestoneKey === `${biz.id}_30_days`}
+                          onClick={() => handleDownloadMilestone(biz, '30_days')}
+                          className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200 rounded-lg justify-center shadow-2xs"
+                        >
+                          {downloadingMilestoneKey === `${biz.id}_30_days` ? (
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          ) : (
+                            <Download className="w-3 h-3 mr-1" />
+                          )}
+                          30-Day PDF
+                        </Button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
                     <Button asChild size="sm" className="flex-1 font-bold text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">
                       <Link href={`/dashboard/audit/${biz.id}`}>
                         View Audit & Keywords
