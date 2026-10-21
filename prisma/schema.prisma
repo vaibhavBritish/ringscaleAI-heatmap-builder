@@ -514,3 +514,50 @@ model SalesRecord {
   @@index([staffId])
   @@map("sales_records")
 }
+
+model GmbPost {
+  oid          String    @id @default(auto()) @map("_id") @db.ObjectId
+  id           String    @unique @default(uuid())
+  projectId    String
+  slug         String?
+  title        String?
+  content      String
+  postType     String    @default("update") // update | offer | event | product
+  ctaType      String?   // LEARN_MORE | CALL_NOW | BOOK | SIGN_UP | ORDER
+  ctaUrl       String?
+  imageUrl     String?
+  status       String    @default("published") // published | scheduled | draft
+  publishedAt  DateTime? @default(now())
+  scheduledFor DateTime?
+  views        Int       @default(0)
+  clicks       Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([slug])
+  @@map("gmb_posts")
+}
+
+model GmbReview {
+  oid              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id               String    @unique @default(uuid())
+  projectId        String
+  slug             String?
+  externalReviewId String?
+  reviewerName     String
+  reviewerPhoto    String?
+  rating           Int       @default(5)
+  comment          String?
+  reviewDate       DateTime  @default(now())
+  replyText        String?
+  repliedAt        DateTime?
+  repliedBy        String?
+  replyStatus      String    @default("pending") // replied | pending
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([slug])
+  @@map("gmb_reviews")
+}

@@ -23,7 +23,8 @@ import {
   Send,
   AlertCircle,
   TrendingUp,
-  FileText
+  FileText,
+  Lock
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -87,6 +88,15 @@ export default function AuditListPage() {
 
   // Direct download for a specific milestone (initial, 15_days, 30_days, latest)
   const handleDownload = async (project, milestone = 'latest') => {
+    if (milestone === '15_days' && !project.isDay15Available) {
+      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      return
+    }
+    if (milestone === '30_days' && !project.isDay30Available) {
+      toast.error('The 30-Day Milestone report is locked until 30 days have elapsed.')
+      return
+    }
+
     const key = `${project.id}_${milestone}`
     setDownloadingKey(key)
 
@@ -115,8 +125,18 @@ export default function AuditListPage() {
     }
   }
 
-  // Force-generate a milestone early (for testing or previewing before the 15/30 days elapse)
+  // Force-generate a milestone early (restricted strictly to unlocked periods)
   const handleGenerateMilestone = async (projectId, cycle) => {
+    const project = projects.find(p => p.id === projectId)
+    if (cycle === '15_days' && (!project || !project.isDay15Available)) {
+      toast.error('The 15-Day report is locked until 15 days have elapsed.')
+      return
+    }
+    if (cycle === '30_days' && (!project || !project.isDay30Available)) {
+      toast.error('The 30-Day report is locked until 30 days have elapsed.')
+      return
+    }
+
     const key = `${projectId}_${cycle}`
     setGeneratingMilestoneKey(key)
     try {
@@ -126,7 +146,10 @@ export default function AuditListPage() {
         body: JSON.stringify({ action: 'generate_milestone', cycle })
       })
 
-      if (!res.ok) throw new Error('Failed to generate milestone audit')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to generate milestone audit')
+      }
       const data = await res.json()
       toast.success(data.message || 'Milestone audit report generated!')
       fetchProjects()
@@ -139,6 +162,11 @@ export default function AuditListPage() {
 
   // Send the 30-Day Updated Audit report to customer email on demand
   const handleSendEmail = async (project) => {
+    if (!project.isDay30Available) {
+      toast.error('The 30-Day Audit Report email unlocks after 30 days have elapsed.')
+      return
+    }
+
     setSendingEmailId(project.id)
     try {
       const res = await fetch(`/api/projects/${project.id}/audit/periodic`, {
@@ -398,20 +426,18 @@ export default function AuditListPage() {
                             </>
                           ) : (
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-500" />
-                                Day {daysElapsed}/15 ({project.daysToDay15 || (15 - daysElapsed)}d left)
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                                <Lock className="w-2.5 h-2.5" /> Locked (Day 15)
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-400">
+                                Day {daysElapsed}/15 ({project.daysToDay15 || Math.max(0, 15 - daysElapsed)}d left)
                               </span>
                               <Button
-                                variant="outline"
                                 size="sm"
-                                disabled={isGenerating15}
-                                onClick={() => handleGenerateMilestone(project.id, '15_days')}
-                                className="h-7 px-2 text-[11px] font-bold text-blue-700 border-blue-200 hover:bg-blue-50 rounded-lg"
-                                title="Generate 15-Day report immediately for testing"
+                                disabled
+                                className="h-7 px-2.5 text-[11px] font-bold bg-slate-100 text-slate-400 border border-slate-200 rounded-lg cursor-not-allowed shadow-none flex items-center gap-1"
                               >
-                                {isGenerating15 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                Generate Now
+                                <Lock className="w-3 h-3" /> Locked
                               </Button>
                             </div>
                           )}
@@ -449,20 +475,18 @@ export default function AuditListPage() {
                             </>
                           ) : (
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-indigo-500" />
-                                Day {daysElapsed}/30 ({project.daysToDay30 || (30 - daysElapsed)}d left)
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                                <Lock className="w-2.5 h-2.5" /> Locked (Day 30)
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-400">
+                                Day {daysElapsed}/30 ({project.daysToDay30 || Math.max(0, 30 - daysElapsed)}d left)
                               </span>
                               <Button
-                                variant="outline"
                                 size="sm"
-                                disabled={isGenerating30}
-                                onClick={() => handleGenerateMilestone(project.id, '30_days')}
-                                className="h-7 px-2 text-[11px] font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50 rounded-lg"
-                                title="Generate 30-Day report immediately for testing"
+                                disabled
+                                className="h-7 px-2.5 text-[11px] font-bold bg-slate-100 text-slate-400 border border-slate-200 rounded-lg cursor-not-allowed shadow-none flex items-center gap-1"
                               >
-                                {isGenerating30 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                Generate Now
+                                <Lock className="w-3 h-3" /> Locked
                               </Button>
                             </div>
                           )}
@@ -472,30 +496,51 @@ export default function AuditListPage() {
                       {/* Column 5: Auto-Email Status */}
                       <td className="py-4 px-4 text-center align-middle">
                         <div className="flex flex-col items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Mail className="w-3 h-3 text-emerald-600" />
-                            Auto-Sent Every 30d
-                          </span>
-                          {project.day30EmailSentAt && (
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              Sent: {new Date(project.day30EmailSentAt).toLocaleDateString()}
-                            </span>
+                          {is30Ready ? (
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Mail className="w-3 h-3 text-emerald-600" />
+                                Auto-Sent Every 30d
+                              </span>
+                              {project.day30EmailSentAt && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  Sent: {new Date(project.day30EmailSentAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={isSendingEmail}
+                                onClick={() => handleSendEmail(project)}
+                                className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                                title="Send 30-Day audit report to your email now"
+                              >
+                                {isSendingEmail ? (
+                                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                ) : (
+                                  <Send className="w-3 h-3 mr-1" />
+                                )}
+                                Send Email Now
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                Unlocks Day 30
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled
+                                className="h-6 px-2 text-[10px] font-bold text-slate-400 cursor-not-allowed opacity-60"
+                                title={`Email unlocks in ${project.daysToDay30 || Math.max(0, 30 - daysElapsed)} days`}
+                              >
+                                <Lock className="w-3 h-3 mr-1" />
+                                Email Locked
+                              </Button>
+                            </>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={isSendingEmail}
-                            onClick={() => handleSendEmail(project)}
-                            className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                            title="Send 30-Day audit report to your email now"
-                          >
-                            {isSendingEmail ? (
-                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                            ) : (
-                              <Send className="w-3 h-3 mr-1" />
-                            )}
-                            Send Email Now
-                          </Button>
                         </div>
                       </td>
 
@@ -581,40 +626,72 @@ export default function AuditListPage() {
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {/* 15-Day Download */}
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2">
+                      <div className={!is15Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                         <div>
-                          <p className="text-[10px] uppercase font-black text-blue-600 tracking-wider">15-Day Report</p>
-                          <p className="text-xs font-bold text-slate-800 mt-0.5">
-                            {is15Ready ? `${project.day15Score || project.auditScore || 80}% Score` : `In ${project.daysToDay15 || (15 - daysElapsed)} days`}
+                          <div className="flex items-center justify-between">
+                            <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>15-Day Report</p>
+                            {!is15Ready && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
+                                <Lock className="w-2.5 h-2.5" /> Locked
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs mt-0.5 ${is15Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
+                            {is15Ready ? `${project.day15Score || project.auditScore || 80}% Score` : `In ${project.daysToDay15 || Math.max(0, 15 - daysElapsed)} days`}
                           </p>
                         </div>
                         <Button
                           size="sm"
-                          disabled={is15Downloading}
+                          disabled={!is15Ready || is15Downloading}
                           onClick={() => handleDownload(project, '15_days')}
-                          className="w-full h-7 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm"
+                          className={`w-full h-7 text-[11px] font-bold rounded-md shadow-sm ${
+                            is15Ready
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                          }`}
                         >
-                          {is15Downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                          {is15Ready ? 'Download' : 'Generate'}
+                          {is15Downloading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : !is15Ready ? (
+                            <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><Download className="w-3 h-3 mr-1" /> Download</span>
+                          )}
                         </Button>
                       </div>
 
                       {/* 30-Day Download */}
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2">
+                      <div className={!is30Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                         <div>
-                          <p className="text-[10px] uppercase font-black text-indigo-600 tracking-wider">30-Day Report</p>
-                          <p className="text-xs font-bold text-slate-800 mt-0.5">
-                            {is30Ready ? `${project.day30Score || project.auditScore || 85}% Score` : `In ${project.daysToDay30 || (30 - daysElapsed)} days`}
+                          <div className="flex items-center justify-between">
+                            <p className={`text-[10px] uppercase font-black tracking-wider ${is30Ready ? 'text-indigo-600' : 'text-slate-500'}`}>30-Day Report</p>
+                            {!is30Ready && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
+                                <Lock className="w-2.5 h-2.5" /> Locked
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs mt-0.5 ${is30Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
+                            {is30Ready ? `${project.day30Score || project.auditScore || 85}% Score` : `In ${project.daysToDay30 || Math.max(0, 30 - daysElapsed)} days`}
                           </p>
                         </div>
                         <Button
                           size="sm"
-                          disabled={is30Downloading}
+                          disabled={!is30Ready || is30Downloading}
                           onClick={() => handleDownload(project, '30_days')}
-                          className="w-full h-7 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm"
+                          className={`w-full h-7 text-[11px] font-bold rounded-md shadow-sm ${
+                            is30Ready
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                          }`}
                         >
-                          {is30Downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                          {is30Ready ? 'Download' : 'Generate'}
+                          {is30Downloading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : !is30Ready ? (
+                            <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><Download className="w-3 h-3 mr-1" /> Download</span>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -629,12 +706,16 @@ export default function AuditListPage() {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isSendingEmail}
+                      disabled={!is30Ready || isSendingEmail}
                       onClick={() => handleSendEmail(project)}
-                      className="h-10 w-10 rounded-xl border-slate-200 hover:bg-indigo-50 text-indigo-700"
-                      title="Send 30-Day Audit Report to Email"
+                      className={`h-10 w-10 rounded-xl border-slate-200 ${
+                        is30Ready 
+                          ? 'hover:bg-indigo-50 text-indigo-700' 
+                          : 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-50'
+                      }`}
+                      title={is30Ready ? "Send 30-Day Audit Report to Email" : `Email delivery locked until Day 30 (in ${project.daysToDay30 || Math.max(0, 30 - daysElapsed)}d)`}
                     >
-                      {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : <Send className="w-4 h-4" />}
+                      {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : !is30Ready ? <Lock className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                     </Button>
                   </div>
                 </CardContent>

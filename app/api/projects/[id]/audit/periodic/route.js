@@ -19,16 +19,25 @@ export async function GET(req, props) {
     }
 
     const { id: projectId } = params
+    const isAdminOrStaff = ['admin', 'superadmin', 'staff'].includes(session.user?.role)
     const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: session.user.id }
+      where: isAdminOrStaff
+        ? { OR: [{ id: projectId }, { clientSlug: projectId }] }
+        : { OR: [{ id: projectId }, { clientSlug: projectId }], userId: session.user.id }
     })
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const audit = await prisma.businessAudit.findUnique({
-      where: { id: projectId }
+    const audit = await prisma.businessAudit.findFirst({
+      where: {
+        OR: [
+          { id: project.id },
+          { projectId: project.id }
+        ]
+      },
+      orderBy: { updatedAt: 'desc' }
     })
 
     let auditData = null
@@ -39,7 +48,7 @@ export async function GET(req, props) {
     }
 
     if (!auditData) {
-      auditData = await generateAndStoreAuditReport(projectId)
+      auditData = await generateAndStoreAuditReport(project.id)
     }
 
     const cycleInfo = computeProjectAuditCycle(project, audit)
@@ -71,8 +80,11 @@ export async function POST(req, props) {
     const body = await req.json().catch(() => ({}))
     const { action, cycle } = body // action: 'generate_milestone' | 'send_email' | 'refresh'
 
+    const isAdminOrStaff = ['admin', 'superadmin', 'staff'].includes(session.user?.role)
     const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: session.user.id }
+      where: isAdminOrStaff
+        ? { OR: [{ id: projectId }, { clientSlug: projectId }] }
+        : { OR: [{ id: projectId }, { clientSlug: projectId }], userId: session.user.id }
     })
 
     if (!project) {
@@ -83,12 +95,26 @@ export async function POST(req, props) {
       where: { id: session.user.id },
       select: { email: true, name: true }
     })
+    const projectCreatedAt = new Date(project.createdAt || Date.now())
+    const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
 
     if (action === 'send_email') {
+      if (daysElapsed < 30) {
+        return NextResponse.json({
+          error: `The 30-Day audit report is locked. It will automatically unlock and be emailed in ${30 - daysElapsed} days.`
+        }, { status: 400 })
+      }
+
       // Fetch or generate latest audit
       let auditReport = null
-      const existingAudit = await prisma.businessAudit.findUnique({
-        where: { id: projectId }
+      const existingAudit = await prisma.businessAudit.findFirst({
+        where: {
+          OR: [
+            { id: project.id },
+            { projectId: project.id }
+          ]
+        },
+        orderBy: { updatedAt: 'desc' }
       })
 
       if (existingAudit?.auditDataJson) {
@@ -98,14 +124,14 @@ export async function POST(req, props) {
       }
 
       if (!auditReport) {
-        auditReport = await generateAndStoreAuditReport(projectId, { forceMilestone: '30_days' })
+        auditReport = await generateAndStoreAuditReport(project.id, { forceMilestone: '30_days' })
       }
 
       // Send the 30-day updated report email
       const targetEmail = body.email || user.email
       const sendResult = await send30DayUpdatedAuditEmail(targetEmail, user.name, auditReport, {
         businessName: project.businessName,
-        projectId,
+        projectId: project.id,
         scoreDelta: auditReport.periodicReports?.day30?.scoreDelta || '+8'
       })
 
@@ -119,13 +145,15 @@ export async function POST(req, props) {
         auditReport.periodicReports.day30.emailSentAt = new Date().toISOString()
       }
 
-      await prisma.businessAudit.update({
-        where: { id: projectId },
-        data: {
-          auditDataJson: JSON.stringify(auditReport),
-          updatedAt: new Date()
-        }
-      }).catch(() => {})
+      if (existingAudit) {
+        await prisma.businessAudit.update({
+          where: { id: existingAudit.id },
+          data: {
+            auditDataJson: JSON.stringify(auditReport),
+            updatedAt: new Date()
+          }
+        }).catch(() => {})
+      }
 
       return NextResponse.json({
         success: true,
@@ -133,9 +161,20 @@ export async function POST(req, props) {
       })
     }
 
-    // Force milestone generation (15_days or 30_days)
+    // Milestone generation (15_days or 30_days)
     const milestoneCycle = cycle || (action === 'generate_30' ? '30_days' : '15_days')
-    const updatedAudit = await generateAndStoreAuditReport(projectId, {
+    if (milestoneCycle === '15_days' && daysElapsed < 15) {
+      return NextResponse.json({
+        error: `The 15-Day milestone report is locked. It will unlock after 15 days (in ${15 - daysElapsed} days).`
+      }, { status: 400 })
+    }
+    if (milestoneCycle === '30_days' && daysElapsed < 30) {
+      return NextResponse.json({
+        error: `The 30-Day milestone report is locked. It will unlock after 30 days (in ${30 - daysElapsed} days).`
+      }, { status: 400 })
+    }
+
+    const updatedAudit = await generateAndStoreAuditReport(project.id, {
       forceMilestone: milestoneCycle
     })
 

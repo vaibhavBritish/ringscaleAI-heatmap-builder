@@ -17,7 +17,8 @@ import {
   Mail, 
   CheckCircle2, 
   Tag, 
-  Send 
+  Send,
+  Lock
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
@@ -60,6 +61,15 @@ export default function ReportsPage() {
   }, [])
 
   const handleDownloadAudit = async (biz, milestone) => {
+    if (milestone === '15_days' && !biz.isDay15Available) {
+      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      return
+    }
+    if (milestone === '30_days' && !biz.isDay30Available) {
+      toast.error('The 30-Day Milestone report is locked until 30 days have elapsed.')
+      return
+    }
+
     const key = `${biz.id}_${milestone}`
     setDownloadingKey(key)
     try {
@@ -79,6 +89,11 @@ export default function ReportsPage() {
   }
 
   const handleSendEmail = async (biz) => {
+    if (!biz.isDay30Available) {
+      toast.error('The 30-Day Audit Report email unlocks after 30 days have elapsed.')
+      return
+    }
+
     setSendingEmailId(biz.id)
     try {
       const res = await fetch(`/api/projects/${biz.id}/audit/periodic`, {
@@ -239,40 +254,72 @@ export default function ReportsPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           {/* 15-Day Milestone */}
-                          <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2">
+                          <div className={!is15Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                             <div>
-                              <p className="text-[10px] uppercase font-black text-blue-600 tracking-wider">15-Day Report</p>
-                              <p className="text-xs font-bold text-slate-800 mt-0.5">
-                                {is15Ready ? `${biz.day15Score || biz.auditScore || 80}% Score` : `In ${biz.daysToDay15 || (15 - daysElapsed)}d`}
+                              <div className="flex items-center justify-between">
+                                <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>15-Day Report</p>
+                                {!is15Ready && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
+                                    <Lock className="w-2.5 h-2.5" /> Locked
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-0.5 ${is15Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
+                                {is15Ready ? `${biz.day15Score || biz.auditScore || 80}% Score` : `In ${biz.daysToDay15 || Math.max(0, 15 - daysElapsed)}d`}
                               </p>
                             </div>
                             <Button
                               size="sm"
-                              disabled={is15Downloading}
+                              disabled={!is15Ready || is15Downloading}
                               onClick={() => handleDownloadAudit(biz, '15_days')}
-                              className="w-full h-7 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm"
+                              className={`w-full h-7 text-[11px] font-bold rounded-md shadow-sm ${
+                                is15Ready
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                              }`}
                             >
-                              {is15Downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                              Download
+                              {is15Downloading ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : !is15Ready ? (
+                                <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
+                              ) : (
+                                <span className="flex items-center gap-1"><Download className="w-3 h-3 mr-0.5" /> Download</span>
+                              )}
                             </Button>
                           </div>
 
                           {/* 30-Day Milestone */}
-                          <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2">
+                          <div className={!is30Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                             <div>
-                              <p className="text-[10px] uppercase font-black text-indigo-600 tracking-wider">30-Day Report</p>
-                              <p className="text-xs font-bold text-slate-800 mt-0.5">
-                                {is30Ready ? `${biz.day30Score || biz.auditScore || 85}% Score` : `In ${biz.daysToDay30 || (30 - daysElapsed)}d`}
+                              <div className="flex items-center justify-between">
+                                <p className={`text-[10px] uppercase font-black tracking-wider ${is30Ready ? 'text-indigo-600' : 'text-slate-500'}`}>30-Day Report</p>
+                                {!is30Ready && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
+                                    <Lock className="w-2.5 h-2.5" /> Locked
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-0.5 ${is30Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
+                                {is30Ready ? `${biz.day30Score || biz.auditScore || 85}% Score` : `In ${biz.daysToDay30 || Math.max(0, 30 - daysElapsed)}d`}
                               </p>
                             </div>
                             <Button
                               size="sm"
-                              disabled={is30Downloading}
+                              disabled={!is30Ready || is30Downloading}
                               onClick={() => handleDownloadAudit(biz, '30_days')}
-                              className="w-full h-7 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm"
+                              className={`w-full h-7 text-[11px] font-bold rounded-md shadow-sm ${
+                                is30Ready
+                                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                              }`}
                             >
-                              {is30Downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                              Download
+                              {is30Downloading ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : !is30Ready ? (
+                                <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
+                              ) : (
+                                <span className="flex items-center gap-1"><Download className="w-3 h-3 mr-0.5" /> Download</span>
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -287,12 +334,16 @@ export default function ReportsPage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          disabled={isSendingEmail}
+                          disabled={!is30Ready || isSendingEmail}
                           onClick={() => handleSendEmail(biz)}
-                          className="h-9 w-9 rounded-xl border-slate-200 text-indigo-700 hover:bg-indigo-50"
-                          title="Send 30-Day Audit Report to Email"
+                          className={`h-9 w-9 rounded-xl border-slate-200 ${
+                            is30Ready
+                              ? 'text-indigo-700 hover:bg-indigo-50'
+                              : 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-50'
+                          }`}
+                          title={is30Ready ? "Send 30-Day Audit Report to Email" : `Email delivery locked until Day 30 (in ${biz.daysToDay30 || Math.max(0, 30 - daysElapsed)}d)`}
                         >
-                          {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Send className="w-3.5 h-3.5" />}
+                          {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : !is30Ready ? <Lock className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
                         </Button>
                       </div>
                     </CardContent>

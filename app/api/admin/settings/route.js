@@ -84,12 +84,23 @@ export async function GET() {
             }, {}))
         }
 
+        let googleQuotaStatus = null
+        try {
+            const { getQuotaUsage } = await import("@/lib/google-places")
+            googleQuotaStatus = await getQuotaUsage()
+        } catch (quotaErr) {
+            console.error("Failed to fetch google quota status:", quotaErr)
+        }
+
         const settingsMap = settings.reduce((acc, curr) => {
             acc[curr.key] = curr.value
             return acc
         }, {})
 
-        return NextResponse.json(settingsMap)
+        return NextResponse.json({
+            ...settingsMap,
+            google_quota_status: googleQuotaStatus
+        })
     } catch (error) {
         console.error('Error fetching settings:', error)
         return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
@@ -103,7 +114,19 @@ export async function PATCH(request) {
 
     try {
         const body = await request.json()
-        const { key, value } = body
+        const { key, value, action } = body
+
+        // Reset quota action
+        if (action === 'reset_google_quota' || key === 'reset_google_quota' || key === 'google_quota_reset') {
+            const { resetDailyQuota } = await import("@/lib/google-places")
+            await resetDailyQuota()
+            if (redis) {
+                try {
+                    await redis.del('config:google:dailyLimit')
+                } catch (e) {}
+            }
+            return NextResponse.json({ message: "Google API daily quota counter reset to 0 successfully." })
+        }
 
         if (!key || value === undefined) {
             return NextResponse.json({ error: "Key and value are required" }, { status: 400 })

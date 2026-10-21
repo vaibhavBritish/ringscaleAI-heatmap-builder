@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Search, MapPin, Calendar, Tag, Trash2, ExternalLink, MoreVertical, ShieldCheck, BarChart3 } from 'lucide-react'
+import { Plus, Search, MapPin, Calendar, Tag, Trash2, ExternalLink, MoreVertical, ShieldCheck, BarChart3, Lock } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -223,7 +223,12 @@ export default function ProjectsPage() {
                         <ShieldCheck className="w-3.5 h-3.5" />
                         15d Audit Ready
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="flex items-center gap-1.5 py-1 px-2 bg-slate-100 text-slate-500 font-semibold rounded-md border border-slate-200" title={`Audit report locked until Day 15 (in ${project.daysToDay15 || Math.max(0, 15 - (project.daysElapsed || 0))}d)`}>
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        Day {project.daysElapsed || 0}/15
+                      </div>
+                    )}
                   </div>
 
                   {project.latestScanStatus && (

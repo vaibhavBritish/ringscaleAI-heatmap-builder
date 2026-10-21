@@ -17,8 +17,11 @@ export async function GET(req, props) {
     const { id: projectId } = params
 
     // 1. Get project info and verify ownership immediately
+    const isAdminOrStaff = ['admin', 'superadmin', 'staff'].includes(session.user?.role)
     const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: session.user.id }
+      where: isAdminOrStaff
+        ? { OR: [{ id: projectId }, { clientSlug: projectId }] }
+        : { OR: [{ id: projectId }, { clientSlug: projectId }], userId: session.user.id }
     })
 
     if (!project) {
@@ -29,7 +32,7 @@ export async function GET(req, props) {
     let forceRefresh = searchParams.get('refresh') === 'true'
 
     // 2. Check Redis Cache First (Only after ownership is verified)
-    const cacheKey = `audit:project:${projectId}`
+    const cacheKey = `audit:project:${project.id}`
     if (!forceRefresh && redis) {
       try {
         const cached = await redis.get(cacheKey)
@@ -53,8 +56,14 @@ export async function GET(req, props) {
 
     // 3. Check Database for recent audit (Freshness: 24 hours)
     if (!forceRefresh) {
-      const recentAudit = await prisma.businessAudit.findUnique({
-        where: { id: projectId }
+      const recentAudit = await prisma.businessAudit.findFirst({
+        where: {
+          OR: [
+            { id: project.id },
+            { projectId: project.id }
+          ]
+        },
+        orderBy: { updatedAt: 'desc' }
       })
 
       if (recentAudit) {
@@ -140,7 +149,7 @@ export async function GET(req, props) {
 
     // 4. Fetch fresh details and generate audit
     const { generateAndStoreAuditReport } = await import('@/lib/audit-generator')
-    const auditReport = await generateAndStoreAuditReport(projectId)
+    const auditReport = await generateAndStoreAuditReport(project.id)
 
     // 5. Cache in Redis (TTL: 1 hour)
     if (redis) {

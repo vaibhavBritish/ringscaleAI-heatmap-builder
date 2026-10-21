@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users, ShieldCheck, QrCode, MessageSquare, Sparkles, Zap
+  ArrowLeft, MapPin, Tag, Plus, Trash2, Loader2, Play, Clock, BarChart3, Grid3X3, Settings2, ExternalLink, Check, Users, ShieldCheck, QrCode, MessageSquare, Sparkles, Zap, Store
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
@@ -346,6 +346,12 @@ export default function ProjectDetailPage() {
           setShowScanDialog(open)
         }}>
         <div className="flex flex-col xs:flex-row items-center gap-3 w-full sm:w-auto">
+          <Link href={`/dashboard/profiles/${project.clientSlug || project.id}`} className="w-full xs:w-auto">
+            <Button variant="outline" className="w-full h-11 px-5 font-bold rounded-xl border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 transition-all shadow-sm active:scale-95">
+              <Store className="w-4 h-4 mr-2 text-blue-600" />
+              GMB Profile & Posts
+            </Button>
+          </Link>
           <Link href={`/dashboard/audit/${projectId}`} className="w-full xs:w-auto">
             <Button variant="outline" className="w-full h-11 px-6 font-bold rounded-xl border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
               <ShieldCheck className="w-4 h-4 mr-2 text-blue-600" />
@@ -548,6 +554,10 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="competitors">
             <Users className="w-4 h-4 mr-2" />
             Competitors
+          </TabsTrigger>
+          <TabsTrigger value="posts-reviews">
+            <Store className="w-4 h-4 mr-2" />
+            GMB Posts & Reviews
           </TabsTrigger>
         </TabsList>
 
@@ -756,6 +766,64 @@ export default function ProjectDetailPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="posts-reviews" className="space-y-6">
+          <Card className="rounded-3xl border border-slate-200 overflow-hidden bg-white shadow-sm p-6 sm:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-bold text-xs">
+                    Google Business Profile Hub
+                  </Badge>
+                  <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                    slug: /{project.clientSlug || project.id}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black text-slate-900">
+                  GMB Posts, Reviews & Owner Replies
+                </h3>
+                <p className="text-slate-500 text-sm max-w-xl">
+                  Showcase published Google updates, offers, and verified customer reviews with official owner responses on your single-page profile hub.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Link href={`/dashboard/profiles/${project.clientSlug || project.id}`}>
+                  <Button className="bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md shadow-blue-600/20 gap-2">
+                    <Store className="w-4 h-4" />
+                    Open Profile Hub
+                  </Button>
+                </Link>
+                <Link href={`/profile/${project.clientSlug || project.id}`} target="_blank">
+                  <Button variant="outline" className="border-slate-200 rounded-xl gap-1.5 text-slate-600">
+                    <ExternalLink className="w-4 h-4" />
+                    Client Portal
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4 pt-6">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live GMB Posts</span>
+                <div className="text-2xl font-black text-slate-900 mt-1">Active Updates & Promos</div>
+                <p className="text-xs text-slate-500 mt-1">Publish news, events, and special deals</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Verified Reviews</span>
+                <div className="text-2xl font-black text-emerald-600 mt-1">Google Maps Reviews</div>
+                <p className="text-xs text-emerald-700 mt-1">Manage ratings and customer feedback</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-center">
+                <span className="text-xs font-bold text-purple-800 uppercase tracking-wider">Owner Responses</span>
+                <div className="text-2xl font-black text-purple-600 mt-1">AI-Assisted Replies</div>
+                <p className="text-xs text-purple-700 mt-1">Boost local SEO by responding to all reviews</p>
+              </div>
+            </div>
+          </Card>
         </TabsContent>
       </Tabs>
       

@@ -24,7 +24,9 @@ import {
   Download,
   Mail,
   Calendar,
-  FileText
+  FileText,
+  Lock,
+  Store
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from 'next-auth/react'
@@ -45,6 +47,15 @@ export default function DashboardPage() {
   const [downloadingMilestoneKey, setDownloadingMilestoneKey] = useState(null)
 
   const handleDownloadMilestone = async (biz, milestone) => {
+    if (milestone === '15_days' && !biz.isDay15Available) {
+      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      return
+    }
+    if (milestone === '30_days' && !biz.isDay30Available) {
+      toast.error('The 30-Day Milestone report is locked until 30 days have elapsed.')
+      return
+    }
+
     const key = `${biz.id}_${milestone}`
     setDownloadingMilestoneKey(key)
     try {
@@ -186,7 +197,7 @@ export default function DashboardPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-600">Total Projects</CardTitle>
@@ -243,6 +254,28 @@ export default function DashboardPage() {
                 expiryDate={ (stats?.user?.plan || '').toLowerCase().includes('trial') ? (stats?.user?.trialEndsAt || session?.user?.trialEndsAt) : (stats?.user?.planEndsAt || session?.user?.planEndsAt) } 
                 planName={getPlanDisplayName(stats?.user?.plan || session?.user?.plan)} 
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-100 bg-gradient-to-br from-white to-blue-50/40">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-black text-blue-600 uppercase tracking-wider">Posts & Reviews</CardTitle>
+            <Store className="w-5 h-5 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-black text-slate-900">
+                  {stats?.totalProjects || 0}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  Profile Hub Active
+                </span>
+              </div>
+              <Link href="/dashboard/profiles" className="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-700">
+                View Profiles & Posts <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -348,34 +381,61 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={downloadingMilestoneKey === `${biz.id}_15_days`}
-                          onClick={() => handleDownloadMilestone(biz, '15_days')}
-                          className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-blue-50 text-blue-700 border-blue-200 rounded-lg justify-center shadow-2xs"
-                        >
-                          {downloadingMilestoneKey === `${biz.id}_15_days` ? (
-                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                          ) : (
-                            <Download className="w-3 h-3 mr-1" />
-                          )}
-                          15-Day PDF
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={downloadingMilestoneKey === `${biz.id}_30_days`}
-                          onClick={() => handleDownloadMilestone(biz, '30_days')}
-                          className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200 rounded-lg justify-center shadow-2xs"
-                        >
-                          {downloadingMilestoneKey === `${biz.id}_30_days` ? (
-                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                          ) : (
-                            <Download className="w-3 h-3 mr-1" />
-                          )}
-                          30-Day PDF
-                        </Button>
+                        {biz.isDay15Available ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={downloadingMilestoneKey === `${biz.id}_15_days`}
+                            onClick={() => handleDownloadMilestone(biz, '15_days')}
+                            className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-blue-50 text-blue-700 border-blue-200 rounded-lg justify-center shadow-2xs"
+                          >
+                            {downloadingMilestoneKey === `${biz.id}_15_days` ? (
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            ) : (
+                              <Download className="w-3 h-3 mr-1" />
+                            )}
+                            15-Day PDF
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="h-7 px-1.5 text-[10px] font-bold bg-slate-100 text-slate-400 border-slate-200 rounded-lg justify-center cursor-not-allowed shadow-none"
+                            title={`Locked until Day 15 (unlocks in ${biz.daysToDay15 || Math.max(0, 15 - (biz.daysElapsed || 0))}d)`}
+                          >
+                            <Lock className="w-2.5 h-2.5 mr-1 text-slate-400" />
+                            Locked ({biz.daysToDay15 || Math.max(0, 15 - (biz.daysElapsed || 0))}d)
+                          </Button>
+                        )}
+
+                        {biz.isDay30Available ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={downloadingMilestoneKey === `${biz.id}_30_days`}
+                            onClick={() => handleDownloadMilestone(biz, '30_days')}
+                            className="h-7 px-2 text-[10px] font-bold bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200 rounded-lg justify-center shadow-2xs"
+                          >
+                            {downloadingMilestoneKey === `${biz.id}_30_days` ? (
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            ) : (
+                              <Download className="w-3 h-3 mr-1" />
+                            )}
+                            30-Day PDF
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="h-7 px-1.5 text-[10px] font-bold bg-slate-100 text-slate-400 border-slate-200 rounded-lg justify-center cursor-not-allowed shadow-none"
+                            title={`Locked until Day 30 (unlocks in ${biz.daysToDay30 || Math.max(0, 30 - (biz.daysElapsed || 0))}d)`}
+                          >
+                            <Lock className="w-2.5 h-2.5 mr-1 text-slate-400" />
+                            Locked ({biz.daysToDay30 || Math.max(0, 30 - (biz.daysElapsed || 0))}d)
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -383,7 +443,12 @@ export default function DashboardPage() {
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
                     <Button asChild size="sm" className="flex-1 font-bold text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">
                       <Link href={`/dashboard/audit/${biz.id}`}>
-                        View Audit & Keywords
+                        Audit
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="font-bold text-xs h-8 border-blue-200 bg-blue-50/60 hover:bg-blue-100 text-blue-700 rounded-lg">
+                      <Link href={`/dashboard/profiles/${biz.clientSlug || biz.id}`} title="GMB Posts & Reviews Hub">
+                        Posts & Reviews
                       </Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="font-bold text-xs h-8 border-slate-200 hover:bg-indigo-50 text-slate-700 rounded-lg">

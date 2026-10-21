@@ -189,9 +189,14 @@ async function handleRoute(request, props) {
       return limits[p] || 5
     }
 
-    // Helper to verify project ownership
+    // Helper to verify project ownership (supports admins, staff, and clientSlug)
     const verifyProject = async (projectId, userId) => {
-      const project = await prisma.project.findFirst({ where: { id: projectId, userId } })
+      const isAdminOrStaff = ['admin', 'superadmin', 'staff'].includes(currentUser?.role)
+      const project = await prisma.project.findFirst({
+        where: isAdminOrStaff
+          ? { OR: [{ id: projectId }, { clientSlug: projectId }] }
+          : { OR: [{ id: projectId }, { clientSlug: projectId }], userId }
+      })
       return !!project
     }
 
@@ -431,8 +436,10 @@ async function handleRoute(request, props) {
           } catch {}
         }
 
-        const isDay15Available = !!periodic.day15 || daysElapsed >= 15
-        const isDay30Available = !!periodic.day30 || daysElapsed >= 30
+        const isDay15Available = daysElapsed >= 15
+        const isDay30Available = daysElapsed >= 30
+        const isDay15Locked = daysElapsed < 15
+        const isDay30Locked = daysElapsed < 30
 
         return {
           ...project,
@@ -447,6 +454,8 @@ async function handleRoute(request, props) {
           daysToDay30: Math.max(0, 30 - daysElapsed),
           isDay15Available,
           isDay30Available,
+          isDay15Locked,
+          isDay30Locked,
           day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
           day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
           day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
@@ -657,7 +666,12 @@ async function handleRoute(request, props) {
     const projectMatch = route.match(/^\/projects\/([^/]+)$/)
     if (projectMatch && method === 'GET') {
       const projectId = projectMatch[1]
-      let project = await prisma.project.findFirst({ where: { id: projectId, userId: currentUser.id } })
+      const isAdminOrStaff = ['admin', 'superadmin', 'staff'].includes(currentUser?.role)
+      let project = await prisma.project.findFirst({
+        where: isAdminOrStaff
+          ? { OR: [{ id: projectId }, { clientSlug: projectId }] }
+          : { OR: [{ id: projectId }, { clientSlug: projectId }], userId: currentUser.id }
+      })
 
       if (!project) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
@@ -690,14 +704,63 @@ async function handleRoute(request, props) {
       }
 
       const keywords = await prisma.keyword.findMany({
-        where: { projectId },
+        where: { projectId: project.id },
         orderBy: { createdAt: 'desc' }
       })
-      const scans = await prisma.scanJob.findMany({
-        where: { projectId },
+      let scans = await prisma.scanJob.findMany({
+        where: { projectId: project.id },
         orderBy: { createdAt: 'desc' },
         take: 10
       })
+
+      // Auto-populate completed scan from BusinessAudit if scanJobs table is empty
+      if (scans.length === 0) {
+        try {
+          const audit = await prisma.businessAudit.findFirst({
+            where: { OR: [{ id: project.id }, { projectId: project.id }] }
+          })
+          if (audit?.auditDataJson) {
+            const auditData = JSON.parse(audit.auditDataJson)
+            if (Array.isArray(auditData.scanResults) && auditData.scanResults.length > 0 && keywords.length > 0) {
+              const defaultKw = keywords[0]
+              const scanJobId = uuidv4()
+              const newScan = await prisma.scanJob.create({
+                data: {
+                  id: scanJobId,
+                  projectId: project.id,
+                  keywordId: defaultKw.id,
+                  status: 'completed',
+                  gridSize: 7,
+                  spacingMeters: 1000,
+                  searchRadiusMeters: 3000,
+                  processedPoints: auditData.scanResults.length,
+                  totalPoints: auditData.scanResults.length,
+                  createdAt: new Date(),
+                  completedAt: new Date()
+                }
+              })
+              const compJson = JSON.stringify(auditData.competitors || [])
+              await Promise.all(auditData.scanResults.map((pt, idx) => prisma.scanResult.create({
+                data: {
+                  id: uuidv4(),
+                  scanJobId,
+                  rowIndex: Math.floor(idx / 7),
+                  colIndex: idx % 7,
+                  latitude: pt.latitude,
+                  longitude: pt.longitude,
+                  found: pt.found ?? true,
+                  rank: pt.rank ?? 3,
+                  competitorsJson: compJson,
+                  createdAt: new Date()
+                }
+              })))
+              scans = [newScan]
+            }
+          }
+        } catch (e) {
+          console.warn('[projects/:id] Auto-seed scan from audit error:', e.message)
+        }
+      }
 
       return handleCORS(NextResponse.json({ project, keywords, scans }))
     }
@@ -1266,9 +1329,14 @@ async function handleRoute(request, props) {
         return handleCORS(NextResponse.json({ error: 'Project not found' }, { status: 404 }))
       }
 
+      const project = await prisma.project.findFirst({
+        where: { OR: [{ id: projectId }, { clientSlug: projectId }] }
+      })
+      const effectiveProjectId = project ? project.id : projectId
+
       // Fetch latest scan job of this project just to have a reference Job
       const scanJob = await prisma.scanJob.findFirst({
-        where: { projectId },
+        where: { projectId: effectiveProjectId },
         orderBy: { createdAt: 'desc' }
       })
 
@@ -1276,9 +1344,8 @@ async function handleRoute(request, props) {
         return handleCORS(NextResponse.json({ error: 'No scan jobs found for this project' }, { status: 404 }))
       }
 
-      const project = await prisma.project.findFirst({ where: { id: projectId } })
       const allProjectScanJobIds = (await prisma.scanJob.findMany({
-        where: { projectId },
+        where: { projectId: effectiveProjectId },
         select: { id: true }
       })).map(j => j.id)
 
@@ -1437,8 +1504,10 @@ async function handleRoute(request, props) {
           } catch {}
         }
 
-        const isDay15Available = !!periodic.day15 || daysElapsed >= 15
-        const isDay30Available = !!periodic.day30 || daysElapsed >= 30
+        const isDay15Available = daysElapsed >= 15
+        const isDay30Available = daysElapsed >= 30
+        const isDay15Locked = daysElapsed < 15
+        const isDay30Locked = daysElapsed < 30
 
         return {
           id: p.id,
@@ -1453,6 +1522,8 @@ async function handleRoute(request, props) {
           daysToDay30: Math.max(0, 30 - daysElapsed),
           isDay15Available,
           isDay30Available,
+          isDay15Locked,
+          isDay30Locked,
           day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
           day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
           day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
@@ -1498,6 +1569,12 @@ async function handleRoute(request, props) {
     ))
 
   } catch (error) {
+    if (error.message === 'DAILY_QUOTA_REACHED') {
+      return handleCORS(NextResponse.json(
+        { error: 'Daily Google API safety limit reached. Searches and scans are temporarily paused to protect against billing.' },
+        { status: 429 }
+      ))
+    }
     console.error('API Error:', error)
     return handleCORS(NextResponse.json(
       { error: error.message || 'Internal server error' },
