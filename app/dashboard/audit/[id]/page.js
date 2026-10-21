@@ -39,7 +39,8 @@ import {
   Send,
   Calendar,
   Clock,
-  FileText
+  FileText,
+  Lock
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -84,6 +85,16 @@ export default function BusinessAuditPage() {
 
   const handleDownloadMilestone = async (milestone) => {
     if (!data) return
+    const daysElapsed = data.auditCycle?.daysElapsed ?? 0
+    if (milestone === '15_days' && daysElapsed < 15) {
+      toast.error(`The 15-Day report is locked. It will automatically unlock in ${15 - daysElapsed} days.`)
+      return
+    }
+    if (milestone === '30_days' && daysElapsed < 30) {
+      toast.error(`The 30-Day report is locked. It will automatically unlock in ${30 - daysElapsed} days.`)
+      return
+    }
+
     setDownloadingMilestone(milestone)
     try {
       await downloadAuditPdf(data, {
@@ -99,6 +110,12 @@ export default function BusinessAuditPage() {
   }
 
   const handleSendEmail = async () => {
+    const daysElapsed = data?.auditCycle?.daysElapsed ?? 0
+    if (daysElapsed < 30) {
+      toast.error(`The 30-Day audit report is locked. It will automatically unlock and be emailed in ${30 - daysElapsed} days.`)
+      return
+    }
+
     setSendingEmail(true)
     try {
       const res = await fetch(`/api/projects/${params.id}/audit/periodic`, {
@@ -121,6 +138,16 @@ export default function BusinessAuditPage() {
   }
 
   const handleGenerateMilestone = async (cycle) => {
+    const daysElapsed = data?.auditCycle?.daysElapsed ?? 0
+    if (cycle === '15_days' && daysElapsed < 15) {
+      toast.error(`The 15-Day report is locked. It will unlock after 15 days (in ${15 - daysElapsed} days).`)
+      return
+    }
+    if (cycle === '30_days' && daysElapsed < 30) {
+      toast.error(`The 30-Day report is locked. It will unlock after 30 days (in ${30 - daysElapsed} days).`)
+      return
+    }
+
     setGeneratingMilestone(cycle)
     try {
       const res = await fetch(`/api/projects/${params.id}/audit/periodic`, {
@@ -743,18 +770,23 @@ export default function BusinessAuditPage() {
             {/* 2. 15-Day Milestone */}
             {(() => {
               const p15 = data.periodicReports?.day15
-              const is15Ready = !!p15 || (data.auditCycle?.daysElapsed ?? 0) >= 15
-              const daysLeft = data.auditCycle?.daysToDay15 ?? Math.max(0, 15 - (data.auditCycle?.daysElapsed ?? 0))
+              const daysElapsed = data.auditCycle?.daysElapsed ?? 0
+              const is15Ready = daysElapsed >= 15
+              const daysLeft = Math.max(0, 15 - daysElapsed)
 
               return (
-                <div className="bg-white border border-blue-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden">
+                <div className={`bg-white border ${is15Ready ? 'border-blue-200/80 shadow-2xs' : 'border-slate-200 bg-slate-50/50'} rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden`}>
                   <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full -mr-6 -mt-6 pointer-events-none" />
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] uppercase font-black tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                        Day 15 Milestone
+                      <span className={`text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                        is15Ready 
+                          ? 'text-blue-700 bg-blue-50 border-blue-200' 
+                          : 'text-slate-500 bg-slate-100 border-slate-200'
+                      }`}>
+                        {is15Ready ? 'Day 15 Milestone' : <><Lock className="w-2.5 h-2.5" /> Locked (Day 15)</>}
                       </span>
-                      {is15Ready && (
+                      {is15Ready ? (
                         <div className="flex items-center gap-1">
                           <span className="text-xs font-black text-blue-700">
                             {p15?.optimizationScore || data.metrics?.optimizationScore || 80}%
@@ -765,34 +797,37 @@ export default function BusinessAuditPage() {
                             </span>
                           )}
                         </div>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-500" /> Unlocks in {daysLeft}d
+                        </span>
                       )}
                     </div>
                     <h4 className="font-extrabold text-slate-900 text-sm">15-Day Updated Audit</h4>
                     <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      {is15Ready ? 'Intermediate optimization & ranking progress' : `Unlocks in ${daysLeft} days`}
+                      {is15Ready ? 'Intermediate optimization & ranking progress' : `Locked until Day 15 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/15)`}
                     </p>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      disabled={downloadingMilestone === '15_days'}
-                      onClick={() => handleDownloadMilestone('15_days')}
-                      className="flex-1 h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
-                    >
-                      {downloadingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
-                      Download 15-Day (PDF)
-                    </Button>
-                    {!is15Ready && (
+                  <div className="mt-4">
+                    {is15Ready ? (
                       <Button
-                        variant="ghost"
                         size="sm"
-                        disabled={generatingMilestone === '15_days'}
-                        onClick={() => handleGenerateMilestone('15_days')}
-                        className="h-8 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 rounded-xl"
-                        title="Generate early for preview"
+                        disabled={downloadingMilestone === '15_days'}
+                        onClick={() => handleDownloadMilestone('15_days')}
+                        className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
                       >
-                        {generatingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Generate'}
+                        {downloadingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
+                        Download 15-Day (PDF)
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled
+                        className="w-full h-8 text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 rounded-xl cursor-not-allowed justify-center"
+                      >
+                        <Lock className="w-3 h-3 mr-1.5 text-slate-400" />
+                        Locked (Unlocks in {daysLeft}d)
                       </Button>
                     )}
                   </div>
@@ -803,18 +838,23 @@ export default function BusinessAuditPage() {
             {/* 3. 30-Day Milestone */}
             {(() => {
               const p30 = data.periodicReports?.day30
-              const is30Ready = !!p30 || (data.auditCycle?.daysElapsed ?? 0) >= 30
-              const daysLeft = data.auditCycle?.daysToDay30 ?? Math.max(0, 30 - (data.auditCycle?.daysElapsed ?? 0))
+              const daysElapsed = data.auditCycle?.daysElapsed ?? 0
+              const is30Ready = daysElapsed >= 30
+              const daysLeft = Math.max(0, 30 - daysElapsed)
 
               return (
-                <div className="bg-white border border-indigo-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden">
+                <div className={`bg-white border ${is30Ready ? 'border-indigo-200/80 shadow-2xs' : 'border-slate-200 bg-slate-50/50'} rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden`}>
                   <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/5 rounded-full -mr-6 -mt-6 pointer-events-none" />
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] uppercase font-black tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1">
-                        <Mail className="w-2.5 h-2.5" /> Day 30 (Auto-Email)
+                      <span className={`text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                        is30Ready 
+                          ? 'text-indigo-700 bg-indigo-50 border-indigo-200' 
+                          : 'text-slate-500 bg-slate-100 border-slate-200'
+                      }`}>
+                        {is30Ready ? <><Mail className="w-2.5 h-2.5" /> Day 30 (Auto-Email)</> : <><Lock className="w-2.5 h-2.5" /> Locked (Day 30)</>}
                       </span>
-                      {is30Ready && (
+                      {is30Ready ? (
                         <div className="flex items-center gap-1">
                           <span className="text-xs font-black text-indigo-700">
                             {p30?.optimizationScore || data.metrics?.optimizationScore || 85}%
@@ -825,34 +865,37 @@ export default function BusinessAuditPage() {
                             </span>
                           )}
                         </div>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-500" /> Unlocks in {daysLeft}d
+                        </span>
                       )}
                     </div>
                     <h4 className="font-extrabold text-slate-900 text-sm">30-Day Updated Audit</h4>
                     <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      {is30Ready ? 'Full monthly progress report automatically delivered' : `Unlocks in ${daysLeft} days`}
+                      {is30Ready ? 'Full monthly progress report automatically delivered' : `Locked until Day 30 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/30)`}
                     </p>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      disabled={downloadingMilestone === '30_days'}
-                      onClick={() => handleDownloadMilestone('30_days')}
-                      className="flex-1 h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs"
-                    >
-                      {downloadingMilestone === '30_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
-                      Download 30-Day (PDF)
-                    </Button>
-                    {!is30Ready && (
+                  <div className="mt-4">
+                    {is30Ready ? (
                       <Button
-                        variant="ghost"
                         size="sm"
-                        disabled={generatingMilestone === '30_days'}
-                        onClick={() => handleGenerateMilestone('30_days')}
-                        className="h-8 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
-                        title="Generate early for preview"
+                        disabled={downloadingMilestone === '30_days'}
+                        onClick={() => handleDownloadMilestone('30_days')}
+                        className="w-full h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs"
                       >
-                        {generatingMilestone === '30_days' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Generate'}
+                        {downloadingMilestone === '30_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
+                        Download 30-Day (PDF)
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled
+                        className="w-full h-8 text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 rounded-xl cursor-not-allowed justify-center"
+                      >
+                        <Lock className="w-3 h-3 mr-1.5 text-slate-400" />
+                        Locked (Unlocks in {daysLeft}d)
                       </Button>
                     )}
                   </div>

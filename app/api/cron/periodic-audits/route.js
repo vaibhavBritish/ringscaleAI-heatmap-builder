@@ -144,8 +144,10 @@ async function handlePeriodicCron(request) {
           businessName: project.businessName,
           daysElapsed,
           wasUpdated,
-          isDay15Available: daysElapsed >= 15 || !!periodic.day15,
-          isDay30Available: daysElapsed >= 30 || !!periodic.day30,
+          isDay15Available: daysElapsed >= 15,
+          isDay30Available: daysElapsed >= 30,
+          isDay15Locked: daysElapsed < 15,
+          isDay30Locked: daysElapsed < 30,
           emailSent: emailSuccess
         })
 

@@ -20,8 +20,8 @@ const nextConfig = {
     return config;
   },
   onDemandEntries: {
-    maxInactiveAge: 10000,
-    pagesBufferLength: 2,
+    maxInactiveAge: 60 * 1000, // keep pages active in memory for 60 seconds
+    pagesBufferLength: 8,      // keep up to 8 pages compiled in memory
   },
   async rewrites() {
     return [
