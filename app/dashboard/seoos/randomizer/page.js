@@ -36,7 +36,7 @@ export default function AdminRandomizerPage() {
   
   // Heatmap Settings
   const [gridShape, setGridShape] = useState('circle')
-  const [gridDensity, setGridDensity] = useState(133)
+  const [gridDensity, setGridDensity] = useState(25)
   const [gridRadius, setGridRadius] = useState(1)
   const [gridUnit, setGridUnit] = useState('mi')
   const [keywords, setKeywords] = useState([])
@@ -112,7 +112,7 @@ export default function AdminRandomizerPage() {
       
       if (proj.gridSettings) {
         setGridShape(proj.gridSettings.shape || 'circle')
-        setGridDensity(proj.gridSettings.density || 133)
+        setGridDensity(proj.gridSettings.density || 25)
         setGridRadius(proj.gridSettings.radius || 1)
         setGridUnit(proj.gridSettings.unit || 'mi')
         if (proj.gridSettings.isMock !== undefined) setIsMock(proj.gridSettings.isMock)
@@ -664,12 +664,10 @@ export default function AdminRandomizerPage() {
                     <div className="space-y-1.5">
                       <label className="text-[10px] text-slate-400 font-bold uppercase">Density</label>
                       <select value={gridDensity} onChange={(e) => setGridDensity(Number(e.target.value))} className="w-full h-9 rounded-lg border-slate-200 text-sm">
-                        <option value={49}>49 Pins</option>
-                        <option value={81}>81 Pins</option>
-                        <option value={133}>133 Pins</option>
-                        {['superadmin', 'admin'].includes(session?.user?.role) && (
-                          <option value={225}>225 Pins</option>
-                        )}
+                        <option value={20}>20 Pins</option>
+                        <option value={25}>25 Pins [Recommended]</option>
+                        <option value={30}>30 Pins</option>
+                        <option value={35}>35 Pins</option>
                       </select>
                     </div>
                   </div>

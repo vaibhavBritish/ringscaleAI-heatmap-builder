@@ -36,7 +36,7 @@ export default function NewProjectPage() {
 
   // Heatmap Settings
   const [gridShape, setGridShape] = useState('circle')
-  const [gridDensity, setGridDensity] = useState(133)
+  const [gridDensity, setGridDensity] = useState(25)
   const [gridRadius, setGridRadius] = useState(1)
   const [gridUnit, setGridUnit] = useState('mi')
   const [keywords, setKeywords] = useState([])
@@ -47,8 +47,7 @@ export default function NewProjectPage() {
   const [greenPinPercentage, setGreenPinPercentage] = useState(50)
 
   useEffect(() => {
-    // Admins can see 225, but everyone gets 133 as default
-    setGridDensity(133)
+    setGridDensity(25)
   }, [session?.user?.role])
 
   // Scanning State
@@ -191,7 +190,7 @@ export default function NewProjectPage() {
 
       if (proj.gridSettings) {
         setGridShape(proj.gridSettings.shape || 'circle')
-        setGridDensity(proj.gridSettings.density || 133)
+        setGridDensity(proj.gridSettings.density || 25)
         setGridRadius(proj.gridSettings.radius || 1)
         setGridUnit(proj.gridSettings.unit || 'mi')
       }
@@ -255,7 +254,7 @@ export default function NewProjectPage() {
             })
             if (data.project.gridSettings) {
               setGridShape(data.project.gridSettings.shape || 'circle')
-              setGridDensity(data.project.gridSettings.density || 133)
+              setGridDensity(data.project.gridSettings.density || 25)
               setGridRadius(data.project.gridSettings.radius || 1)
             }
           }
@@ -274,7 +273,7 @@ export default function NewProjectPage() {
           const pins = generateHeatmapGrid(
             { lat: Number(data.project.latitude), lng: Number(data.project.longitude) },
             data.project.gridSettings?.shape || 'circle',
-            data.project.gridSettings?.density || 133,
+            data.project.gridSettings?.density || 25,
             radiusInKm
           )
           setHeatmapPins(pins)
@@ -1061,12 +1060,10 @@ export default function NewProjectPage() {
                           onChange={(e) => setGridDensity(Number(e.target.value))}
                           className="w-full h-9 rounded-lg border-slate-200 text-sm focus:ring-emerald-500"
                         >
-                          <option value={49}>49 Pins | 7x7</option>
-                          <option value={81}>81 Pins | 9x9</option>
-                          <option value={133}>133 Pins [Recommended]</option>
-                          {['superadmin', 'admin'].includes(session?.user?.role) && (
-                            <option value={225}>225 Pins | 15x15</option>
-                          )}
+                          <option value={20}>20 Pins</option>
+                          <option value={25}>25 Pins [Recommended]</option>
+                          <option value={30}>30 Pins</option>
+                          <option value={35}>35 Pins</option>
                         </select>
                       </div>
                       <div className="space-y-1.5">
