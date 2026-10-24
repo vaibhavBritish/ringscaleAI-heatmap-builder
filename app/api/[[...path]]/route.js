@@ -626,7 +626,7 @@ async function handleRoute(request, props) {
               keywordId: kwDoc.id,
               status: 'queued',
               processedPoints: 0,
-              totalPoints: gridSettings?.density || 133,
+              totalPoints: gridSettings?.density || 25,
               searchRadiusMeters: calculatedRadiusMeters,
               createdAt: new Date()
             }
@@ -918,8 +918,8 @@ async function handleRoute(request, props) {
         projectId, 
         keywordId, 
         keywordIds, 
-        gridSize = 3, 
-        density,
+        gridSize = 5, 
+        density = 25,
         spacingMeters = 1000, 
         searchRadiusMeters: bodyRadiusMeters,
         radius,
@@ -976,7 +976,7 @@ async function handleRoute(request, props) {
             spacingMeters,
             searchRadiusMeters,
             processedPoints: 0,
-            totalPoints: density || (parseInt(gridSize) * parseInt(gridSize)),
+            totalPoints: density ? parseInt(density) : (parseInt(gridSize) * parseInt(gridSize) || 25),
             createdAt: new Date()
           }
         })
@@ -1280,7 +1280,7 @@ async function handleRoute(request, props) {
           keywordId,
           status: 'queued',
           processedPoints: 0,
-          totalPoints: gridSettings?.density || 133,
+          totalPoints: gridSettings?.density || 25,
           searchRadiusMeters,
           createdAt: new Date()
         }

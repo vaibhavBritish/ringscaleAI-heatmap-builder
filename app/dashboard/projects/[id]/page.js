@@ -43,7 +43,8 @@ export default function ProjectDetailPage() {
   const [showScanDialog, setShowScanDialog] = useState(false)
   const [scanConfig, setScanConfig] = useState({
     keywordIds: [],
-    gridSize: '3',
+    gridSize: '5',
+    density: 25,
     spacingMeters: '1000',
     searchRadiusMeters: '5000'
   })
@@ -420,21 +421,19 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Grid Size</Label>
-                <Select value={scanConfig.gridSize} onValueChange={(v) => {
-                  const d = v === '7' ? 49 : v === '9' ? 81 : v === '15' ? 225 : v === '11' ? 133 : parseInt(v) * parseInt(v)
-                  setScanConfig({...scanConfig, gridSize: v, density: d})
+                <Label>Grid Density / Pins</Label>
+                <Select value={String(scanConfig.density || '25')} onValueChange={(v) => {
+                  const d = parseInt(v)
+                  setScanConfig({...scanConfig, gridSize: String(Math.round(Math.sqrt(d))), density: d})
                 }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="7">7x7 (49 points)</SelectItem>
-                    <SelectItem value="9">9x9 (81 points)</SelectItem>
-                    <SelectItem value="11">133 Pins [Recommended]</SelectItem>
-                    {['superadmin', 'admin'].includes(session?.user?.role) && (
-                      <SelectItem value="15">15x15 (225 points)</SelectItem>
-                    )}
+                    <SelectItem value="20">20 Pins</SelectItem>
+                    <SelectItem value="25">25 Pins [Recommended]</SelectItem>
+                    <SelectItem value="30">30 Pins</SelectItem>
+                    <SelectItem value="35">35 Pins</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -635,7 +634,7 @@ export default function ProjectDetailPage() {
                           <div>
                             <p className="font-medium">{keyword?.keyword || 'Unknown keyword'}</p>
                             <div className="flex items-center gap-3 text-sm text-slate-500">
-                              <span>{scan.gridSize}x{scan.gridSize} grid</span>
+                              <span>{scan.totalPoints ? `${scan.totalPoints} pins` : `${scan.gridSize}x${scan.gridSize} grid`}</span>
                               <span>•</span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />

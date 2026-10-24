@@ -471,7 +471,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <span className="block uppercase tracking-widest mb-2 opacity-50">Map grid:</span>
-                    <span className="text-slate-800 text-sm">133 Pins | 13x13</span>
+                    <span className="text-slate-800 text-sm">25 Pins | 5x5</span>
                   </div>
                 </div>
               </div>
