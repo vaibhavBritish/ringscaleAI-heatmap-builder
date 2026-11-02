@@ -68,7 +68,7 @@ export default function KeywordsPage() {
       const res = await fetch('/api/admin/sync-keywords', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to sync')
-      toast.success(`Synced ${data.addedCount} new keywords from GMB Connector!`)
+      toast.success(`Synced with GMB Connector: ${data.addedCount} added, ${data.removedCount} removed`)
       if (selectedProject) {
         // Refresh keywords for current project
         const kwRes = await fetch(`/api/projects/${selectedProject}/keywords`)

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Loader2, User, Mail, Lock, Shield } from "lucide-react"
 
-export function ClientModal({ isOpen, onClose, client, onRefresh }) {
+export function ClientModal({ isOpen, onClose, client, onRefresh, poolCredits = null }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -50,10 +50,14 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
       const url = isEditing ? `/api/partner/clients/${client.id}` : "/api/partner/clients"
       const method = isEditing ? "PATCH" : "POST"
 
+      // Credits on existing clients only change through Add/Reclaim Credits
+      const { credits, ...details } = formData
+      const payload = isEditing ? details : formData
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -112,24 +116,24 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
             </div>
           </div>
 
-          {!client && (
-            <div className="grid gap-2">
-              <Label htmlFor="password">Login Password</Label>
+          <div className="grid gap-2">
+              <Label htmlFor="password">{client ? "New Password" : "Login Password"}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Minimum 6 characters"
+                  placeholder={client ? "Leave blank to keep current password" : "Minimum 6 characters"}
                   className="pl-10"
+                  minLength={6}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
+                  required={!client}
                 />
               </div>
-            </div>
-          )}
+          </div>
 
+          {!client && (
           <div className="grid gap-2">
             <Label htmlFor="credits">Initial Credits</Label>
             <div className="relative">
@@ -137,6 +141,7 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
               <Input
                 id="credits"
                 type="number"
+                min="0"
                 placeholder="300"
                 className="pl-10"
                 value={formData.credits}
@@ -144,8 +149,11 @@ export function ClientModal({ isOpen, onClose, client, onRefresh }) {
                 required
               />
             </div>
-            <p className="text-[10px] text-slate-500 italic">Credits allow users to run scans. 1 point = 1 search point.</p>
+            <p className="text-[10px] text-slate-500 italic">
+              Deducted from your agency pool{poolCredits !== null ? ` (${poolCredits.toLocaleString()} available)` : ''}. 1 credit = 1 search point.
+            </p>
           </div>
+          )}
 
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

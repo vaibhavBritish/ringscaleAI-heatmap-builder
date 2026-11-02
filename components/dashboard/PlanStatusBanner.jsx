@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Clock, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { isManagedClient } from '@/lib/agency'
 
 export default function PlanStatusBanner() {
   const { data: session, update } = useSession()
@@ -19,6 +20,7 @@ export default function PlanStatusBanner() {
   if (!user) return null
   if (['admin', 'superadmin'].includes(user?.role)) return null
 
+  const managed = isManagedClient(user)
   const userPlan = ['admin', 'superadmin'].includes(user?.role) ? 'pro' : user.plan
   const expiryDate = user.planEndsAt ? new Date(user.planEndsAt) : (user.trialEndsAt ? new Date(user.trialEndsAt) : null)
   const now = new Date()
@@ -35,12 +37,14 @@ export default function PlanStatusBanner() {
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <p className="text-sm font-black uppercase tracking-tight">
               {isCreditsExpired ? 'CREDITS EXHAUSTED' : 'PLAN EXPIRED'}: 
-              <span className="ml-1 font-medium normal-case">Features are locked. Please upgrade or top up to continue.</span>
+              <span className="ml-1 font-medium normal-case">
+                {managed ? 'Features are locked. Please contact your agency to add credits.' : 'Features are locked. Please upgrade or top up to continue.'}
+              </span>
             </p>
           </div>
           <Link href="/dashboard/billing">
             <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8">
-              Upgrade Now
+              {managed ? 'Contact Agency' : 'Upgrade Now'}
             </Button>
           </Link>
         </div>
@@ -62,11 +66,13 @@ export default function PlanStatusBanner() {
             <div className="bg-blue-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Free Trial</div>
             <p className="text-xs font-medium">Day {currentDay} of your {totalTrialDays}-day trial. {user.credits} credits left.</p>
           </div>
-          <Link href="/dashboard/billing">
-            <Button size="xs" variant="ghost" className="text-blue-700 hover:bg-blue-100 text-xs py-1 h-7 font-bold">
-              Upgrade
-            </Button>
-          </Link>
+          {!managed && (
+            <Link href="/dashboard/billing">
+              <Button size="xs" variant="ghost" className="text-blue-700 hover:bg-blue-100 text-xs py-1 h-7 font-bold">
+                Upgrade
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     )
@@ -88,7 +94,7 @@ export default function PlanStatusBanner() {
           </div>
           <Link href="/dashboard/billing">
             <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100 font-bold h-8">
-              Extend Plan
+              {managed ? 'Contact Agency' : 'Extend Plan'}
             </Button>
           </Link>
         </div>

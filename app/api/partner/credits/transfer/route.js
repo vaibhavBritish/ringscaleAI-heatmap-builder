@@ -1,74 +1,79 @@
 // Last Updated: 2026-05-01T23:32:00Z
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getPartnerSession, findManagedClient, hasUnlimitedPool } from "@/lib/partner-clients"
 
+// direction 'add' moves credits from the partner's pool to a client,
+// 'reclaim' returns unused client credits to the pool
 export async function POST(request) {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || (session.user.role !== 'partner' && !['superadmin', 'admin'].includes(session.user.role))) {
+    const session = await getPartnerSession()
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     try {
         const body = await request.json()
-        const { clientId, amount } = body
+        const { clientId, direction = 'add' } = body
+        const creditAmount = parseInt(body.amount)
 
-        if (!clientId || !amount || amount <= 0) {
+        if (!clientId || !Number.isInteger(creditAmount) || creditAmount <= 0) {
             return NextResponse.json({ error: "Client ID and valid positive amount are required" }, { status: 400 })
         }
+        if (!['add', 'reclaim'].includes(direction)) {
+            return NextResponse.json({ error: "Invalid transfer direction" }, { status: 400 })
+        }
 
-        const creditAmount = parseInt(amount)
-
-        // Use transaction for atomic transfer
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Check partner credits
             const partner = await tx.user.findUnique({
                 where: { id: session.user.id }
             })
+            if (!partner) throw new Error("Partner account not found")
 
-            if (!partner || (partner.role !== 'admin' && partner.credits < creditAmount)) {
-                throw new Error("Insufficient credits in your account")
-            }
+            const client = await findManagedClient(session, clientId, tx)
+            if (!client) throw new Error("Client not found in your agency")
 
-            // 2. Check if client exists and belongs to the same company
-            const client = await tx.user.findUnique({
-                where: { id: clientId }
-            })
+            const unlimited = hasUnlimitedPool(partner)
 
-            if (!client) {
-                throw new Error("Client not found")
-            }
-
-            if (!['superadmin', 'admin'].includes(session.user.role) && client.companyId !== session.user.companyId) {
-                throw new Error("Unauthorized: Client does not belong to your company")
-            }
-
-            // 3. Deduct from partner
-            if (partner.role !== 'admin') {
-                await tx.user.update({
-                    where: { id: session.user.id },
-                    data: { credits: { decrement: creditAmount } }
+            if (direction === 'add') {
+                if (!unlimited && partner.credits < creditAmount) {
+                    throw new Error("Insufficient credits in your agency pool")
+                }
+                if (!unlimited) {
+                    await tx.user.update({
+                        where: { id: session.user.id },
+                        data: { credits: { decrement: creditAmount } }
+                    })
+                }
+                const updatedClient = await tx.user.update({
+                    where: { id: clientId },
+                    data: { credits: { increment: creditAmount } }
                 })
+                return { partnerCredits: unlimited ? partner.credits : partner.credits - creditAmount, clientCredits: updatedClient.credits }
             }
 
-            // 4. Add to client
+            if (client.credits < creditAmount) {
+                throw new Error(`Client only has ${client.credits} credits to reclaim`)
+            }
             const updatedClient = await tx.user.update({
                 where: { id: clientId },
-                data: { credits: { increment: creditAmount } }
+                data: { credits: { decrement: creditAmount } }
             })
-
-            return { partnerCredits: partner.credits - creditAmount, clientCredits: updatedClient.credits }
+            if (!unlimited) {
+                await tx.user.update({
+                    where: { id: session.user.id },
+                    data: { credits: { increment: creditAmount } }
+                })
+            }
+            return { partnerCredits: unlimited ? partner.credits : partner.credits + creditAmount, clientCredits: updatedClient.credits }
         })
 
         return NextResponse.json({
-            message: "Credits transferred successfully",
+            message: direction === 'add' ? "Credits transferred successfully" : "Credits reclaimed successfully",
             ...result
         })
 
     } catch (error) {
         console.error('Error transferring credits:', error)
-        return NextResponse.json({ error: error.message || 'Failed to transfer credits' }, { status: 500 })
+        return NextResponse.json({ error: error.message || 'Failed to transfer credits' }, { status: 400 })
     }
 }

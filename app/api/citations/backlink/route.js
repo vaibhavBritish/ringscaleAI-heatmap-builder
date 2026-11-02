@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { resolveCitationProject, getProjectIdParam, findCitationProfile } from '@/lib/citation-access';
 import * as cheerio from 'cheerio';
 
 async function getSession() {
@@ -13,6 +14,9 @@ async function getSession() {
 export async function POST(request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { project, error: accessError, status: accessStatus } = await resolveCitationProject(session, getProjectIdParam(request));
+  if (accessError) return NextResponse.json({ error: accessError }, { status: accessStatus });
 
   try {
     const { submissionId, listingUrl } = await request.json();
@@ -29,13 +33,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
 
-    if (submission.userId !== session.user.id) {
+    if (submission.projectId !== project.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const profile = await prisma.businessProfile.findUnique({
-      where: { userId: session.user.id }
-    });
+    const profile = await findCitationProfile(project.id);
 
     if (!profile || !profile.website) {
       return NextResponse.json({ error: 'No user website configured in profile' }, { status: 400 });

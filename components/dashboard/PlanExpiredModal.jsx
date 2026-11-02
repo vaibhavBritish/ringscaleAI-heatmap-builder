@@ -13,6 +13,7 @@ import { ShieldAlert, CreditCard } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { useSession } from "next-auth/react"
+import { isManagedClient } from "@/lib/agency"
 
 export default function PlanExpiredModal({ isOpen, onClose }) {
   const router = useRouter()
@@ -23,6 +24,7 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
 
   const isCreditsExpired = (session?.user?.credits || 0) <= 0
   const isTrial = session?.user?.plan === 'trial'
+  const managed = isManagedClient(session?.user)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -36,10 +38,11 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
           </DialogTitle>
           <DialogDescription className="text-slate-600 pt-2 text-base">
             {isCreditsExpired 
-              ? "No more credits. Please purchase more credits to run the scan." 
+              ? (managed ? "No more credits. Please contact your agency to add credits." : "No more credits. Please purchase more credits to run the scan.")
               : "Your current plan has ended. Access to premium features like project creation and rank scanning is now locked."}
           </DialogDescription>
         </DialogHeader>
+        {!managed && (
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 my-2">
           <h4 className="text-sm font-semibold text-blue-900 mb-1">Available Benefits:</h4>
           <ul className="text-xs text-blue-800 space-y-1">
@@ -49,6 +52,7 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
             <li>• Global Rank Tracking</li>
           </ul>
         </div>
+        )}
         <DialogFooter className="sm:justify-start gap-2 pt-4">
           <Button
             type="button"
@@ -59,7 +63,7 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
             }}
           >
             <CreditCard className="w-4 h-4 mr-2" />
-            Pick a Plan
+            {managed ? 'Contact Agency' : 'Pick a Plan'}
           </Button>
           <Button
             type="button"

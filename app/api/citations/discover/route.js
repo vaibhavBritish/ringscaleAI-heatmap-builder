@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import * as cheerio from 'cheerio';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { resolveCitationProject, getProjectIdParam, findCitationProfile, upsertCitationSubmission } from '@/lib/citation-access';
 import { getSecret } from '@/lib/secrets';
 import { searchGoogleResults } from '@/lib/serp';
 
@@ -165,18 +166,19 @@ function isSerpQuotaOrRateLimitError(error) {
   return error?.status === 429 || msg.includes('too many requests') || msg.includes('run out of searches');
 }
 
-export async function POST() {
+export async function POST(request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { project, error: accessError, status: accessStatus } = await resolveCitationProject(session, getProjectIdParam(request));
+  if (accessError) return NextResponse.json({ error: accessError }, { status: accessStatus });
 
   try {
     if (!getSecret('SERPAPI_API_KEY')) {
       return NextResponse.json({ error: 'SERPAPI_API_KEY is missing' }, { status: 400 });
     }
 
-    const profile = await prisma.businessProfile.findUnique({
-      where: { userId: session.user.id },
-    });
+    const profile = await findCitationProfile(project.id);
 
     if (!profile?.businessName || !profile?.website) {
       return NextResponse.json(
@@ -377,28 +379,11 @@ export async function POST() {
 
     const updatedSubmissions = [];
     for (const candidate of updates) {
-      const submission = await prisma.citationSubmission.upsert({
-        where: {
-          userId_directoryId: {
-            userId: session.user.id,
-            directoryId: candidate.directoryId,
-          },
-        },
-        update: {
-          listingUrl: candidate.listingUrl,
-          backlinkFound: candidate.backlinkFound,
-          linkType: candidate.linkType,
-          lastCheckedAt: new Date(),
-        },
-        create: {
-          userId: session.user.id,
-          directoryId: candidate.directoryId,
-          status: 'not_started',
-          listingUrl: candidate.listingUrl,
-          backlinkFound: candidate.backlinkFound,
-          linkType: candidate.linkType,
-          lastCheckedAt: new Date(),
-        },
+      const submission = await upsertCitationSubmission(project, candidate.directoryId, {
+        listingUrl: candidate.listingUrl,
+        backlinkFound: candidate.backlinkFound,
+        linkType: candidate.linkType,
+        lastCheckedAt: new Date(),
       });
       updatedSubmissions.push(submission);
     }

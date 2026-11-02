@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { resolveCitationProject, getProjectIdParam } from '@/lib/citation-access';
 
 async function getSession() {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,9 @@ async function getSession() {
 export async function PATCH(request, { params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { project, error: accessError, status: accessStatus } = await resolveCitationProject(session, getProjectIdParam(request));
+  if (accessError) return NextResponse.json({ error: accessError }, { status: accessStatus });
 
   try {
     // Next.js >= 15 requires params to be awaited
@@ -29,7 +33,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    if (existing.userId !== session.user.id) {
+    if (existing.projectId !== project.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

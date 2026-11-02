@@ -95,7 +95,8 @@ model Lead {
 model BusinessProfile {
   oid          String   @id @default(auto()) @map("_id") @db.ObjectId
   id           String   @unique @default(uuid())
-  userId       String   @unique            // one profile per user
+  userId       String                     // owner of the business (Project.userId)
+  projectId    String?                    // one profile per project (business)
   businessName String
   address      String
   city         String
@@ -107,6 +108,8 @@ model BusinessProfile {
   description  String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  @@index([userId])
+  @@index([projectId])
   @@map("business_profiles")
 }
 
@@ -129,7 +132,8 @@ model CitationDirectory {
 model CitationSubmission {
   oid           String    @id @default(auto()) @map("_id") @db.ObjectId
   id            String    @unique @default(uuid())
-  userId        String
+  userId        String                             // owner of the business (Project.userId)
+  projectId     String?                            // the business these citations belong to
   directoryId   String                             // references CitationDirectory.id
   status        String    @default("not_started")  // not_started | in_progress | submitted | verified
   listingUrl    String?
@@ -139,8 +143,8 @@ model CitationSubmission {
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  @@unique([userId, directoryId])
   @@index([userId])
+  @@index([projectId, directoryId])
   @@map("citation_submissions")
 }
 

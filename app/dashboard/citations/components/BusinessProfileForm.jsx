@@ -15,15 +15,12 @@ const CATEGORIES = [
   'Technology', 'Travel/Lodging', 'Other'
 ];
 
-export default function BusinessProfileForm({ profile, onSave }) {
-  const [projects, setProjects] = useState([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
+export default function BusinessProfileForm({ profile, project, onSave }) {
   const [autofilling, setAutofilling] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    businessName: profile?.businessName || '',
-    address: profile?.address || '',
+    businessName: profile?.businessName || project?.businessName || '',
+    address: profile?.address || project?.address || '',
     city: profile?.city || '',
     state: profile?.state || '',
     country: profile?.country || 'India',
@@ -34,33 +31,9 @@ export default function BusinessProfileForm({ profile, onSave }) {
   });
 
   useEffect(() => {
-    let active = true;
-
-    const fetchProjects = async () => {
-      setLoadingProjects(true);
-      try {
-        const res = await fetch('/api/projects');
-        if (!res.ok) throw new Error('Failed to load projects');
-        const data = await res.json();
-        if (active) setProjects(data.projects || []);
-      } catch (err) {
-        toast.error('Failed to load projects for autofill');
-      } finally {
-        if (active) setLoadingProjects(false);
-      }
-    };
-
-    fetchProjects();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
     setFormData({
-      businessName: profile?.businessName || '',
-      address: profile?.address || '',
+      businessName: profile?.businessName || project?.businessName || '',
+      address: profile?.address || project?.address || '',
       city: profile?.city || '',
       state: profile?.state || '',
       country: profile?.country || 'India',
@@ -69,7 +42,7 @@ export default function BusinessProfileForm({ profile, onSave }) {
       category: profile?.category || '',
       description: profile?.description || ''
     });
-  }, [profile]);
+  }, [profile, project]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -105,36 +78,28 @@ export default function BusinessProfileForm({ profile, onSave }) {
     return { city, state };
   };
 
-  const handleProjectAutofill = async (projectId) => {
-    setSelectedProjectId(projectId);
-    const project = projects.find((p) => p.id === projectId);
+  const handleProjectAutofill = async () => {
     if (!project) return;
 
     setAutofilling(true);
     try {
-      // Fetch the selected project record (contains placeId) so we can refresh all fields.
-      const projectRes = await fetch(`/api/projects/${projectId}`);
-      if (!projectRes.ok) throw new Error('Failed to load selected project details');
-      const projectPayload = await projectRes.json();
-      const fullProject = projectPayload?.project || project;
-
       let placeDetails = null;
-      if (fullProject?.placeId) {
+      if (project.placeId) {
         const placeRes = await fetch('/api/google/place-details', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ placeId: fullProject.placeId }),
+          body: JSON.stringify({ placeId: project.placeId }),
         });
         if (placeRes.ok) {
           placeDetails = await placeRes.json();
         }
       }
 
-      const sourceAddress = fullProject.address || placeDetails?.address || '';
+      const sourceAddress = project.address || placeDetails?.address || '';
       const parsedAddress = parseCityStateFromAddress(sourceAddress);
 
       setFormData({
-        businessName: fullProject.businessName || placeDetails?.name || '',
+        businessName: project.businessName || placeDetails?.name || '',
         address: sourceAddress,
         city: parsedAddress.city || '',
         state: parsedAddress.state || '',
@@ -145,7 +110,7 @@ export default function BusinessProfileForm({ profile, onSave }) {
         description: placeDetails?.summary || '',
       });
     } catch (err) {
-      toast.error(err.message || 'Failed to autofill selected project');
+      toast.error(err.message || 'Failed to autofill from business details');
     } finally {
       setAutofilling(false);
     }
@@ -155,7 +120,7 @@ export default function BusinessProfileForm({ profile, onSave }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/citations/profile', {
+      const res = await fetch(`/api/citations/profile?projectId=${encodeURIComponent(project.id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -173,20 +138,11 @@ export default function BusinessProfileForm({ profile, onSave }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="projectAutofill">Project (Autofill)</Label>
-        <Select value={selectedProjectId} onValueChange={handleProjectAutofill}>
-          <SelectTrigger id="projectAutofill">
-            <SelectValue placeholder={loadingProjects ? 'Loading projects...' : autofilling ? 'Autofilling profile...' : 'Select project to autofill profile'} />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map(project => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.businessName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 p-3">
+        <p className="text-sm text-muted-foreground">Fill phone, website and description from this business's Google listing.</p>
+        <Button type="button" variant="outline" size="sm" onClick={handleProjectAutofill} disabled={!project || autofilling} className="shrink-0">
+          {autofilling ? 'Autofilling...' : 'Autofill'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

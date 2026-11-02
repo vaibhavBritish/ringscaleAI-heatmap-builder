@@ -5,6 +5,7 @@ import Stripe from 'stripe'
 import Razorpay from 'razorpay'
 import prisma from '@/lib/prisma'
 import { getSecret } from '@/lib/secrets'
+import { isManagedClient, MANAGED_CLIENT_BILLING_MESSAGE } from '@/lib/agency'
 
 // Initialize SDKs only if keys are present to avoid startup crashes
 const stripe = getSecret('STRIPE_SECRET_KEY')
@@ -48,6 +49,15 @@ export async function POST(request) {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Partner-managed clients get credits from their agency, not by purchasing
+    const buyer = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, companyId: true }
+    })
+    if (isManagedClient(buyer)) {
+      return NextResponse.json({ error: MANAGED_CLIENT_BILLING_MESSAGE }, { status: 403 })
     }
 
     let { planId, isIndia } = await request.json()
