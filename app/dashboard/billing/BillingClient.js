@@ -11,9 +11,28 @@ import {
   Wallet, Clock, BadgeCheck,
   Settings,
   Rocket,
-  Trophy
+  Trophy,
+  Users,
+  Building2,
+  ArrowRightLeft,
+  Phone,
+  Globe,
+  ArrowUpRight,
+  Undo2,
+  Pencil
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { TransferModal } from '@/components/dashboard/TransferModal'
+import { PaginationBar } from '@/components/dashboard/PaginationBar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+
+const AGENCY_PAGE_SIZE = 8
 
 export default function BillingClient({ session: initialSession, isIndia: isIndiaProp }) {
   const { data: session, update } = useSession()
@@ -24,6 +43,9 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const [billingData, setBillingData] = useState(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [isIndia, setIsIndia] = useState(isIndiaProp)
+  const [transferClient, setTransferClient] = useState(null)
+  const [transferMode, setTransferMode] = useState('add')
+  const [agencyPage, setAgencyPage] = useState(1)
   const { config } = useConfig()
 
   // Fetch billing details on mount and periodically
@@ -224,6 +246,12 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
   const expiryDate = isTrial ? trialEndsAt : planEndsAt
   const isExpired = (expiryDate && expiryDate < new Date()) || (user?.credits <= 0)
   const hasPaid = billingData?.paymentHistory?.length > 0
+  const agency = billingData?.agency
+  const managedBy = billingData?.managedBy
+  const agencyClients = agency?.clients || []
+  const agencyTotalPages = Math.max(1, Math.ceil(agencyClients.length / AGENCY_PAGE_SIZE))
+  const currentAgencyPage = Math.min(agencyPage, agencyTotalPages)
+  const pagedAgencyClients = agencyClients.slice((currentAgencyPage - 1) * AGENCY_PAGE_SIZE, currentAgencyPage * AGENCY_PAGE_SIZE)
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -385,13 +413,15 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 )}
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
                   <span className={`inline-block w-2 h-2 rounded-full ${user?.credits > 0 ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}`}></span>
-                  {user?.credits?.toLocaleString() || 0} Credits remaining
+                  {user?.credits?.toLocaleString() || 0} {agency ? 'Credits available in agency pool' : 'Credits remaining'}
                 </p>
               </div>
               {isExpired && (
                 <div className="mt-4 p-3 bg-rose-100/50 rounded-xl border border-rose-200">
                   <p className="text-xs text-rose-800 font-bold">
-                    Plan Expired! Either your time or credits have run out. Features are disabled until you upgrade or top up.
+                    {managedBy
+                      ? `Plan Expired! Either your time or credits have run out. Please contact ${managedBy.name || 'your agency'} to add more credits.`
+                      : 'Plan Expired! Either your time or credits have run out. Features are disabled until you upgrade or top up.'}
                   </p>
                 </div>
               )}
@@ -425,6 +455,119 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
           </div>
         </div>
       </div>
+
+      {/* ━━━ Agency Credits (partners) ━━━ */}
+      {agency && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 p-6 border-b border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <Users className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Agency Credits</h3>
+              <p className="text-xs text-slate-500">Credits you buy go to your agency pool. Transfer them to clients as they need them.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-100 border-b border-slate-100">
+            {[
+              { label: 'Available in Pool', value: (user?.credits || 0).toLocaleString(), tone: 'text-emerald-600' },
+              { label: 'Allocated to Clients', value: agency.totals.allocatedCredits.toLocaleString(), tone: 'text-blue-600' },
+              { label: 'Clients', value: agency.totals.clients, tone: 'text-slate-900' },
+              { label: 'Businesses Managed', value: agency.totals.businesses, tone: 'text-slate-900' },
+            ].map(stat => (
+              <div key={stat.label} className="p-5">
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{stat.label}</p>
+                <p className={`text-2xl font-black mt-1 ${stat.tone}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {agency.clients.length === 0 ? (
+            <div className="text-center py-10 text-slate-400">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm font-medium">No clients yet</p>
+              <a href="/dashboard/partner/clients" className="text-xs font-bold text-emerald-600 hover:underline">Add your first client</a>
+            </div>
+          ) : (
+            <>
+            <div className="divide-y divide-slate-100">
+              {pagedAgencyClients.map(client => {
+                const clientExpiry = client.planEndsAt || client.trialEndsAt
+                const clientExpired = (clientExpiry && new Date(clientExpiry) < new Date()) || client.credits <= 0
+                return (
+                  <div key={client.id} className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-600">
+                        {(client.name || client.email).charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 text-sm truncate">{client.name || client.email}</p>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-slate-500">
+                          <span>{getPlanDisplayName(client.plan)}</span>
+                          <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{client.businesses} {client.businesses === 1 ? 'business' : 'businesses'}</span>
+                          {clientExpiry && (
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Ends {formatDate(clientExpiry)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                      <div className="text-right">
+                        <p className={`font-black ${clientExpired ? 'text-rose-600' : 'text-slate-900'}`}>{(client.credits || 0).toLocaleString()}</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${clientExpired ? 'text-rose-500' : 'text-slate-400'}`}>
+                          {clientExpired ? 'Needs credits' : 'Credits'}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-xl font-bold gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                            Manage
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2"
+                            disabled={!user?.credits}
+                            onClick={() => { setTransferMode('add'); setTransferClient(client) }}
+                          >
+                            <ArrowUpRight className="w-4 h-4" /> Add Credits
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2"
+                            disabled={client.credits <= 0}
+                            onClick={() => { setTransferMode('reclaim'); setTransferClient(client) }}
+                          >
+                            <Undo2 className="w-4 h-4" /> Reclaim Credits
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                            <a href="/dashboard/partner/clients"><Pencil className="w-4 h-4" /> Edit or Delete Client</a>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <PaginationBar
+              page={currentAgencyPage}
+              pageSize={AGENCY_PAGE_SIZE}
+              total={agencyClients.length}
+              onPageChange={setAgencyPage}
+              itemLabel={agencyClients.length === 1 ? 'client' : 'clients'}
+              className="px-5 py-4 border-t border-slate-100"
+            />
+            </>
+          )}
+        </div>
+      )}
 
       {/* ━━━ Payment Method & Billing Info ━━━ */}
       {billingLoading ? (
@@ -592,10 +735,53 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
         </div>
       )}
 
+      {/* ━━━ Managed by agency (partner clients) ━━━ */}
+      {managedBy && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <Shield className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Your plan is managed by {managedBy.name || 'your agency'}</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Credits and plan renewals are handled by your agency. Contact them when you need more credits.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                {managedBy.email && (
+                  <a href={`mailto:${managedBy.email}`} className="flex items-center gap-1.5 font-bold text-blue-600 hover:underline">
+                    <Mail className="w-4 h-4" />{managedBy.email}
+                  </a>
+                )}
+                {managedBy.phone && (
+                  <a href={`tel:${managedBy.phone}`} className="flex items-center gap-1.5 font-bold text-slate-700 hover:underline">
+                    <Phone className="w-4 h-4" />{managedBy.phone}
+                  </a>
+                )}
+                {managedBy.website && (
+                  <a href={managedBy.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 font-bold text-slate-700 hover:underline">
+                    <Globe className="w-4 h-4" />{managedBy.website}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ━━━ Pricing Cards ━━━ */}
+      {!managedBy && !billingLoading && (
       <div>
-        <h2 className="text-xl font-black text-slate-900 mb-1">{hasPaid ? 'Add More Credits' : 'Choose a Plan'}</h2>
-        <p className="text-sm text-slate-500 mb-6">Select a plan to {hasPaid ? 'top up your' : 'get'} credits.</p>
+        <h2 className="text-xl font-black text-slate-900 mb-1">
+          {agency ? 'Buy Credits for Your Agency' : hasPaid ? 'Add More Credits' : 'Choose a Plan'}
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          {agency
+            ? 'Credits are added to your agency pool, ready to transfer to your clients.'
+            : `Select a plan to ${hasPaid ? 'top up your' : 'get'} credits.`}
+        </p>
 
         <div className="grid md:grid-cols-2 gap-6">
           {plans.map((plan) => (
@@ -661,6 +847,19 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
           ))}
         </div>
       </div>
+      )}
+
+      <TransferModal
+        isOpen={Boolean(transferClient)}
+        onClose={() => setTransferClient(null)}
+        client={transferClient}
+        mode={transferMode}
+        poolCredits={user?.credits ?? 0}
+        onRefresh={async () => {
+          await update()
+          fetchBillingDetails()
+        }}
+      />
     </div>
   )
 }
