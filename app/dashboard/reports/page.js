@@ -23,6 +23,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
 import { downloadAuditPdf } from '@/lib/export-audit-pdf'
+import { FIRST_MILESTONE_DAYS } from '@/lib/audit-milestones'
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('audits') // 'audits' | 'scans'
@@ -62,7 +63,7 @@ export default function ReportsPage() {
 
   const handleDownloadAudit = async (biz, milestone) => {
     if (milestone === '15_days' && !biz.isDay15Available) {
-      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      toast.error('The 7-Day Milestone report is locked until 7 days have elapsed.')
       return
     }
     if (milestone === '30_days' && !biz.isDay30Available) {
@@ -80,7 +81,7 @@ export default function ReportsPage() {
         milestone,
         businessName: biz.businessName
       })
-      toast.success(`${milestone === '15_days' ? '15-Day' : '30-Day'} report downloaded!`)
+      toast.success(`${milestone === '15_days' ? '7-Day' : '30-Day'} report downloaded!`)
     } catch (err) {
       toast.error('Download failed: ' + err.message)
     } finally {
@@ -89,8 +90,8 @@ export default function ReportsPage() {
   }
 
   const handleSendEmail = async (biz) => {
-    if (!biz.isDay30Available) {
-      toast.error('The 30-Day Audit Report email unlocks after 30 days have elapsed.')
+    if (!biz.isDay15Available) {
+      toast.error(`Audit report emails start after ${FIRST_MILESTONE_DAYS} days.`)
       return
     }
 
@@ -103,7 +104,7 @@ export default function ReportsPage() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success(data.message || '30-Day Audit Report sent to email!')
+        toast.success(data.message || 'Audit Report sent to email!')
       } else {
         throw new Error(data.error || 'Failed to send audit email')
       }
@@ -128,7 +129,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Reports & Audits</h1>
           <p className="text-slate-600 mt-1 font-medium">
-            Download your automated 15-day and 30-day business audit reports and inspect heatmap rank scans
+            Download your automated 7-day and 30-day business audit reports and inspect heatmap rank scans
           </p>
         </div>
 
@@ -143,7 +144,7 @@ export default function ReportsPage() {
             }`}
           >
             <ShieldCheck className="w-4 h-4 text-indigo-600" />
-            15 & 30 Day Audits ({businesses.length})
+            7 & 30 Day Audits ({businesses.length})
           </button>
           <button
             onClick={() => setActiveTab('scans')}
@@ -165,7 +166,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* ==================== 15 & 30 DAY AUDIT REPORTS TAB ==================== */}
+      {/* ==================== 7 & 30 DAY AUDIT REPORTS TAB ==================== */}
       {activeTab === 'audits' && (
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-2xl p-5 shadow-sm border border-blue-800 flex items-center justify-between">
@@ -177,11 +178,11 @@ export default function ReportsPage() {
                 <h4 className="font-extrabold text-white text-sm flex items-center gap-2">
                   Scheduled Periodic Delivery Active
                   <span className="bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] uppercase font-black px-2 py-0.5 rounded-full">
-                    30-Day Auto-Email
+                    Weekly Auto-Email
                   </span>
                 </h4>
                 <p className="text-xs text-blue-200/90 font-medium mt-0.5">
-                  Your updated audit report is automatically regenerated every 15 days and 30 days, with monthly reports dispatched to your inbox.
+                  Your updated audit report is automatically regenerated every 7 days and 30 days, and an updated report is emailed to you every 7 days.
                 </p>
               </div>
             </div>
@@ -193,7 +194,7 @@ export default function ReportsPage() {
                 <ShieldCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-xl font-bold text-slate-900 mb-2">No business profiles linked yet</h3>
                 <p className="text-slate-500 mb-6 max-w-sm mx-auto text-sm">
-                  Connect your Google Business Profile to generate and automatically download 15-day and 30-day audit reports.
+                  Connect your Google Business Profile to generate and automatically download 7-day and 30-day audit reports.
                 </p>
                 <Button asChild className="bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl px-6">
                   <Link href="/dashboard/projects/new">
@@ -248,16 +249,16 @@ export default function ReportsPage() {
                             <Calendar className="w-3 h-3" /> Milestone Audits
                           </span>
                           <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-extrabold flex items-center gap-1">
-                            <Mail className="w-2.5 h-2.5" /> Sent Every 30d
+                            <Mail className="w-2.5 h-2.5" /> Sent Every 7d
                           </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          {/* 15-Day Milestone */}
+                          {/* 7-Day Milestone */}
                           <div className={!is15Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                             <div>
                               <div className="flex items-center justify-between">
-                                <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>15-Day Report</p>
+                                <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>7-Day Report</p>
                                 {!is15Ready && (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
                                     <Lock className="w-2.5 h-2.5" /> Locked
@@ -265,7 +266,7 @@ export default function ReportsPage() {
                                 )}
                               </div>
                               <p className={`text-xs mt-0.5 ${is15Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
-                                {is15Ready ? `${biz.day15Score || biz.auditScore || 80}% Score` : `In ${biz.daysToDay15 || Math.max(0, 15 - daysElapsed)}d`}
+                                {is15Ready ? `${biz.day15Score || biz.auditScore || 80}% Score` : `In ${biz.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)}d`}
                               </p>
                             </div>
                             <Button
@@ -334,16 +335,16 @@ export default function ReportsPage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          disabled={!is30Ready || isSendingEmail}
+                          disabled={!is15Ready || isSendingEmail}
                           onClick={() => handleSendEmail(biz)}
                           className={`h-9 w-9 rounded-xl border-slate-200 ${
                             is30Ready
                               ? 'text-indigo-700 hover:bg-indigo-50'
                               : 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-50'
                           }`}
-                          title={is30Ready ? "Send 30-Day Audit Report to Email" : `Email delivery locked until Day 30 (in ${biz.daysToDay30 || Math.max(0, 30 - daysElapsed)}d)`}
+                          title={is15Ready ? "Send Updated Audit Report to Email" : `Email delivery starts on Day ${FIRST_MILESTONE_DAYS} (in ${biz.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)}d)`}
                         >
-                          {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : !is30Ready ? <Lock className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                          {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : !is15Ready ? <Lock className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
                         </Button>
                       </div>
                     </CardContent>

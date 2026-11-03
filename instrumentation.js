@@ -10,4 +10,8 @@ export async function register() {
 
   // Resume or close scans that were orphaned by a restart/deploy (the "stuck at 99%" case)
   startScanJobSweeper()
+
+  // Daily job that emails customers their updated audit report every 7 days
+  const { startPeriodicAuditScheduler } = await import('./lib/periodic-audits')
+  startPeriodicAuditScheduler()
 }

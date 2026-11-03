@@ -126,7 +126,9 @@ export async function POST(request) {
 
       // Send login credentials to their email
       const { sendGMBWelcomeEmail } = await import('@/lib/mail')
-      sendGMBWelcomeEmail(email, accountName, selectedPlan, initialCredits, rawPassword).catch(err => {
+      sendGMBWelcomeEmail(email, accountName, selectedPlan, initialCredits, rawPassword).then(sent => {
+        if (!sent) console.error(`[GMB Webhook] Welcome email NOT delivered to ${email} (check SMTP settings / logs above)`)
+      }).catch(err => {
         console.error('Error sending GMB welcome credentials email:', err)
       })
     }

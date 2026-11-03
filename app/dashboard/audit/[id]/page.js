@@ -67,6 +67,7 @@ import {
 
 
 import { downloadAuditPdf } from '@/lib/export-audit-pdf'
+import { FIRST_MILESTONE_DAYS } from '@/lib/audit-milestones'
 
 export default function BusinessAuditPage() {
   const params = useParams()
@@ -86,8 +87,8 @@ export default function BusinessAuditPage() {
   const handleDownloadMilestone = async (milestone) => {
     if (!data) return
     const daysElapsed = data.auditCycle?.daysElapsed ?? 0
-    if (milestone === '15_days' && daysElapsed < 15) {
-      toast.error(`The 15-Day report is locked. It will automatically unlock in ${15 - daysElapsed} days.`)
+    if (milestone === '15_days' && daysElapsed < FIRST_MILESTONE_DAYS) {
+      toast.error(`The 7-Day report is locked. It will automatically unlock in ${FIRST_MILESTONE_DAYS - daysElapsed} days.`)
       return
     }
     if (milestone === '30_days' && daysElapsed < 30) {
@@ -101,7 +102,7 @@ export default function BusinessAuditPage() {
         milestone,
         businessName: data.businessInfo?.name
       })
-      toast.success(`${milestone === '15_days' ? '15-Day' : milestone === '30_days' ? '30-Day' : 'Milestone'} report downloaded!`)
+      toast.success(`${milestone === '15_days' ? '7-Day' : milestone === '30_days' ? '30-Day' : 'Milestone'} report downloaded!`)
     } catch (err) {
       toast.error('Download failed: ' + err.message)
     } finally {
@@ -111,8 +112,8 @@ export default function BusinessAuditPage() {
 
   const handleSendEmail = async () => {
     const daysElapsed = data?.auditCycle?.daysElapsed ?? 0
-    if (daysElapsed < 30) {
-      toast.error(`The 30-Day audit report is locked. It will automatically unlock and be emailed in ${30 - daysElapsed} days.`)
+    if (daysElapsed < FIRST_MILESTONE_DAYS) {
+      toast.error(`Audit report emails start after ${FIRST_MILESTONE_DAYS} days (in ${FIRST_MILESTONE_DAYS - daysElapsed} days).`)
       return
     }
 
@@ -125,7 +126,7 @@ export default function BusinessAuditPage() {
       })
       const result = await res.json()
       if (res.ok && result.success) {
-        toast.success(result.message || '30-Day updated audit report sent to your email!')
+        toast.success(result.message || 'Updated audit report sent to your email!')
         fetchAuditData(false)
       } else {
         throw new Error(result.error || 'Failed to send audit email')
@@ -139,8 +140,8 @@ export default function BusinessAuditPage() {
 
   const handleGenerateMilestone = async (cycle) => {
     const daysElapsed = data?.auditCycle?.daysElapsed ?? 0
-    if (cycle === '15_days' && daysElapsed < 15) {
-      toast.error(`The 15-Day report is locked. It will unlock after 15 days (in ${15 - daysElapsed} days).`)
+    if (cycle === '15_days' && daysElapsed < FIRST_MILESTONE_DAYS) {
+      toast.error(`The 7-Day report is locked. It will unlock after 7 days (in ${FIRST_MILESTONE_DAYS - daysElapsed} days).`)
       return
     }
     if (cycle === '30_days' && daysElapsed < 30) {
@@ -706,7 +707,7 @@ export default function BusinessAuditPage() {
         </p>
       )}
 
-      {/* Periodic Milestones (15-Day and 30-Day Cycles) Banner */}
+      {/* Periodic Milestones (7-Day and 30-Day Cycles) Banner */}
       <Card className="border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/20 rounded-3xl shadow-sm overflow-hidden mb-8">
         <CardHeader className="p-6 border-b border-indigo-50/80 bg-white/60">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -719,7 +720,7 @@ export default function BusinessAuditPage() {
                   Periodic Audit Reports & Automated Emailing
                 </h3>
                 <p className="text-xs text-slate-500 font-semibold">
-                  Track your growth across 15-day and 30-day audit milestones. Updated reports are automatically sent to your email every 30 days.
+                  Track your growth across 7-day and 30-day audit milestones. Updated reports are automatically sent to your email every 7 days.
                 </p>
               </div>
             </div>
@@ -730,10 +731,10 @@ export default function BusinessAuditPage() {
                 disabled={sendingEmail}
                 onClick={handleSendEmail}
                 className="rounded-xl border-indigo-200 font-bold text-xs h-9 px-3.5 text-indigo-700 bg-white hover:bg-indigo-50 shadow-sm flex items-center gap-1.5"
-                title="Send current 30-day updated report to your email address"
+                title="Send the current updated report to your email address"
               >
                 {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                Send 30-Day to Email
+                Email Report Now
               </Button>
             </div>
           </div>
@@ -767,12 +768,12 @@ export default function BusinessAuditPage() {
               </Button>
             </div>
 
-            {/* 2. 15-Day Milestone */}
+            {/* 2. 7-Day Milestone */}
             {(() => {
               const p15 = data.periodicReports?.day15
               const daysElapsed = data.auditCycle?.daysElapsed ?? 0
-              const is15Ready = daysElapsed >= 15
-              const daysLeft = Math.max(0, 15 - daysElapsed)
+              const is15Ready = daysElapsed >= FIRST_MILESTONE_DAYS
+              const daysLeft = Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)
 
               return (
                 <div className={`bg-white border ${is15Ready ? 'border-blue-200/80 shadow-2xs' : 'border-slate-200 bg-slate-50/50'} rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden`}>
@@ -784,7 +785,7 @@ export default function BusinessAuditPage() {
                           ? 'text-blue-700 bg-blue-50 border-blue-200' 
                           : 'text-slate-500 bg-slate-100 border-slate-200'
                       }`}>
-                        {is15Ready ? 'Day 15 Milestone' : <><Lock className="w-2.5 h-2.5" /> Locked (Day 15)</>}
+                        {is15Ready ? 'Day 7 Milestone' : <><Lock className="w-2.5 h-2.5" /> Locked (Day 7)</>}
                       </span>
                       {is15Ready ? (
                         <div className="flex items-center gap-1">
@@ -803,9 +804,9 @@ export default function BusinessAuditPage() {
                         </span>
                       )}
                     </div>
-                    <h4 className="font-extrabold text-slate-900 text-sm">15-Day Updated Audit</h4>
+                    <h4 className="font-extrabold text-slate-900 text-sm">7-Day Updated Audit</h4>
                     <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      {is15Ready ? 'Intermediate optimization & ranking progress' : `Locked until Day 15 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/15)`}
+                      {is15Ready ? 'Intermediate optimization & ranking progress' : `Locked until Day 7 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/${FIRST_MILESTONE_DAYS})`}
                     </p>
                   </div>
 
@@ -818,7 +819,7 @@ export default function BusinessAuditPage() {
                         className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
                       >
                         {downloadingMilestone === '15_days' ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Download className="w-3 h-3 mr-1.5" />}
-                        Download 15-Day (PDF)
+                        Download 7-Day (PDF)
                       </Button>
                     ) : (
                       <Button
@@ -852,7 +853,7 @@ export default function BusinessAuditPage() {
                           ? 'text-indigo-700 bg-indigo-50 border-indigo-200' 
                           : 'text-slate-500 bg-slate-100 border-slate-200'
                       }`}>
-                        {is30Ready ? <><Mail className="w-2.5 h-2.5" /> Day 30 (Auto-Email)</> : <><Lock className="w-2.5 h-2.5" /> Locked (Day 30)</>}
+                        {is30Ready ? <><Mail className="w-2.5 h-2.5" /> Day 30</> : <><Lock className="w-2.5 h-2.5" /> Locked (Day 30)</>}
                       </span>
                       {is30Ready ? (
                         <div className="flex items-center gap-1">
@@ -873,7 +874,7 @@ export default function BusinessAuditPage() {
                     </div>
                     <h4 className="font-extrabold text-slate-900 text-sm">30-Day Updated Audit</h4>
                     <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      {is30Ready ? 'Full monthly progress report automatically delivered' : `Locked until Day 30 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/30)`}
+                      {is30Ready ? 'Full monthly progress report' : `Locked until Day 30 • Unlocks in ${daysLeft} days (Day ${daysElapsed}/30)`}
                     </p>
                   </div>
 

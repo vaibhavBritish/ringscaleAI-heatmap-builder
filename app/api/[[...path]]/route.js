@@ -11,6 +11,7 @@ import redis from '@/lib/redis'
 import { rateLimit } from '@/lib/rate-limit'
 import { headers } from 'next/headers'
 import { getSecret } from '@/lib/secrets'
+import { FIRST_MILESTONE_DAYS, getLastAuditEmailSentAt } from '@/lib/audit-milestones'
 
 let legacyProjectIndexCleanupAttempted = false
 
@@ -83,7 +84,7 @@ function auditMilestoneFields(projectCreatedAtRaw, audit) {
     } catch {}
   }
 
-  const isDay15Available = daysElapsed >= 15
+  const isDay15Available = daysElapsed >= FIRST_MILESTONE_DAYS
   const isDay30Available = daysElapsed >= 30
 
   return {
@@ -91,7 +92,7 @@ function auditMilestoneFields(projectCreatedAtRaw, audit) {
     auditScore: audit?.optimizationScore ?? null,
     auditUpdatedAt: audit?.updatedAt || null,
     daysElapsed,
-    daysToDay15: Math.max(0, 15 - daysElapsed),
+    daysToDay15: Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed),
     daysToDay30: Math.max(0, 30 - daysElapsed),
     isDay15Available,
     isDay30Available,
@@ -103,6 +104,7 @@ function auditMilestoneFields(projectCreatedAtRaw, audit) {
     day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
     day30EmailSent: periodic.day30?.emailSent ?? false,
     day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
+    lastAuditEmailSentAt: getLastAuditEmailSentAt(periodic),
     periodicReports: periodic
   }
 }

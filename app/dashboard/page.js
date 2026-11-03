@@ -35,6 +35,7 @@ import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import PlanTimer from '@/components/dashboard/PlanTimer'
 import { toast } from 'sonner'
 import { downloadAuditPdf } from '@/lib/export-audit-pdf'
+import { FIRST_MILESTONE_DAYS } from '@/lib/audit-milestones'
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -48,7 +49,7 @@ export default function DashboardPage() {
 
   const handleDownloadMilestone = async (biz, milestone) => {
     if (milestone === '15_days' && !biz.isDay15Available) {
-      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      toast.error('The 7-Day Milestone report is locked until 7 days have elapsed.')
       return
     }
     if (milestone === '30_days' && !biz.isDay30Available) {
@@ -66,7 +67,7 @@ export default function DashboardPage() {
         milestone,
         businessName: biz.businessName
       })
-      toast.success(`${milestone === '15_days' ? '15-Day' : '30-Day'} report downloaded!`)
+      toast.success(`${milestone === '15_days' ? '7-Day' : '30-Day'} report downloaded!`)
     } catch (err) {
       toast.error('Download failed: ' + err.message)
     } finally {
@@ -374,7 +375,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    {/* Periodic 15-Day & 30-Day Audit Downloads */}
+                    {/* Periodic 7-Day & 30-Day Audit Downloads */}
                     <div className="mt-3.5 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-700">
                         <span className="flex items-center gap-1 text-indigo-700">
@@ -398,7 +399,7 @@ export default function DashboardPage() {
                             ) : (
                               <Download className="w-3 h-3 mr-1" />
                             )}
-                            15-Day PDF
+                            7-Day PDF
                           </Button>
                         ) : (
                           <Button
@@ -406,10 +407,10 @@ export default function DashboardPage() {
                             size="sm"
                             disabled
                             className="h-7 px-1.5 text-[10px] font-bold bg-slate-100 text-slate-400 border-slate-200 rounded-lg justify-center cursor-not-allowed shadow-none"
-                            title={`Locked until Day 15 (unlocks in ${biz.daysToDay15 || Math.max(0, 15 - (biz.daysElapsed || 0))}d)`}
+                            title={`Locked until Day 7 (unlocks in ${biz.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - (biz.daysElapsed || 0))}d)`}
                           >
                             <Lock className="w-2.5 h-2.5 mr-1 text-slate-400" />
-                            Locked ({biz.daysToDay15 || Math.max(0, 15 - (biz.daysElapsed || 0))}d)
+                            Locked ({biz.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - (biz.daysElapsed || 0))}d)
                           </Button>
                         )}
 
