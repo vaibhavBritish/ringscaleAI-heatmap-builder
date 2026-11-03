@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { searchBusinessByText, getPlaceDetails, searchKeywordAtPoint } from '@/lib/google-places'
 import { generateGrid, calculateAnalytics } from '@/lib/grid-utils'
-import { runScanJob } from '@/lib/scan-engine'
+import { runScanJob, maybeRecoverProjectScans } from '@/lib/scan-engine'
 import prisma from '@/lib/prisma'
 import redis from '@/lib/redis'
 import { rateLimit } from '@/lib/rate-limit'
@@ -37,6 +37,119 @@ async function cleanupLegacyProjectClientSlugIndex() {
     // If index is already removed or command is not supported in this environment, continue.
     console.warn('[projects] Legacy index cleanup skipped:', error?.message || error)
   }
+}
+
+// ─── BATCHED PROJECT SUMMARIES ───────────────────────────────────────────────
+// /projects and /dashboard/stats used to run 2-3 queries PER project (N+1), which
+// made partner accounts with many businesses very slow. These load everything
+// for a list of projects in a constant number of queries.
+
+async function loadProjectSummaryData(projectIds) {
+  const keywordCounts = new Map()
+  const audits = new Map()
+  if (!projectIds.length) return { keywordCounts, audits }
+
+  const idSet = new Set(projectIds)
+  const [keywordGroups, auditRows] = await Promise.all([
+    prisma.keyword.groupBy({
+      by: ['projectId'],
+      where: { projectId: { in: projectIds } },
+      _count: { _all: true }
+    }),
+    prisma.businessAudit.findMany({
+      where: { OR: [{ id: { in: projectIds } }, { projectId: { in: projectIds } }] },
+      select: { id: true, projectId: true, optimizationScore: true, updatedAt: true, auditDataJson: true }
+    }).catch(err => {
+      console.warn('[Projects] Audit lookup notice:', err.message)
+      return []
+    })
+  ])
+
+  for (const g of keywordGroups) keywordCounts.set(g.projectId, g._count._all)
+  for (const a of auditRows) {
+    if (idSet.has(a.id)) audits.set(a.id, a)
+    else if (a.projectId && !audits.has(a.projectId)) audits.set(a.projectId, a)
+  }
+  return { keywordCounts, audits }
+}
+
+function auditMilestoneFields(projectCreatedAtRaw, audit) {
+  const projectCreatedAt = new Date(projectCreatedAtRaw || Date.now())
+  const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
+  let periodic = {}
+  if (audit?.auditDataJson) {
+    try {
+      periodic = JSON.parse(audit.auditDataJson).periodicReports || {}
+    } catch {}
+  }
+
+  const isDay15Available = daysElapsed >= 15
+  const isDay30Available = daysElapsed >= 30
+
+  return {
+    hasAudit: !!audit,
+    auditScore: audit?.optimizationScore ?? null,
+    auditUpdatedAt: audit?.updatedAt || null,
+    daysElapsed,
+    daysToDay15: Math.max(0, 15 - daysElapsed),
+    daysToDay30: Math.max(0, 30 - daysElapsed),
+    isDay15Available,
+    isDay30Available,
+    isDay15Locked: !isDay15Available,
+    isDay30Locked: !isDay30Available,
+    day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
+    day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
+    day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
+    day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
+    day30EmailSent: periodic.day30?.emailSent ?? false,
+    day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
+    periodicReports: periodic
+  }
+}
+
+// Latest scan job per keyword, from one query over the project's jobs (newest first).
+// Also auto-heals jobs whose points are all processed but whose status never flipped.
+async function buildProjectScans(projectId, projectJobs) {
+  const allKeywords = await prisma.keyword.findMany({ where: { projectId } })
+  const latestByKeyword = new Map()
+  for (const job of projectJobs) {
+    if (!latestByKeyword.has(job.keywordId)) latestByKeyword.set(job.keywordId, job)
+  }
+
+  return Promise.all(allKeywords.map(async (kw) => {
+    let latestJob = latestByKeyword.get(kw.id) || null
+
+    if (
+      latestJob &&
+      ['queued', 'processing'].includes(latestJob.status) &&
+      (latestJob.totalPoints || 0) > 0 &&
+      (latestJob.processedPoints || 0) >= (latestJob.totalPoints || 0)
+    ) {
+      await prisma.scanJob.updateMany({
+        where: { id: latestJob.id, status: { in: ['queued', 'processing'] } },
+        data: { status: 'completed', completedAt: new Date() }
+      })
+      latestJob = { ...latestJob, status: 'completed' }
+    }
+
+    return {
+      keyword: kw.keyword,
+      keywordId: kw.id,
+      scanId: latestJob?.id || null,
+      status: latestJob?.status || 'none',
+      processedPoints: latestJob?.processedPoints || 0,
+      totalPoints: latestJob?.totalPoints || 0
+    }
+  }))
+}
+
+const PROJECT_JOB_SELECT = {
+  id: true,
+  keywordId: true,
+  status: true,
+  processedPoints: true,
+  totalPoints: true,
+  createdAt: true
 }
 
 // Get authenticated user
@@ -404,67 +517,33 @@ async function handleRoute(request, props) {
         orderBy: { createdAt: 'desc' }
       })
 
-      // Get keyword counts, latest scan, and audit status for each project
-      const enrichedProjects = await Promise.all(projects.map(async (project) => {
-        const keywordCount = await prisma.keyword.count({ where: { projectId: project.id } })
-        const latestScan = await prisma.scanJob.findFirst({
-          where: { projectId: project.id },
-          orderBy: { createdAt: 'desc' }
-        })
-        let audit = null
-        try {
-          audit = await prisma.businessAudit.findFirst({
-            where: {
-              OR: [
-                { id: project.id },
-                { projectId: project.id }
-              ]
-            },
-            select: { optimizationScore: true, updatedAt: true, auditDataJson: true }
-          })
-        } catch (auditErr) {
-          console.warn(`[Projects] Audit lookup notice for ${project.id}:`, auditErr.message)
-        }
+      // Keyword counts, latest scan and audit status for ALL projects in a few batched queries
+      const projectIds = projects.map(p => p.id)
+      const [{ keywordCounts, audits }, scanRows] = await Promise.all([
+        loadProjectSummaryData(projectIds),
+        projectIds.length
+          ? prisma.scanJob.findMany({
+              where: { projectId: { in: projectIds } },
+              select: { projectId: true, status: true, createdAt: true },
+              orderBy: { createdAt: 'desc' }
+            })
+          : []
+      ])
+      const latestScanByProject = new Map()
+      for (const s of scanRows) {
+        if (!latestScanByProject.has(s.projectId)) latestScanByProject.set(s.projectId, s)
+      }
 
-        const projectCreatedAt = new Date(project.createdAt || Date.now())
-        const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
-        let periodic = {}
-        if (audit?.auditDataJson) {
-          try {
-            const parsed = JSON.parse(audit.auditDataJson)
-            periodic = parsed.periodicReports || {}
-          } catch {}
-        }
-
-        const isDay15Available = daysElapsed >= 15
-        const isDay30Available = daysElapsed >= 30
-        const isDay15Locked = daysElapsed < 15
-        const isDay30Locked = daysElapsed < 30
-
+      const enrichedProjects = projects.map((project) => {
+        const latestScan = latestScanByProject.get(project.id)
         return {
           ...project,
-          keywordCount,
+          keywordCount: keywordCounts.get(project.id) || 0,
           latestScanDate: latestScan?.createdAt || null,
           latestScanStatus: latestScan?.status || null,
-          hasAudit: !!audit,
-          auditScore: audit?.optimizationScore ?? null,
-          auditUpdatedAt: audit?.updatedAt || null,
-          daysElapsed,
-          daysToDay15: Math.max(0, 15 - daysElapsed),
-          daysToDay30: Math.max(0, 30 - daysElapsed),
-          isDay15Available,
-          isDay30Available,
-          isDay15Locked,
-          isDay30Locked,
-          day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
-          day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
-          day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
-          day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
-          day30EmailSent: periodic.day30?.emailSent ?? false,
-          day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
-          periodicReports: periodic
+          ...auditMilestoneFields(project.createdAt, audits.get(project.id))
         }
-      }))
+      })
 
       const projectsResponse = { projects: enrichedProjects }
       if (redis) {
@@ -1014,10 +1093,16 @@ async function handleRoute(request, props) {
     const scanStatusMatch = route.match(/^\/scans\/([^/]+)$/)
     if (scanStatusMatch && method === 'GET') {
       const scanId = scanStatusMatch[1]
-      const scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
+      let scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
 
       if (!scanJob || !(await verifyProject(scanJob.projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Scan job not found' }, { status: 404 }))
+      }
+
+      // Resume/close the job if it was orphaned by a server restart (throttled per project)
+      if (['queued', 'processing'].includes(scanJob.status)) {
+        await maybeRecoverProjectScans(scanJob.projectId)
+        scanJob = (await prisma.scanJob.findFirst({ where: { id: scanId } })) || scanJob
       }
 
       return handleCORS(NextResponse.json(scanJob))
@@ -1028,7 +1113,7 @@ async function handleRoute(request, props) {
     if (scanResultsMatch && method === 'GET') {
       const scanId = scanResultsMatch[1]
 
-      const scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
+      let scanJob = await prisma.scanJob.findFirst({ where: { id: scanId } })
       if (!scanJob || !(await verifyProject(scanJob.projectId, currentUser.id))) {
         return handleCORS(NextResponse.json({ error: 'Scan job not found' }, { status: 404 }))
       }
@@ -1048,35 +1133,32 @@ async function handleRoute(request, props) {
         }
       }
 
-      const project = await prisma.project.findFirst({ where: { id: scanJob.projectId } })
-      const keyword = await prisma.keyword.findFirst({ where: { id: scanJob.keywordId } })
+      // While a scan is in flight, make sure it isn't an orphan left behind by a restart
+      // (this is what used to leave the progress bar stuck at 99%)
+      const isActiveScan = ['queued', 'processing'].includes(scanJob.status)
+      if (isActiveScan || isAggregate) {
+        await maybeRecoverProjectScans(scanJob.projectId)
+        if (isActiveScan) {
+          scanJob = (await prisma.scanJob.findFirst({ where: { id: scanId } })) || scanJob
+        }
+      }
 
-      // Fetch all results for this scan job
-      const scanResults = await prisma.scanResult.findMany({ 
-        where: { scanJobId: scanId },
-        select: {
-          id: true,
-          scanJobId: true,
-          rowIndex: true,
-          colIndex: true,
-          latitude: true,
-          longitude: true,
-          found: true,
-          rank: true,
-          errorMessage: true,
-          competitorsJson: true
-        },
-        orderBy: [{ rowIndex: 'asc' }, { colIndex: 'asc' }]
-      })
+      // One query for all of this project's jobs (used for aggregate + per-keyword status)
+      const [project, keyword, projectJobs] = await Promise.all([
+        prisma.project.findFirst({ where: { id: scanJob.projectId } }),
+        prisma.keyword.findFirst({ where: { id: scanJob.keywordId } }),
+        prisma.scanJob.findMany({
+          where: { projectId: scanJob.projectId },
+          select: PROJECT_JOB_SELECT,
+          orderBy: { createdAt: 'desc' }
+        })
+      ])
 
       let mergedResults = []
 
       if (isAggregate) {
-        // Fetch ALL scan jobs for this project to get project-wide best ranks
-        const allProjectScanJobIds = (await prisma.scanJob.findMany({
-          where: { projectId: scanJob.projectId },
-          select: { id: true }
-        })).map(j => j.id)
+        // ALL scan jobs for this project, to get project-wide best ranks
+        const allProjectScanJobIds = projectJobs.map(j => j.id)
 
         // Fetch ALL results across ALL jobs, but exclude competitorsJson for the first pass to save memory
         const allResults = await prisma.scanResult.findMany({
@@ -1137,6 +1219,24 @@ async function handleRoute(request, props) {
         })
       } else {
         // Standard single-scan result (Hybrid)
+        const scanResults = await prisma.scanResult.findMany({
+          where: { scanJobId: scanId },
+          select: {
+            id: true,
+            scanJobId: true,
+            scanPointId: true,
+            rowIndex: true,
+            colIndex: true,
+            latitude: true,
+            longitude: true,
+            found: true,
+            rank: true,
+            errorMessage: true,
+            competitorsJson: true
+          },
+          orderBy: [{ rowIndex: 'asc' }, { colIndex: 'asc' }]
+        })
+
         // For backward compatibility, check if we need points
         const needsPoints = scanResults.some(r => r.rowIndex === null && r.scanPointId)
         let pointMap = new Map()
@@ -1171,36 +1271,8 @@ async function handleRoute(request, props) {
 
       const analytics = calculateAnalytics(mergedResults)
 
-      // Get all keywords for this project with their latest scans
-      const allKeywords = await prisma.keyword.findMany({ where: { projectId: scanJob.projectId } })
-      const projectScans = await Promise.all(allKeywords.map(async (kw) => {
-        let latestJob = await prisma.scanJob.findFirst({
-          where: { keywordId: kw.id },
-          orderBy: { createdAt: 'desc' }
-        })
-
-        // Auto-heal occasional stuck jobs: if all points are processed but status never flipped.
-        if (
-          latestJob &&
-          ['queued', 'processing'].includes(latestJob.status) &&
-          (latestJob.totalPoints || 0) > 0 &&
-          (latestJob.processedPoints || 0) >= (latestJob.totalPoints || 0)
-        ) {
-          latestJob = await prisma.scanJob.update({
-            where: { id: latestJob.id },
-            data: { status: 'completed', completedAt: new Date() }
-          })
-        }
-
-        return {
-          keyword: kw.keyword,
-          keywordId: kw.id,
-          scanId: latestJob?.id || null,
-          status: latestJob?.status || 'none',
-          processedPoints: latestJob?.processedPoints || 0,
-          totalPoints: latestJob?.totalPoints || 0
-        }
-      }))
+      // All keywords for this project with their latest scans (no per-keyword queries)
+      const projectScans = await buildProjectScans(scanJob.projectId, projectJobs)
 
       // Get all competitors across all points
       const allCompetitors = new Map()
@@ -1305,17 +1377,32 @@ async function handleRoute(request, props) {
         orderBy: { createdAt: 'desc' }
       })
 
-      // Enrich with keyword info and basic analytics
-      const enrichedScans = await Promise.all(scans.map(async (scan) => {
-        const kw = await prisma.keyword.findFirst({ where: { id: scan.keywordId } })
-        const results = await prisma.scanResult.findMany({ where: { scanJobId: scan.id } })
-        const analytics = calculateAnalytics(results.map(r => ({ found: r.found, rank: r.rank })))
+      // Enrich with keyword info and basic analytics — two batched queries, and only the
+      // fields analytics needs (previously loaded every result incl. raw Google JSON per scan)
+      const scanIds = scans.map(s => s.id)
+      const keywordIds = [...new Set(scans.map(s => s.keywordId))]
+      const [keywordRows, resultRows] = await Promise.all([
+        keywordIds.length
+          ? prisma.keyword.findMany({ where: { id: { in: keywordIds } }, select: { id: true, keyword: true } })
+          : [],
+        scanIds.length
+          ? prisma.scanResult.findMany({
+              where: { scanJobId: { in: scanIds } },
+              select: { scanJobId: true, found: true, rank: true }
+            })
+          : []
+      ])
+      const keywordById = new Map(keywordRows.map(k => [k.id, k.keyword]))
+      const resultsByScan = new Map()
+      for (const r of resultRows) {
+        if (!resultsByScan.has(r.scanJobId)) resultsByScan.set(r.scanJobId, [])
+        resultsByScan.get(r.scanJobId).push({ found: r.found, rank: r.rank })
+      }
 
-        return {
-          ...scan,
-          keyword: kw?.keyword || 'Unknown',
-          analytics
-        }
+      const enrichedScans = scans.map(scan => ({
+        ...scan,
+        keyword: keywordById.get(scan.keywordId) || 'Unknown',
+        analytics: calculateAnalytics(resultsByScan.get(scan.id) || [])
       }))
 
       return handleCORS(NextResponse.json({ scans: enrichedScans }))
@@ -1334,20 +1421,18 @@ async function handleRoute(request, props) {
       })
       const effectiveProjectId = project ? project.id : projectId
 
-      // Fetch latest scan job of this project just to have a reference Job
-      const scanJob = await prisma.scanJob.findFirst({
+      // All of this project's jobs in one query (newest first)
+      const projectJobs = await prisma.scanJob.findMany({
         where: { projectId: effectiveProjectId },
+        select: PROJECT_JOB_SELECT,
         orderBy: { createdAt: 'desc' }
       })
 
-      if (!scanJob) {
+      if (projectJobs.length === 0) {
         return handleCORS(NextResponse.json({ error: 'No scan jobs found for this project' }, { status: 404 }))
       }
 
-      const allProjectScanJobIds = (await prisma.scanJob.findMany({
-        where: { projectId: effectiveProjectId },
-        select: { id: true }
-      })).map(j => j.id)
+      const allProjectScanJobIds = projectJobs.map(j => j.id)
 
       const allResults = await prisma.scanResult.findMany({
         where: { scanJobId: { in: allProjectScanJobIds } },
@@ -1388,11 +1473,7 @@ async function handleRoute(request, props) {
       })
 
       const analytics = calculateAnalytics(mergedResults)
-      const allKeywords = await prisma.keyword.findMany({ where: { projectId } })
-      const projectScans = await Promise.all(allKeywords.map(async (kw) => {
-        const latestJob = await prisma.scanJob.findFirst({ where: { keywordId: kw.id }, orderBy: { createdAt: 'desc' } })
-        return { keyword: kw.keyword, keywordId: kw.id, scanId: latestJob?.id || null, status: latestJob?.status || 'none', processedPoints: latestJob?.processedPoints || 0, totalPoints: latestJob?.totalPoints || 0 }
-      }))
+      const projectScans = await buildProjectScans(effectiveProjectId, projectJobs)
 
       // Aggregating top competitors
       const allCompetitors = new Map()
@@ -1423,115 +1504,67 @@ async function handleRoute(request, props) {
         }
       }
 
-      const totalProjects = await prisma.project.count({ where: { userId: currentUser.id } })
+      // Fresh user (session/JWT may be stale after admin credit updates) + all projects, in parallel
+      const [freshUser, userProjects] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: currentUser.id },
+          select: { credits: true, plan: true, planEndsAt: true, trialEndsAt: true, planStartedAt: true, stripeCustomerId: true }
+        }),
+        prisma.project.findMany({
+          where: { userId: currentUser.id },
+          select: { id: true, businessName: true, address: true, createdAt: true },
+          orderBy: { createdAt: 'desc' }
+        })
+      ])
 
-      // Fetch FRESH user from DB — session/JWT may be stale after admin credit updates
-      const freshUser = await prisma.user.findUnique({
-        where: { id: currentUser.id },
-        select: { credits: true, plan: true, planEndsAt: true, trialEndsAt: true, planStartedAt: true, stripeCustomerId: true }
-      })
+      const totalProjects = userProjects.length
+      const userProjectIds = userProjects.map(p => p.id)
 
-      // Get all project IDs for this user
-      const userProjectIds = (await prisma.project.findMany({
-        where: { userId: currentUser.id },
-        select: { id: true }
-      })).map(p => p.id)
+      const [totalScans, recentScanJobs, { keywordCounts, audits }] = await Promise.all([
+        userProjectIds.length ? prisma.scanJob.count({ where: { projectId: { in: userProjectIds } } }) : 0,
+        userProjectIds.length
+          ? prisma.scanJob.findMany({
+              where: { projectId: { in: userProjectIds } },
+              select: {
+                id: true,
+                projectId: true,
+                keywordId: true,
+                status: true,
+                processedPoints: true,
+                totalPoints: true,
+                createdAt: true,
+                completedAt: true
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 10
+            })
+          : [],
+        loadProjectSummaryData(userProjectIds)
+      ])
 
-      const totalScans = await prisma.scanJob.count({
-        where: { projectId: { in: userProjectIds } }
-      })
-
-      const recentScanJobs = await prisma.scanJob.findMany({
-        where: { projectId: { in: userProjectIds } },
-        select: {
-          id: true,
-          projectId: true,
-          keywordId: true,
-          status: true,
-          processedPoints: true,
-          totalPoints: true,
-          createdAt: true,
-          completedAt: true
-          // omit gridSize, spacingMeters, searchRadiusMeters, errorMessage for the condensed list
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      })
-
-      // Enrich each scan with project and keyword info
-      const recentScans = await Promise.all(recentScanJobs.map(async (scan) => {
-        const project = await prisma.project.findFirst({ where: { id: scan.projectId } })
-        const keywordDoc = await prisma.keyword.findFirst({ where: { id: scan.keywordId } })
-        return { ...scan, keyword: keywordDoc?.keyword, project }
+      // Enrich recent scans with project + keyword info (2 batched queries instead of 20)
+      const recentProjectIds = [...new Set(recentScanJobs.map(s => s.projectId))]
+      const recentKeywordIds = [...new Set(recentScanJobs.map(s => s.keywordId))]
+      const [recentProjects, recentKeywords] = await Promise.all([
+        recentProjectIds.length ? prisma.project.findMany({ where: { id: { in: recentProjectIds } } }) : [],
+        recentKeywordIds.length
+          ? prisma.keyword.findMany({ where: { id: { in: recentKeywordIds } }, select: { id: true, keyword: true } })
+          : []
+      ])
+      const projectById = new Map(recentProjects.map(p => [p.id, p]))
+      const keywordById = new Map(recentKeywords.map(k => [k.id, k.keyword]))
+      const recentScans = recentScanJobs.map(scan => ({
+        ...scan,
+        keyword: keywordById.get(scan.keywordId),
+        project: projectById.get(scan.projectId) || null
       }))
 
-      // Fetch user's businesses with keywords and audit reports
-      const userProjects = await prisma.project.findMany({
-        where: { userId: currentUser.id },
-        select: {
-          id: true,
-          businessName: true,
-          address: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-
-      const userBusinesses = await Promise.all(userProjects.map(async (p) => {
-        const keywordCount = await prisma.keyword.count({ where: { projectId: p.id } })
-        let audit = null
-        try {
-          audit = await prisma.businessAudit.findFirst({
-            where: {
-              OR: [
-                { id: p.id },
-                { projectId: p.id }
-              ]
-            },
-            select: { optimizationScore: true, updatedAt: true, auditDataJson: true }
-          })
-        } catch (auditErr) {
-          console.warn(`[Dashboard Stats] Audit lookup notice for ${p.id}:`, auditErr.message)
-        }
-
-        const projectCreatedAt = new Date(p.createdAt || Date.now())
-        const daysElapsed = Math.max(0, Math.floor((Date.now() - projectCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
-        let periodic = {}
-        if (audit?.auditDataJson) {
-          try {
-            const parsed = JSON.parse(audit.auditDataJson)
-            periodic = parsed.periodicReports || {}
-          } catch {}
-        }
-
-        const isDay15Available = daysElapsed >= 15
-        const isDay30Available = daysElapsed >= 30
-        const isDay15Locked = daysElapsed < 15
-        const isDay30Locked = daysElapsed < 30
-
-        return {
-          id: p.id,
-          businessName: p.businessName,
-          address: p.address,
-          keywordCount,
-          auditScore: audit?.optimizationScore ?? null,
-          hasAudit: !!audit,
-          auditUpdatedAt: audit?.updatedAt || null,
-          daysElapsed,
-          daysToDay15: Math.max(0, 15 - daysElapsed),
-          daysToDay30: Math.max(0, 30 - daysElapsed),
-          isDay15Available,
-          isDay30Available,
-          isDay15Locked,
-          isDay30Locked,
-          day15Score: periodic.day15?.optimizationScore ?? (isDay15Available ? audit?.optimizationScore : null),
-          day15ScoreDelta: periodic.day15?.scoreDelta ?? null,
-          day30Score: periodic.day30?.optimizationScore ?? (isDay30Available ? audit?.optimizationScore : null),
-          day30ScoreDelta: periodic.day30?.scoreDelta ?? null,
-          day30EmailSent: periodic.day30?.emailSent ?? false,
-          day30EmailSentAt: periodic.day30?.emailSentAt ?? null,
-          periodicReports: periodic
-        }
+      const userBusinesses = userProjects.map(p => ({
+        id: p.id,
+        businessName: p.businessName,
+        address: p.address,
+        keywordCount: keywordCounts.get(p.id) || 0,
+        ...auditMilestoneFields(p.createdAt, audits.get(p.id))
       }))
 
       const statsResponse = { 

@@ -37,6 +37,7 @@ model User {
 
   salesRecords         SalesRecord[]
 
+  @@index([companyId])
   @@map("users")
 }
 
@@ -175,9 +176,13 @@ model ScanJob {
   createdAt          DateTime  @default(now())
   startedAt          DateTime?
   completedAt        DateTime?
+  heartbeatAt        DateTime? // Refreshed by the running worker; used to detect orphaned scans
 
   @@index([projectId])
   @@index([keywordId])
+  @@index([status])
+  @@index([projectId, createdAt])
+  @@index([keywordId, createdAt])
   @@map("scan_jobs")
 }
 
