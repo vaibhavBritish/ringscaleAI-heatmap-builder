@@ -66,7 +66,9 @@ export async function POST(request) {
 
     // Send welcome email (async, don't await to avoid delaying the response)
     const { sendWelcomeEmail } = await import('@/lib/mail')
-    sendWelcomeEmail(user.email, user.name, user.plan, user.credits).catch(err => {
+    sendWelcomeEmail(user.email, user.name, user.plan, user.credits).then(sent => {
+      if (!sent) console.error(`[Register] Welcome email NOT delivered to ${user.email} (check SMTP settings / logs above)`)
+    }).catch(err => {
       console.error('Error sending welcome email after registration:', err)
     })
 

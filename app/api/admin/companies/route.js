@@ -120,6 +120,7 @@ export async function POST(request) {
                     name: `${name} Admin`,
                     email: email.toLowerCase(),
                     password: hashedPassword,
+                    plainPassword: tempPassword, // Stored like every other account for admin reference
                     role: 'partner',
                     companyId: company.oid,
                     plan: 'pro',
@@ -133,8 +134,10 @@ export async function POST(request) {
         })
 
         // Send Welcome email with credentials (non-blocking to prevent timeouts)
-        import('@/lib/mail').then(({ sendWelcomeEmail }) => {
-            sendWelcomeEmail(email, `${name} Admin`, 'Partner', 5000).catch(err => {
+        import('@/lib/mail').then(({ sendGMBWelcomeEmail }) => {
+            sendGMBWelcomeEmail(email, `${name} Admin`, 'Partner', 5000, result.tempPassword).then(sent => {
+                if (!sent) console.error(`[Admin Companies] Welcome email NOT delivered to ${email} (check SMTP settings / logs above)`)
+            }).catch(err => {
                 console.error('Error sending welcome email:', err)
             })
         }).catch(err => {

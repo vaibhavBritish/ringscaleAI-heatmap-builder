@@ -29,6 +29,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
+import { FIRST_MILESTONE_DAYS } from '@/lib/audit-milestones'
 
 export default function ProjectsPage() {
   const { data: session } = useSession()
@@ -224,9 +225,9 @@ export default function ProjectsPage() {
                         15d Audit Ready
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 py-1 px-2 bg-slate-100 text-slate-500 font-semibold rounded-md border border-slate-200" title={`Audit report locked until Day 15 (in ${project.daysToDay15 || Math.max(0, 15 - (project.daysElapsed || 0))}d)`}>
+                      <div className="flex items-center gap-1.5 py-1 px-2 bg-slate-100 text-slate-500 font-semibold rounded-md border border-slate-200" title={`Audit report locked until Day 7 (in ${project.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - (project.daysElapsed || 0))}d)`}>
                         <Lock className="w-3 h-3 text-slate-400" />
-                        Day {project.daysElapsed || 0}/15
+                        Day {project.daysElapsed || 0}/{FIRST_MILESTONE_DAYS}
                       </div>
                     )}
                   </div>

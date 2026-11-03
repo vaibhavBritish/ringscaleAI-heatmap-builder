@@ -48,6 +48,17 @@ export async function POST(req) {
           updatedAt: new Date()
         }
       })
+
+      // Onboarding email with login details — only for a real address the customer gave us,
+      // not the placeholder <business>@client.ringscale.ai generated when no email was sent
+      if (email && !user.email.endsWith('@client.ringscale.ai')) {
+        const { sendGMBWelcomeEmail } = await import('@/lib/mail')
+        sendGMBWelcomeEmail(user.email, user.name, user.plan, user.credits, rawPassword).then(sent => {
+          if (!sent) console.error(`[GMB Location Sync] Welcome email NOT delivered to ${user.email} (check SMTP settings / logs above)`)
+        }).catch(err => {
+          console.error('Error sending GMB location sync welcome email:', err)
+        })
+      }
     }
 
     const { syncCustomerGMBBusinesses } = await import('@/lib/gmb-customer-sync')

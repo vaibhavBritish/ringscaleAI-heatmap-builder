@@ -280,17 +280,14 @@ export async function POST(request) {
                 }
             })
 
-            // Send credentials to email
-            const { sendWelcomeEmail, sendGMBWelcomeEmail } = await import('@/lib/mail')
-            if (isWebhookAuthorized || effectiveBusinessName) {
-                sendGMBWelcomeEmail(email, accountName, selectedPlan, initialCredits, rawPassword).catch(err => {
-                    console.error('Error sending GMB welcome email with credentials:', err)
-                })
-            } else {
-                sendWelcomeEmail(email, accountName, selectedPlan, initialCredits).catch(err => {
-                    console.error('Error sending welcome email:', err)
-                })
-            }
+            // Send credentials to email. Always include the login details: the password may
+            // have been auto-generated above, and the new user has no other way to learn it.
+            const { sendGMBWelcomeEmail } = await import('@/lib/mail')
+            sendGMBWelcomeEmail(email, accountName, selectedPlan, initialCredits, rawPassword).then(sent => {
+                if (!sent) console.error(`[Admin Users] Welcome email NOT delivered to ${email} (check SMTP settings / logs above)`)
+            }).catch(err => {
+                console.error('Error sending welcome email with credentials:', err)
+            })
         }
 
         // Attach projects / locations to user (supports multiple locations, e.g. 60 GMBs)

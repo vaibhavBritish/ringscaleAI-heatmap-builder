@@ -64,7 +64,13 @@ export function ClientModal({ isOpen, onClose, client, onRefresh, poolCredits = 
 
       if (!res.ok) throw new Error(data.error || "Something went wrong")
 
-      toast.success(isEditing ? "Client updated successfully" : "Client created successfully")
+      if (isEditing) {
+        toast.success("Client updated successfully")
+      } else if (data.welcomeEmailSent) {
+        toast.success(`Client created — welcome email with login details sent to ${formData.email}`)
+      } else {
+        toast.warning("Client created, but the welcome email could not be sent. Please share the login details with your client.")
+      }
       onRefresh()
       onClose()
     } catch (error) {

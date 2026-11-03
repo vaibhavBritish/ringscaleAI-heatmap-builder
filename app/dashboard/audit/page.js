@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { downloadAuditPdf } from '@/lib/export-audit-pdf'
+import { FIRST_MILESTONE_DAYS } from '@/lib/audit-milestones'
 
 export default function AuditListPage() {
   const [projects, setProjects] = useState([])
@@ -93,7 +94,7 @@ export default function AuditListPage() {
   // Direct download for a specific milestone (initial, 15_days, 30_days, latest)
   const handleDownload = async (project, milestone = 'latest') => {
     if (milestone === '15_days' && !project.isDay15Available) {
-      toast.error('The 15-Day Milestone report is locked until 15 days have elapsed.')
+      toast.error('The 7-Day Milestone report is locked until 7 days have elapsed.')
       return
     }
     if (milestone === '30_days' && !project.isDay30Available) {
@@ -111,7 +112,7 @@ export default function AuditListPage() {
       const auditData = await res.json()
 
       let label = 'GBP Optimization Audit'
-      if (milestone === '15_days') label = '15-Day Milestone SEO Audit Report'
+      if (milestone === '15_days') label = '7-Day Milestone SEO Audit Report'
       if (milestone === '30_days') label = '30-Day Comprehensive SEO Audit Report'
       if (milestone === 'initial') label = 'Initial Baseline SEO Audit Report'
 
@@ -120,7 +121,7 @@ export default function AuditListPage() {
         milestoneLabel: label,
         businessName: project.businessName
       })
-      toast.success(`${milestone === '15_days' ? '15-Day' : milestone === '30_days' ? '30-Day' : 'Audit'} report downloaded successfully!`)
+      toast.success(`${milestone === '15_days' ? '7-Day' : milestone === '30_days' ? '30-Day' : 'Audit'} report downloaded successfully!`)
     } catch (err) {
       console.error('Download error:', err)
       toast.error('Failed to generate report PDF: ' + err.message)
@@ -133,7 +134,7 @@ export default function AuditListPage() {
   const handleGenerateMilestone = async (projectId, cycle) => {
     const project = projects.find(p => p.id === projectId)
     if (cycle === '15_days' && (!project || !project.isDay15Available)) {
-      toast.error('The 15-Day report is locked until 15 days have elapsed.')
+      toast.error('The 7-Day report is locked until 7 days have elapsed.')
       return
     }
     if (cycle === '30_days' && (!project || !project.isDay30Available)) {
@@ -164,10 +165,10 @@ export default function AuditListPage() {
     }
   }
 
-  // Send the 30-Day Updated Audit report to customer email on demand
+  // Send the updated audit report to the customer's email on demand
   const handleSendEmail = async (project) => {
-    if (!project.isDay30Available) {
-      toast.error('The 30-Day Audit Report email unlocks after 30 days have elapsed.')
+    if (!project.isDay15Available) {
+      toast.error(`Audit report emails start after ${FIRST_MILESTONE_DAYS} days.`)
       return
     }
 
@@ -181,7 +182,7 @@ export default function AuditListPage() {
 
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success(data.message || `30-Day Audit Report sent to your email!`)
+        toast.success(data.message || `Audit Report sent to your email!`)
         fetchProjects()
       } else {
         throw new Error(data.error || 'Failed to send audit report email')
@@ -218,7 +219,7 @@ export default function AuditListPage() {
             </span>
           </div>
           <p className="text-slate-500 font-semibold mt-1">
-            Download your updated SEO audit reports after every 15 days and 30 days. Updated reports are automatically sent to your email every 30 days.
+            Download your updated SEO audit reports after every 7 days and 30 days. Updated reports are automatically sent to your email every 30 days.
           </p>
         </div>
 
@@ -272,8 +273,9 @@ export default function AuditListPage() {
               </span>
             </h4>
             <p className="text-xs text-blue-200/90 font-medium mt-0.5 max-w-2xl">
-              • <strong>15-Day Milestone:</strong> Intermediate profile & rating progress update ready to download.<br />
-              • <strong>30-Day Milestone:</strong> Comprehensive monthly audit generated and automatically dispatched to your email.
+              • <strong>7-Day Milestone:</strong> Intermediate profile & rating progress update ready to download.<br />
+              • <strong>30-Day Milestone:</strong> Comprehensive monthly audit generated.<br />
+              • <strong>Weekly Email:</strong> An updated audit report is automatically emailed to you every 7 days.
             </p>
           </div>
         </div>
@@ -307,7 +309,7 @@ export default function AuditListPage() {
           </CardContent>
         </Card>
       ) : viewMode === 'table' ? (
-        /* ==================== TABLE VIEW WITH DEDICATED 15-DAY & 30-DAY COLUMNS ==================== */
+        /* ==================== TABLE VIEW WITH DEDICATED 7-DAY & 30-DAY COLUMNS ==================== */
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -318,7 +320,7 @@ export default function AuditListPage() {
                   <th className="py-4 px-4 text-center bg-blue-50/40 border-x border-blue-100/60">
                     <div className="flex items-center justify-center gap-1.5 text-blue-700">
                       <Calendar className="w-3.5 h-3.5" />
-                      15-Day Audit Report
+                      7-Day Audit Report
                     </div>
                   </th>
                   <th className="py-4 px-4 text-center bg-indigo-50/40 border-r border-indigo-100/60">
@@ -327,7 +329,7 @@ export default function AuditListPage() {
                       30-Day Audit Report
                     </div>
                   </th>
-                  <th className="py-4 px-4 text-center">Auto-Email (30 Days)</th>
+                  <th className="py-4 px-4 text-center">Auto-Email (Every 7 Days)</th>
                   <th className="py-4 px-5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -399,7 +401,7 @@ export default function AuditListPage() {
                         </div>
                       </td>
 
-                      {/* Column 3: 15-Day Audit Report */}
+                      {/* Column 3: 7-Day Audit Report */}
                       <td className="py-4 px-4 text-center align-middle bg-blue-50/20 border-x border-blue-100/40">
                         <div className="flex flex-col items-center gap-1.5">
                           {is15Ready ? (
@@ -425,16 +427,16 @@ export default function AuditListPage() {
                                 ) : (
                                   <Download className="w-3.5 h-3.5" />
                                 )}
-                                Download 15-Day
+                                Download 7-Day
                               </Button>
                             </>
                           ) : (
                             <div className="flex flex-col items-center gap-1">
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
-                                <Lock className="w-2.5 h-2.5" /> Locked (Day 15)
+                                <Lock className="w-2.5 h-2.5" /> Locked (Day 7)
                               </span>
                               <span className="text-[11px] font-medium text-slate-400">
-                                Day {daysElapsed}/15 ({project.daysToDay15 || Math.max(0, 15 - daysElapsed)}d left)
+                                Day {daysElapsed}/{FIRST_MILESTONE_DAYS} ({project.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)}d left)
                               </span>
                               <Button
                                 size="sm"
@@ -500,15 +502,15 @@ export default function AuditListPage() {
                       {/* Column 5: Auto-Email Status */}
                       <td className="py-4 px-4 text-center align-middle">
                         <div className="flex flex-col items-center gap-1.5">
-                          {is30Ready ? (
+                          {is15Ready ? (
                             <>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <Mail className="w-3 h-3 text-emerald-600" />
-                                Auto-Sent Every 30d
+                                Auto-Sent Every 7d
                               </span>
-                              {project.day30EmailSentAt && (
+                              {project.lastAuditEmailSentAt && (
                                 <span className="text-[10px] text-slate-400 font-medium">
-                                  Sent: {new Date(project.day30EmailSentAt).toLocaleDateString()}
+                                  Last sent: {new Date(project.lastAuditEmailSentAt).toLocaleDateString()}
                                 </span>
                               )}
                               <Button
@@ -517,7 +519,7 @@ export default function AuditListPage() {
                                 disabled={isSendingEmail}
                                 onClick={() => handleSendEmail(project)}
                                 className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                                title="Send 30-Day audit report to your email now"
+                                title="Send the updated audit report to your email now"
                               >
                                 {isSendingEmail ? (
                                   <Loader2 className="w-3 h-3 animate-spin mr-1" />
@@ -531,14 +533,14 @@ export default function AuditListPage() {
                             <>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
                                 <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                Unlocks Day 30
+                                Unlocks Day {FIRST_MILESTONE_DAYS}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 disabled
                                 className="h-6 px-2 text-[10px] font-bold text-slate-400 cursor-not-allowed opacity-60"
-                                title={`Email unlocks in ${project.daysToDay30 || Math.max(0, 30 - daysElapsed)} days`}
+                                title={`Email unlocks in ${project.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)} days`}
                               >
                                 <Lock className="w-3 h-3 mr-1" />
                                 Email Locked
@@ -624,16 +626,16 @@ export default function AuditListPage() {
                         Milestone Audit Reports
                       </span>
                       <span className="text-[10px] text-emerald-700 font-extrabold flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        <Mail className="w-3 h-3" /> Auto-Email Every 30d
+                        <Mail className="w-3 h-3" /> Auto-Email Every 7d
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      {/* 15-Day Download */}
+                      {/* 7-Day Download */}
                       <div className={!is15Ready ? "bg-slate-100/70 p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2" : "bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-between gap-2"}>
                         <div>
                           <div className="flex items-center justify-between">
-                            <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>15-Day Report</p>
+                            <p className={`text-[10px] uppercase font-black tracking-wider ${is15Ready ? 'text-blue-600' : 'text-slate-500'}`}>7-Day Report</p>
                             {!is15Ready && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
                                 <Lock className="w-2.5 h-2.5" /> Locked
@@ -641,7 +643,7 @@ export default function AuditListPage() {
                             )}
                           </div>
                           <p className={`text-xs mt-0.5 ${is15Ready ? 'font-bold text-slate-800' : 'font-semibold text-slate-500'}`}>
-                            {is15Ready ? `${project.day15Score || project.auditScore || 80}% Score` : `In ${project.daysToDay15 || Math.max(0, 15 - daysElapsed)} days`}
+                            {is15Ready ? `${project.day15Score || project.auditScore || 80}% Score` : `In ${project.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)} days`}
                           </p>
                         </div>
                         <Button
@@ -710,16 +712,16 @@ export default function AuditListPage() {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={!is30Ready || isSendingEmail}
+                      disabled={!is15Ready || isSendingEmail}
                       onClick={() => handleSendEmail(project)}
                       className={`h-10 w-10 rounded-xl border-slate-200 ${
                         is30Ready 
                           ? 'hover:bg-indigo-50 text-indigo-700' 
                           : 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-50'
                       }`}
-                      title={is30Ready ? "Send 30-Day Audit Report to Email" : `Email delivery locked until Day 30 (in ${project.daysToDay30 || Math.max(0, 30 - daysElapsed)}d)`}
+                      title={is15Ready ? "Send Updated Audit Report to Email" : `Email delivery starts on Day ${FIRST_MILESTONE_DAYS} (in ${project.daysToDay15 || Math.max(0, FIRST_MILESTONE_DAYS - daysElapsed)}d)`}
                     >
-                      {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : !is30Ready ? <Lock className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                      {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : !is15Ready ? <Lock className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                     </Button>
                   </div>
                 </CardContent>

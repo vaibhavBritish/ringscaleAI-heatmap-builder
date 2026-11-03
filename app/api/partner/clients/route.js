@@ -147,8 +147,23 @@ export async function POST(request) {
             })
         })
 
+        // Onboarding email with the login details the partner just set
+        // (same welcome-with-credentials email admins send when they create an account)
+        let welcomeEmailSent = false
+        try {
+            const { sendGMBWelcomeEmail } = await import('@/lib/mail')
+            const sent = await sendGMBWelcomeEmail(result.email, result.name, result.plan || 'trial', result.credits, password)
+            welcomeEmailSent = !!sent
+        } catch (mailError) {
+            console.error('Error sending partner client welcome email:', mailError)
+        }
+        if (!welcomeEmailSent) {
+            console.error(`[Partner Clients] Welcome email NOT delivered to ${result.email} (check SMTP settings / logs above)`)
+        }
+
         return NextResponse.json({
             message: "Client created successfully",
+            welcomeEmailSent,
             user: { id: result.id, name: result.name, email: result.email }
         })
     } catch (error) {
