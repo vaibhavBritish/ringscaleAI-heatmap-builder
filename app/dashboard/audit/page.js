@@ -56,7 +56,11 @@ export default function AuditListPage() {
   const handleSyncGMB = async () => {
     setIsSyncing(true)
     try {
-      const res = await fetch('/api/user/sync-gmb', { method: 'POST' })
+      const res = await fetch('/api/user/sync-gmb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true })
+      })
       if (res.ok) {
         const data = await res.json()
         if (data.synced > 0) {
