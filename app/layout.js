@@ -15,8 +15,14 @@ export const metadata = {
 
 import { RootScripts } from '@/components/seoos/RootScripts'
 import WhatsAppButton from '@/components/WhatsAppButton'
+import { headers } from 'next/headers'
+import { AeoFaqProvider } from '@/components/AeoFaq'
+import { fetchAeoFaqHtml } from '@/lib/aeo'
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const pathname = (await headers()).get('x-pathname') || '/'
+  const aeoFaqHtml = await fetchAeoFaqHtml(pathname)
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -92,7 +98,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         <Providers>
-          {children}
+          <AeoFaqProvider initialPath={pathname} initialHtml={aeoFaqHtml}>
+            {children}
+          </AeoFaqProvider>
           <Toaster position="bottom-right" />
           <WhatsAppButton />
           <RootScripts />

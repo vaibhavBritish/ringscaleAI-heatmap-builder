@@ -64,9 +64,9 @@ export default function Navbar() {
 
             {/* Services Dropdown */}
             <div className="relative group/services">
-              <button className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
+              <Link href="/services" className="text-slate-600 hover:text-blue-600 text-[13px] xl:text-sm font-semibold transition flex items-center gap-1 whitespace-nowrap">
                 Services <ChevronDown className="w-3 h-3 transition-transform group-hover/services:rotate-180" />
-              </button>
+              </Link>
 
               <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 transform group-hover/services:translate-y-0 translate-y-2 z-[60]">
                 <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-2xl rounded-3xl p-6 w-[600px] grid grid-cols-2 gap-2">
@@ -171,6 +171,13 @@ export default function Navbar() {
             </button>
             {mobileServicesOpen && (
               <div className="mt-4 grid grid-cols-1 gap-2 pl-4 border-l-2 border-slate-50">
+                <Link
+                  href="/services"
+                  className="block py-2 text-sm text-blue-600 font-bold hover:text-blue-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  View All Services
+                </Link>
                 {services.map((service) => (
                   <Link
                     key={service.slug}

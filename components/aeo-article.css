@@ -1,0 +1,41 @@
+/* Typography for HTML from aeo.ringscale.ai (service pages and FAQ blocks).
+   Tailwind's preflight resets headings and lists, so they are restyled here,
+   scoped to .aeo-content / .aeo-article only. */
+
+.aeo-content { color: #334155; font-size: 1.125rem; line-height: 1.8; }
+.aeo-content > .aeo-article > * + * { margin-top: 1.25em; }
+
+.aeo-content h2 { color: #0f172a; font-size: 1.875rem; line-height: 1.25; font-weight: 800; letter-spacing: -0.02em; margin-top: 2.5em; margin-bottom: 0.75em; }
+.aeo-content h3 { color: #0f172a; font-size: 1.375rem; line-height: 1.35; font-weight: 700; margin-top: 2em; margin-bottom: 0.5em; }
+.aeo-content h4 { color: #0f172a; font-size: 1.125rem; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
+.aeo-content p { margin: 1em 0; }
+.aeo-content a { color: #2563eb; text-decoration: underline; text-underline-offset: 3px; }
+.aeo-content a:hover { color: #1d4ed8; }
+.aeo-content strong { color: #0f172a; font-weight: 700; }
+.aeo-content ul, .aeo-content ol { margin: 1em 0; padding-left: 1.5em; }
+.aeo-content ul { list-style: disc; }
+.aeo-content ol { list-style: decimal; }
+.aeo-content li { margin: 0.4em 0; }
+.aeo-content blockquote { border-left: 4px solid #bfdbfe; padding-left: 1em; color: #475569; font-style: italic; }
+.aeo-content img { max-width: 100%; height: auto; border-radius: 1.5rem; margin: 1.5em 0; }
+.aeo-content figcaption { font-size: 0.8rem; color: #94a3b8; }
+.aeo-content table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 1rem; display: block; overflow-x: auto; }
+.aeo-content th, .aeo-content td { border: 1px solid #e2e8f0; padding: 0.6em 0.8em; text-align: left; vertical-align: top; }
+.aeo-content th { background: #f8fafc; color: #0f172a; font-weight: 700; }
+
+/* "Quick answer" box at the top of each page */
+.aeo-content .aeo-article__answer { background: #eff6ff; border: 1px solid #dbeafe; border-radius: 1.5rem; padding: 1.25em 1.5em; }
+.aeo-content .aeo-article__answer p { margin: 0; }
+
+/* FAQ accordion */
+.aeo-content .aeo-article__faq { margin-top: 3em; }
+.aeo-content .aeo-article__faq-item { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 0 1.25em; margin: 0.75em 0; background: #fff; }
+.aeo-content .aeo-article__faq-item summary { cursor: pointer; list-style: none; padding: 1em 0; }
+.aeo-content .aeo-article__faq-item summary::-webkit-details-marker { display: none; }
+.aeo-content .aeo-article__faq-item summary h3 { display: inline; margin: 0; font-size: 1.125rem; }
+.aeo-content .aeo-article__faq-item[open] summary { border-bottom: 1px solid #f1f5f9; }
+
+/* Call to action */
+.aeo-content .aeo-article__cta { margin-top: 2.5em; }
+.aeo-content .aeo-article__cta a { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; font-weight: 700; padding: 0.9em 2em; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgb(37 99 235 / 0.3); }
+.aeo-content .aeo-article__cta a:hover { background: #1d4ed8; color: #fff; }

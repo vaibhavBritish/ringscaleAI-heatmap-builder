@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSettings } from '@/components/providers'
+import { AeoFaq } from '@/components/AeoFaq'
 
 export default function Footer() {
   const { settings } = useSettings()
@@ -21,6 +22,8 @@ export default function Footer() {
   }
 
   return (
+    <>
+    <AeoFaq />
     <footer className="bg-[#EBF2F9] py-24 px-6 border-t border-slate-200/50">
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-12 mb-24">
@@ -160,5 +163,6 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+    </>
   )
 }
