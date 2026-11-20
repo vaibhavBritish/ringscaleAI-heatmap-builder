@@ -25,6 +25,11 @@ const nextConfig = {
   },
   async rewrites() {
     return [
+      // Sitemap of every page and article published by the AEO autopilot.
+      {
+        source: '/aeo-sitemap.xml',
+        destination: 'https://aeo.ringscale.ai/site/pk_6895a64c3d4c2f5fc041dfcd/aeo-sitemap.xml',
+      },
       {
         source: '/in',
         destination: '/', 

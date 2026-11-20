@@ -54,7 +54,10 @@ export default async function middleware(request) {
     pathname.startsWith('/in') ||
     pathname.startsWith('/us')
   ) {
-    return NextResponse.next()
+    // Expose the path to server components (used by the AEO FAQ widget in the root layout)
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-pathname', pathname)
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   const country = request.headers.get('cf-ipcountry') || 
