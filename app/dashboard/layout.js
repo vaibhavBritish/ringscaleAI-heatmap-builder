@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2, Zap, QrCode, Users, Store } from 'lucide-react'
+import { MapPin, LayoutDashboard, FolderKanban, BarChart3, FileText, Settings, LogOut, Plus, ChevronDown, Menu, X, CreditCard, ShieldCheck, Globe, Sparkles, TrendingUp, Link2, ClipboardList, History, Cpu, Building2, Zap, QrCode, Users, Store, KeyRound } from 'lucide-react'
 import PlanStatusBanner from '@/components/dashboard/PlanStatusBanner'
 import PlanExpiredModal from '@/components/dashboard/PlanExpiredModal'
 import Image from 'next/image'
@@ -120,6 +120,7 @@ export default function DashboardLayout({ children }) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'GMB Profiles', href: '/dashboard/profiles', icon: Store },
     { name: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
+    { name: 'Keywords', href: '/dashboard/keywords', icon: KeyRound },
     { name: 'Audit', href: '/dashboard/audit', icon: ShieldCheck },
     { name: 'Reports', href: '/dashboard/reports', icon: FileText },
     { name: 'Citations', href: '/dashboard/citations', icon: Building2 },

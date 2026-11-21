@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { createProjectOnce } from '@/lib/project-create'
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
@@ -174,8 +175,7 @@ export async function POST(request) {
       }
 
       if (!project) {
-        project = await prisma.project.create({
-          data: {
+        project = await createProjectOnce({
             id: uuidv4(),
             userId: user.id,
             businessName: locName,
@@ -186,8 +186,7 @@ export async function POST(request) {
             primaryType: locType,
             createdAt: new Date(),
             updatedAt: new Date()
-          }
-        })
+          })
       }
 
       createdProjects.push(project)

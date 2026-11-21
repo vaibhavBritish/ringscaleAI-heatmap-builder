@@ -6,6 +6,8 @@ import { authOptions } from '@/lib/auth'
 import { searchBusinessByText, getPlaceDetails, searchKeywordAtPoint } from '@/lib/google-places'
 import { generateGrid, calculateAnalytics } from '@/lib/grid-utils'
 import { runScanJob, maybeRecoverProjectScans } from '@/lib/scan-engine'
+import { createProjectOnce } from '@/lib/project-create'
+import { collapseDuplicateProjects } from '@/lib/project-dedupe'
 import prisma from '@/lib/prisma'
 import redis from '@/lib/redis'
 import { rateLimit } from '@/lib/rate-limit'
@@ -510,6 +512,7 @@ async function handleRoute(request, props) {
         select: {
           id: true,
           businessName: true,
+          placeId: true,
           address: true,
           latitude: true,
           longitude: true,
@@ -546,8 +549,13 @@ async function handleRoute(request, props) {
           ...auditMilestoneFields(project.createdAt, audits.get(project.id))
         }
       })
+      // Each business once: hide duplicate copies of the same place (kept in the DB)
+      const scanCountByProject = new Map()
+      for (const s of scanRows) scanCountByProject.set(s.projectId, (scanCountByProject.get(s.projectId) || 0) + 1)
+      const visibleProjects = collapseDuplicateProjects(enrichedProjects, p =>
+        (scanCountByProject.get(p.id) || 0) * 1000 + p.keywordCount)
 
-      const projectsResponse = { projects: enrichedProjects }
+      const projectsResponse = { projects: visibleProjects }
       if (redis) {
         try { await redis.set(cacheKey, JSON.stringify(projectsResponse), 'EX', 300) } catch (e) {}
       }
@@ -604,28 +612,30 @@ async function handleRoute(request, props) {
       } else {
         projectId = uuidv4()
         try {
-          project = await prisma.project.create({
-            data: {
-              id: projectId,
-              userId: currentUser.id,
-              companyId: currentUser.companyId,
-              businessName,
-              placeId,
-              address: address || '',
-              latitude: coordinates?.lat || 0,
-              longitude: coordinates?.lng || 0,
-              primaryType: primaryType || '',
-              gridSettings: gridSettings || null,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
+          // Locked find-or-create: requests arriving together get the same project
+          project = await createProjectOnce({
+            id: projectId,
+            userId: currentUser.id,
+            companyId: currentUser.companyId,
+            businessName,
+            placeId,
+            address: address || '',
+            latitude: coordinates?.lat || 0,
+            longitude: coordinates?.lng || 0,
+            primaryType: primaryType || '',
+            gridSettings: gridSettings || null,
+            createdAt: new Date(),
+            updatedAt: new Date()
           })
+          projectId = project.id
         } catch (createError) {
           const isLegacyClientSlugConflict =
             createError?.code === 'P2002' &&
             String(createError?.meta?.target || '').includes('projects_clientSlug_key')
 
           if (!isLegacyClientSlugConflict) throw createError
+        }
+        if (!project) {
 
           await cleanupLegacyProjectClientSlugIndex()
 
@@ -935,32 +945,54 @@ async function handleRoute(request, props) {
       const userDoc = await prisma.user.findUnique({ where: { id: currentUser.id } })
       const currentCredits = userDoc?.credits || 0
 
+      const notEnoughCredits = (have) => handleCORS(NextResponse.json({
+        error: `Not enough credits. Adding a keyword costs ${KEYWORD_COST} credits. You have ${have}.`,
+        creditsRemaining: have,
+        creditsNeeded: KEYWORD_COST
+      }, { status: 402 }))
+
       if (!isAdmin && currentCredits < KEYWORD_COST) {
-        return handleCORS(NextResponse.json({
-          error: `Not enough credits. Adding a keyword costs ${KEYWORD_COST} credits. You have ${currentCredits}.`,
-          creditsRemaining: currentCredits,
-          creditsNeeded: KEYWORD_COST
-        }, { status: 402 }))
+        return notEnoughCredits(currentCredits)
       }
 
-      const keywordDoc = await prisma.keyword.create({
-        data: {
-          id: uuidv4(),
-          projectId,
-          keyword,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      })
-
-      // Deduct credits for non-admin users only
-      let updatedUser = userDoc
+      // Check-and-deduct in ONE atomic update, so two requests at the same moment can't
+      // both pass the balance check and push credits below zero
       if (!isAdmin && KEYWORD_COST > 0) {
-        updatedUser = await prisma.user.update({
-          where: { id: currentUser.id },
+        const charged = await prisma.user.updateMany({
+          where: { id: currentUser.id, credits: { gte: KEYWORD_COST } },
           data: { credits: { decrement: KEYWORD_COST } }
         })
+        if (charged.count === 0) {
+          const fresh = await prisma.user.findUnique({ where: { id: currentUser.id }, select: { credits: true } })
+          return notEnoughCredits(fresh?.credits || 0)
+        }
       }
+
+      let keywordDoc
+      try {
+        keywordDoc = await prisma.keyword.create({
+          data: {
+            id: uuidv4(),
+            projectId,
+            keyword,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        })
+      } catch (createErr) {
+        // Refund: the keyword was never created
+        if (!isAdmin && KEYWORD_COST > 0) {
+          await prisma.user.update({
+            where: { id: currentUser.id },
+            data: { credits: { increment: KEYWORD_COST } }
+          }).catch(() => {})
+        }
+        throw createErr
+      }
+
+      const updatedUser = isAdmin
+        ? userDoc
+        : await prisma.user.findUnique({ where: { id: currentUser.id }, select: { credits: true } })
 
       return handleCORS(NextResponse.json({
         ...keywordDoc,
@@ -1514,12 +1546,11 @@ async function handleRoute(request, props) {
         }),
         prisma.project.findMany({
           where: { userId: currentUser.id },
-          select: { id: true, businessName: true, address: true, createdAt: true },
+          select: { id: true, businessName: true, address: true, placeId: true, createdAt: true },
           orderBy: { createdAt: 'desc' }
         })
       ])
 
-      const totalProjects = userProjects.length
       const userProjectIds = userProjects.map(p => p.id)
 
       const [totalScans, recentScanJobs, { keywordCounts, audits }] = await Promise.all([
@@ -1561,7 +1592,10 @@ async function handleRoute(request, props) {
         project: projectById.get(scan.projectId) || null
       }))
 
-      const userBusinesses = userProjects.map(p => ({
+      // Each business once: hide duplicate copies of the same place (kept in the DB)
+      const visibleUserProjects = collapseDuplicateProjects(userProjects, p => keywordCounts.get(p.id) || 0)
+      const totalProjects = visibleUserProjects.length
+      const userBusinesses = visibleUserProjects.map(p => ({
         id: p.id,
         businessName: p.businessName,
         address: p.address,
