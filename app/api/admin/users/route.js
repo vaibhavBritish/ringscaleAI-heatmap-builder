@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import { createProjectOnce } from "@/lib/project-create"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -331,8 +332,7 @@ export async function POST(request) {
             }
 
             if (!project) {
-                project = await prisma.project.create({
-                    data: {
+                project = await createProjectOnce({
                         id: uuidv4(),
                         userId: user.id,
                         businessName: locName,
@@ -343,8 +343,7 @@ export async function POST(request) {
                         primaryType: locType,
                         createdAt: new Date(),
                         updatedAt: new Date()
-                    }
-                })
+                    })
             }
 
             createdProjects.push(project)

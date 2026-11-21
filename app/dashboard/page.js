@@ -369,10 +369,15 @@ export default function DashboardPage() {
                     </p>
 
                     <div className="mt-3 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <Link
+                        href={`/dashboard/keywords?projectId=${biz.id}`}
+                        title="View keyword rankings"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                      >
                         <Tag className="w-3 h-3 text-indigo-600" />
                         {biz.keywordCount > 0 ? `${biz.keywordCount} Target Keywords` : 'GMB Keywords Active'}
-                      </span>
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
                     </div>
 
                     {/* Periodic 7-Day & 30-Day Audit Downloads */}

@@ -14,4 +14,8 @@ export async function register() {
   // Daily job that emails customers their updated audit report every 7 days
   const { startPeriodicAuditScheduler } = await import('./lib/periodic-audits')
   startPeriodicAuditScheduler()
+
+  // Daily job that re-scans every keyword whose latest scan is 15+ days old
+  const { startAutoRescanScheduler } = await import('./lib/auto-rescans')
+  startAutoRescanScheduler()
 }

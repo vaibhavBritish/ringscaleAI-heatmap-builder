@@ -75,6 +75,7 @@ model Project {
 
   @@index([userId])
   @@index([companyId])
+  @@index([clientSlug])
   @@map("projects")
 }
 
@@ -177,6 +178,7 @@ model ScanJob {
   startedAt          DateTime?
   completedAt        DateTime?
   heartbeatAt        DateTime? // Refreshed by the running worker; used to detect orphaned scans
+  maxPoints          Int?      // Caps the grid (square). Automatic 15-day scans use 25 = 5x5 to save Google API calls
 
   @@index([projectId])
   @@index([keywordId])
