@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 import LeadForm from '@/components/LeadForm'
 import { Button } from '@/components/ui/button'
 import { services } from '@/lib/services'
-import { ArrowRight, Check, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, MapPin, BarChart3, Target } from 'lucide-react'
+import { ArrowRight, Check, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, MapPin, BarChart3, Target, Sparkles } from 'lucide-react'
 
 const iconMap = {
   Dumbbell,
@@ -75,6 +75,23 @@ export default function ServicesPage() {
               <h2 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4">Our Services</h2>
               <p className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Choose your industry</p>
             </div>
+
+            <Link
+              href="/services/aeo"
+              className="mb-6 bg-[#001D4A] p-8 md:p-10 rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group flex flex-col md:flex-row md:items-center gap-6"
+            >
+              <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <span className="text-xs font-black text-blue-300 uppercase tracking-widest">New service</span>
+                <h3 className="text-2xl font-black text-white mt-1 mb-2 leading-tight">AEO: Answer Engine Optimization</h3>
+                <p className="text-blue-100/70 font-medium leading-relaxed">Get your business cited by ChatGPT, Google AI Overviews, Gemini, Perplexity and voice assistants.</p>
+              </div>
+              <span className="inline-flex items-center gap-2 text-white font-bold text-sm shrink-0">
+                Learn more <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {services.map((service) => {

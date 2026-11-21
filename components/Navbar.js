@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar, QrCode, Building2 } from 'lucide-react'
+import { Menu, X, LayoutDashboard, ChevronDown, Dumbbell, Stethoscope, Coffee, Scissors, Utensils, Bug, Wrench, Plane, HeartPulse, Hammer, ShieldCheck, Calendar, QrCode, Building2, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { services } from '@/lib/services'
@@ -70,6 +70,20 @@ export default function Navbar() {
 
               <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4 opacity-0 invisible group-hover/services:opacity-100 group-hover/services:visible transition-all duration-300 transform group-hover/services:translate-y-0 translate-y-2 z-[60]">
                 <div className="bg-white/95 backdrop-blur-xl border border-slate-100 shadow-2xl rounded-3xl p-6 w-[600px] grid grid-cols-2 gap-2">
+                  <Link
+                    href="/services/aeo"
+                    className="col-span-2 flex items-start gap-4 p-4 rounded-2xl bg-blue-50/60 hover:bg-blue-50 transition-all group/item mb-1"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-slate-800 mb-0.5">AEO: Answer Engine Optimization</h4>
+                      <p className="text-[11px] text-slate-500 font-medium leading-normal line-clamp-1">
+                        Get cited by ChatGPT, Google AI Overviews, Gemini and voice search.
+                      </p>
+                    </div>
+                  </Link>
                   {services.map((service) => {
                     const Icon = iconMap[service.icon] || HeartPulse
                     return (
@@ -177,6 +191,13 @@ export default function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   View All Services
+                </Link>
+                <Link
+                  href="/services/aeo"
+                  className="block py-2 text-sm text-slate-500 font-bold hover:text-blue-600"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  AEO: Answer Engine Optimization
                 </Link>
                 {services.map((service) => (
                   <Link
