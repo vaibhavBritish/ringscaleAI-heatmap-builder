@@ -88,12 +88,13 @@ function pickScans(scans, range) {
   const upToEnd = completed.filter(s => new Date(s.createdAt) <= range.end)
   const latest = upToEnd[0] || null
   let start = null
-  if (latest && new Date(latest.createdAt) >= range.start) {
+  if (latest) {
     const inRange = upToEnd.filter(s => new Date(s.createdAt) >= range.start)
     const earliest = inRange[inRange.length - 1]
     start = earliest && earliest.id !== latest.id
       ? earliest
-      : upToEnd.find(s => new Date(s.createdAt) < range.start) || null
+      // Nothing earlier inside the period: compare with the scan before the latest one
+      : upToEnd.find(s => s.id !== latest.id && new Date(s.createdAt) < new Date(latest.createdAt)) || null
   }
   return { latest, start, completed }
 }
@@ -569,6 +570,28 @@ export default function KeywordsPage() {
                 scanNumber={selected.completed.length - selected.completed.findIndex(s => s.id === afterScan.id)}
                 large={!(beforeScan && gridView === 'compare')}
               />
+            </div>
+          )}
+
+          {afterScan && !beforeScan && selected && (
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700 flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Only one scan so far, so there’s nothing to compare yet. The <b>After</b> grid appears after the next scan
+                {selected.nextAutoScanAt && (
+                  new Date(selected.nextAutoScanAt) <= new Date()
+                    ? <> (an automatic scan is due now; they run every {intervalDays} days)</>
+                    : <> (automatic, due {format(new Date(selected.nextAutoScanAt), 'MMM d')})</>
+                )}.
+              </span>
+              {['queued', 'processing'].includes(selected.latestStatus) ? (
+                <span className="inline-flex items-center gap-1.5 text-indigo-700 text-xs font-semibold">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning…
+                </span>
+              ) : (
+                <Button size="sm" className="rounded-lg h-8" onClick={() => handleRescan(selected)} disabled={rescanning === selected.id}>
+                  {rescanning === selected.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><RefreshCcw className="w-3.5 h-3.5 mr-1" /> Scan now</>}
+                </Button>
+              )}
             </div>
           )}
 
