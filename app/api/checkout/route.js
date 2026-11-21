@@ -23,21 +23,21 @@ const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
 const PLANS = {
   'plan_lite': {
     priceUSD: 499,
-    priceINR: 8000,
+    priceINR: 5000,
     credits: 1200,
     name: 'Advance Plan',
     durationMonths: 1
   },
   'plan_pro': {
     priceUSD: 799,
-    priceINR: 40000,
+    priceINR: 12000,
     credits: 2400,
     name: 'Pro Plan',
     durationMonths: 3
   },
   'plan_pro_plus': {
     priceUSD: 1299,
-    priceINR: 60000,
+    priceINR: 25000,
     credits: 5000,
     name: 'Pro Plus',
     durationMonths: 3
