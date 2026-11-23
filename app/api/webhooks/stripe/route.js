@@ -77,10 +77,15 @@ export async function POST(req) {
 
       // Calculate plan expiration
       let planEndsAt = new Date()
-      if (planId === 'plan_lite') {
+      const metaMonths = parseInt(session.metadata?.durationMonths)
+      if (metaMonths > 0) {
+        planEndsAt.setMonth(planEndsAt.getMonth() + metaMonths)
+      } else if (planId === 'plan_lite') {
         planEndsAt.setMonth(planEndsAt.getMonth() + 1) // 1 month for Advance
       } else if (planId === 'plan_pro') {
         planEndsAt.setMonth(planEndsAt.getMonth() + 3) // 3 months for Pro
+      } else if (planId === 'plan_pro_plus') {
+        planEndsAt.setMonth(planEndsAt.getMonth() + 12) // 12 months for Pro Plus
       } else if (planId === 'trial') {
         planEndsAt.setDate(planEndsAt.getDate() + 7) // 7 days for Trial
       }

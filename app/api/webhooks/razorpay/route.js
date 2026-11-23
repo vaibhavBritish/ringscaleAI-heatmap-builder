@@ -40,6 +40,8 @@ export async function POST(req) {
           planEndsAt.setMonth(planEndsAt.getMonth() + 1) // 1 month for Advance
         } else if (planId === 'plan_pro') {
           planEndsAt.setMonth(planEndsAt.getMonth() + 3) // 3 months for Pro
+        } else if (planId === 'plan_pro_plus') {
+          planEndsAt.setMonth(planEndsAt.getMonth() + 12) // 12 months for Pro Plus
         } else if (planId === 'trial') {
           planEndsAt.setDate(planEndsAt.getDate() + 7) // 7 days for Trial
         }

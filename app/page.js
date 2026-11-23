@@ -877,9 +877,10 @@ export default function HomePage() {
                 name: "Advance",
                 desc: "Best for Local Owners",
                 icon: <Rocket className="w-6 h-6 text-blue-600" />,
-                price: "499",
+                price: "500",
                 priceINR: 5000,
                 popular: true,
+                period: "/mo",
                 features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-blue-50/95",
                 textColor: "text-slate-900",
@@ -892,6 +893,7 @@ export default function HomePage() {
                 icon: <Trophy className="w-6 h-6 text-blue-600" />,
                 price: "799",
                 priceINR: 12000,
+                period: "/3 mo",
                 features: ["2400 Credits", "10 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "15 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-white",
                 textColor: "text-slate-800"
@@ -901,13 +903,14 @@ export default function HomePage() {
                 name: "Pro Plus",
                 desc: "Best for Agency Owners",
                 icon: <Rocket className="w-6 h-6 text-blue-600" />,
-                price: "1299",
+                price: "999",
                 priceINR: 25000,
                 popular: true,
-                features: ["5000 Credits", "20 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+                period: "/yr",
+                features: ["5000 Credits", "20 Miles", "12 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
                 color: "bg-blue-50/95",
                 textColor: "text-slate-900",
-                badge: "Monthly"
+                badge: "Yearly"
               }
             ].map((plan, idx) => (
               <div
@@ -918,7 +921,7 @@ export default function HomePage() {
                 {plan.popular && (
                   <div className="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none z-20">
                     <div className="absolute top-4 right-[-30px] w-[140%] h-6 bg-blue-600 text-white text-[8px] font-black uppercase flex items-center justify-center rotate-45 shadow-lg tracking-widest px-4">
-                      {plan.badge}
+                      {isIndia ? plan.badge : "Monthly"}
                     </div>
                   </div>
                 )}
@@ -940,7 +943,7 @@ export default function HomePage() {
                     <span className={`text-5xl font-black ${plan.textColor}`}>
                       {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.price}
                     </span>
-                    <span className="text-slate-400 font-bold text-sm">/mo</span>
+                    <span className="text-slate-400 font-bold text-sm">{isIndia ? (plan.period || '/mo') : '/mo'}</span>
                   </div>
 
                   <div className="space-y-3.5 mb-10 flex-1">
@@ -950,7 +953,7 @@ export default function HomePage() {
                           <Check className={`w-2.5 h-2.5 ${plan.popular ? 'text-blue-600' : 'text-slate-400'} group-hover/feat:text-white`} />
                         </div>
                         <span className={`text-[12px] font-bold leading-relaxed transition-all duration-300 ${plan.textColor} opacity-80 group-hover/feat:opacity-100 group-hover/feat:translate-x-0.5`}>
-                          {feature}
+                          {!isIndia && /Months? Access$/.test(feature) ? "1 Month Access" : feature}
                         </span>
                       </div>
                     ))}

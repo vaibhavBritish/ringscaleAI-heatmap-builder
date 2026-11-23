@@ -63,7 +63,7 @@ export async function POST(request) {
     let anyUpdates = false
 
     for (const stripeSession of userSessions) {
-      const { planId, credits } = stripeSession.metadata || {}
+      const { planId, credits, durationMonths } = stripeSession.metadata || {}
 
       // Calculate expiration for this specific session
       // Base it on the session creation time to be accurate
@@ -71,10 +71,14 @@ export async function POST(request) {
       let sessionEndsAt = new Date(stripeSession.created * 1000)
       const id = (planId || 'Trial').toLowerCase()
 
-      if (id.includes('lite') || id.includes('advance')) {
+      const metaMonths = parseInt(durationMonths)
+      if (metaMonths > 0) {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + metaMonths)
+      } else if (id.includes('lite') || id.includes('advance')) {
         sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 1)
+      } else if (id.includes('pro_plus') || id.includes('pro plus')) {
+        sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 12)
       } else if (id.includes('pro')) {
-        // Covers both Pro and Pro Plus (both 3 months)
         sessionEndsAt.setMonth(sessionEndsAt.getMonth() + 3)
       } else if (id.includes('trial')) {
         sessionEndsAt.setDate(sessionEndsAt.getDate() + 7)
