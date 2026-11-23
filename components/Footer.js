@@ -54,73 +54,73 @@ export default function Footer() {
             <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Quick Links</h4>
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
               <li><Link href="/#pricing" className="hover:text-blue-600 transition-colors">Pricing</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Custom Package</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Reviews</Link></li>
+              <li><Link href="/custom-package" className="hover:text-blue-600 transition-colors">Custom Package</Link></li>
+              <li><Link href="/testimonials" className="hover:text-blue-600 transition-colors">Reviews</Link></li>
               <li><Link href="/login" className="hover:text-blue-600 transition-colors">Log in</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">API Documentation</Link></li>
+              <li><Link href="/api-documentation" className="hover:text-blue-600 transition-colors">API Documentation</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Resources</h4>
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Help Center</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Customer Support</Link></li>
+              <li><Link href="/help-center" className="hover:text-blue-600 transition-colors">Help Center</Link></li>
+              <li><Link href="/contact-us" className="hover:text-blue-600 transition-colors">Customer Support</Link></li>
               <li><Link href="/blogs" className="hover:text-blue-600 transition-colors">Blog</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">SEO News</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Case Studies</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Credit Estimator</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Keyword Generator</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Schema Generator</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Google Index Checker</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Free Local SEO Checklist 2026</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">ChatGPT Visibility Guide</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Rank & Convert Summit On-demand</Link></li>
+              <li><Link href="/seo-news" className="hover:text-blue-600 transition-colors">SEO News</Link></li>
+              <li><Link href="/success-stories" className="hover:text-blue-600 transition-colors">Case Studies</Link></li>
+              <li><Link href="/tools/credit-estimator" className="hover:text-blue-600 transition-colors">Credit Estimator</Link></li>
+              <li><Link href="/tools/keyword-generator" className="hover:text-blue-600 transition-colors">Free Keyword Generator</Link></li>
+              <li><Link href="/tools/schema-generator" className="hover:text-blue-600 transition-colors">Free Schema Generator</Link></li>
+              <li><Link href="/tools/google-index-checker" className="hover:text-blue-600 transition-colors">Free Google Index Checker</Link></li>
+              <li><Link href="/local-seo-checklist-2026" className="hover:text-blue-600 transition-colors">Free Local SEO Checklist 2026</Link></li>
+              <li><Link href="/chatgpt-visibility-guide" className="hover:text-blue-600 transition-colors">ChatGPT Visibility Guide</Link></li>
+              <li><Link href="/rank-convert-summit" className="hover:text-blue-600 transition-colors">Rank & Convert Summit On-demand</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Company</h4>
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">About</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">FAQ</Link></li>
+              <li><Link href="/about" className="hover:text-blue-600 transition-colors">About</Link></li>
+              <li><Link href="/faq" className="hover:text-blue-600 transition-colors">FAQ</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms-and-conditions" className="hover:text-blue-600 transition-colors">Terms of Service</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Affiliate Program</Link></li>
+              <li><Link href="/affiliate-program" className="hover:text-blue-600 transition-colors">Affiliate Program</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Compare</h4>
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Local Falcon</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Local Viking</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Search Atlas</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs BrightLocal</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SE Ranking</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SEO Neo</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs GMB Crush</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Localo</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs SEO Utils</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">vs Wiremo</Link></li>
+              <li><Link href="/compare/local-falcon" className="hover:text-blue-600 transition-colors">vs Local Falcon</Link></li>
+              <li><Link href="/compare/local-viking" className="hover:text-blue-600 transition-colors">vs Local Viking</Link></li>
+              <li><Link href="/compare/search-atlas" className="hover:text-blue-600 transition-colors">vs Search Atlas</Link></li>
+              <li><Link href="/compare/brightlocal" className="hover:text-blue-600 transition-colors">vs BrightLocal</Link></li>
+              <li><Link href="/compare/se-ranking" className="hover:text-blue-600 transition-colors">vs SE Ranking</Link></li>
+              <li><Link href="/compare/seo-neo" className="hover:text-blue-600 transition-colors">vs SEO Neo</Link></li>
+              <li><Link href="/compare/gmb-crush" className="hover:text-blue-600 transition-colors">vs GMB Crush</Link></li>
+              <li><Link href="/compare/localo" className="hover:text-blue-600 transition-colors">vs Localo</Link></li>
+              <li><Link href="/compare/seo-utils" className="hover:text-blue-600 transition-colors">vs SEO Utils</Link></li>
+              <li><Link href="/compare/wiremo" className="hover:text-blue-600 transition-colors">vs Wiremo</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-extrabold text-[#11254A] mb-8 text-lg">Features</h4>
             <ul className="space-y-4 text-[13px] font-bold text-[#526484]">
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Google Maps Rank Tracker</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Local Pack</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">GBP Management</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Citations Builder</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">White Label Reporting</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">AI Assist</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Scan Analyzer</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">360 Local SEO Audit</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Local SEO Reporting</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">Side-by-Side Compare</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">SERP Tracker</Link></li>
-              <li><Link href="#" className="hover:text-blue-600 transition-colors">AI Tracker</Link></li>
+              <li><Link href="/features/google-maps-rank-tracker" className="hover:text-blue-600 transition-colors">Google Maps Rank Tracker</Link></li>
+              <li><Link href="/features/local-pack" className="hover:text-blue-600 transition-colors">Local Pack</Link></li>
+              <li><Link href="/features/gbp-management" className="hover:text-blue-600 transition-colors">GBP Management</Link></li>
+              <li><Link href="/features/citations-builder" className="hover:text-blue-600 transition-colors">Citations Builder</Link></li>
+              <li><Link href="/features/white-label-reporting" className="hover:text-blue-600 transition-colors">White Label Reporting</Link></li>
+              <li><Link href="/features/ai-assist" className="hover:text-blue-600 transition-colors">AI Assist</Link></li>
+              <li><Link href="/features/scan-analyzer" className="hover:text-blue-600 transition-colors">Scan Analyzer</Link></li>
+              <li><Link href="/features/360-local-seo-audit" className="hover:text-blue-600 transition-colors">360 Local SEO Audit</Link></li>
+              <li><Link href="/features/local-seo-reporting" className="hover:text-blue-600 transition-colors">Local SEO Reporting</Link></li>
+              <li><Link href="/features/side-by-side-compare" className="hover:text-blue-600 transition-colors">Side-by-Side Compare</Link></li>
+              <li><Link href="/features/serp-tracker" className="hover:text-blue-600 transition-colors">SERP Tracker</Link></li>
+              <li><Link href="/features/ai-tracker" className="hover:text-blue-600 transition-colors">AI Tracker</Link></li>
             </ul>
           </div>
         </div>

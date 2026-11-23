@@ -159,10 +159,11 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       name: "Advance",
       desc: "Best for Local Owners",
       icon: <Rocket className="w-6 h-6 text-blue-600" />,
-      price: "499",
-      priceUSD: 499,
+      price: "500",
+      priceUSD: 500,
       priceINR: 5000,
       popular: true,
+      duration: "1 Month",
       features: ["1200 Credits", "5 Miles", "1 Month Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "10 Keywords", "Local Pack Rank Tracker"],
       color: "bg-blue-50/95",
       textColor: "text-slate-900",
@@ -176,6 +177,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       price: "799",
       priceUSD: 799,
       priceINR: 12000,
+      duration: "3 Months",
       features: ["2400 Credits", "10 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "15 Keywords", "Local Pack Rank Tracker"],
       color: "bg-white",
       textColor: "text-slate-800"
@@ -185,14 +187,15 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
       name: "Pro Plus",
       desc: "Best for Agency Owners",
       icon: <Rocket className="w-6 h-6 text-blue-600" />,
-      price: "1299",
-      priceUSD: 1299,
+      price: "999",
+      priceUSD: 999,
       priceINR: 25000,
       popular: true,
-      features: ["5000 Credits", "20 Miles", "3 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
+      duration: "12 Months",
+      features: ["5000 Credits", "20 Miles", "12 Months Access", "Heatmap Dashboard", "Free Website", "AI QR Scanner", "GMB Rank Top", "20 Keywords", "Local Pack Rank Tracker"],
       color: "bg-blue-50/95",
       textColor: "text-slate-900",
-      badge: "Quarterly"
+      badge: "Yearly"
     }
   ]
 
@@ -799,7 +802,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
               {plan.badge && (
                 <div className="absolute top-6 right-6 z-0">
                   <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider border border-emerald-100/50">
-                    {plan.badge}
+                    {isIndia ? plan.badge : "Monthly"}
                   </span>
                 </div>
               )}
@@ -815,7 +818,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                 <span className="text-4xl font-black text-slate-900">
                   {isIndia ? '₹' : '$'}{isIndia ? plan.priceINR.toLocaleString('en-IN') : plan.priceUSD}
                 </span>
-                <span className="text-slate-500 font-bold text-sm">/ {plan.duration || '7 Days'}</span>
+                <span className="text-slate-500 font-bold text-sm">/ {plan.priceUSD > 0 && !isIndia ? '1 Month' : (plan.duration || '7 Days')}</span>
               </div>
 
               <div className="space-y-3 mb-8 flex-1">
@@ -824,7 +827,7 @@ export default function BillingClient({ session: initialSession, isIndia: isIndi
                     <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 text-blue-600 font-bold" />
                     </div>
-                    <span className="text-sm font-semibold text-slate-700">{feature}</span>
+                    <span className="text-sm font-semibold text-slate-700">{!isIndia && /Months? Access$/.test(feature) ? "1 Month Access" : feature}</span>
                   </div>
                 ))}
               </div>

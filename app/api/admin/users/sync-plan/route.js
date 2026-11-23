@@ -47,7 +47,7 @@ export async function POST(request) {
             updateData.planEndsAt = date
         } else if (activePlan.includes('pro_plus') || activePlan.includes('pro plus')) {
             const date = new Date(now)
-            date.setMonth(date.getMonth() + 3)
+            date.setMonth(date.getMonth() + 12)
             updateData.planEndsAt = date
         } else if (activePlan.includes('pro')) {
             const date = new Date(now)

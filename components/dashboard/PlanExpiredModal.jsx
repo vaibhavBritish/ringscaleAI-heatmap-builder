@@ -46,8 +46,8 @@ export default function PlanExpiredModal({ isOpen, onClose }) {
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 my-2">
           <h4 className="text-sm font-semibold text-blue-900 mb-1">Available Benefits:</h4>
           <ul className="text-xs text-blue-800 space-y-1">
-            <li>• New Advance Plan: 1200 Credits ($499)</li>
-            <li>• New Pro Plan: 2400 Credits ($1299)</li>
+            <li>• New Advance Plan: 1200 Credits ($500/mo)</li>
+            <li>• New Pro Plan: 2400 Credits ($799/mo)</li>
             <li>• Full Dashboard Access</li>
             <li>• Global Rank Tracking</li>
           </ul>
